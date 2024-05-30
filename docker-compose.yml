@@ -1,0 +1,7 @@
+services:
+  timer-api:
+    image: gitlab-toggl-timer:0.0.1-SNAPSHOT
+    ports: [ 8080:8080 ]
+    environment:
+      GITLAB_ACCESS_TOKEN: ${GITLAB_ACCESS_TOKEN}
+      TOGGL_API_KEY: ${TOGGL_API_KEY}
