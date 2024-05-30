@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: gitlab-toggl-timer
+
+gitlab:
+  accessToken: ${GITLAB_ACCESS_TOKEN}
+
+toggl:
+  apiKey: ${TOGGL_API_KEY}
+
+logging:
+  level:
+    org.hobsoft.spring.resttemplatelogger.LoggingCustomizer: DEBUG
+    org.springframework.web.client.RestTemplate: DEBUG
