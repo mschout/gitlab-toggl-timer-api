@@ -31,6 +31,35 @@ You must set the following environment variables for `docker compose up` to work
 - `GITLAB_ACCESS_TOKEN` - Your GitLab personal access token
 - `TOGGL_API_KEY` - Your Toggl API key
 
+# Bookmarklets
+
+In all bookmarks, you must use your own Toggl `workspaceId` and `clientId`
+values.
+
+The following bookmarklet will create a toggle project for the current gitlab
+issue page, or return the existing project if it already exists:
+
+```
+javascript:(function(){
+  window.open("http://localhost:8080/timer/create-project?issueUrl="
+    + encodeURIComponent(window.location.href)
+    + "&workspaceId=12345&clientId=12345",
+    "_blank");
+})();
+```
+
+The following bookmarklet will start a timer for the current gitlab issue page, creating the issue on toggl if
+necessary:
+
+```
+javascript:(function(){
+  window.open("http://localhost:8080/timer/start?issueUrl="
+    + encodeURIComponent(window.location.href)
+    + "&workspaceId=12345&clientId=12345",
+    "_blank");
+})();
+```
+
 # Dev Notes
 
 This project uses AspectJ, mainly so we can use things like `@Cacheable` on
