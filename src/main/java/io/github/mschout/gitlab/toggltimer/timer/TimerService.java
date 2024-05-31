@@ -30,4 +30,14 @@ public class TimerService {
 		return togglService.startTimer(project, startTimerRequest);
 	}
 
+	TogglProject createProject(CreateProjectRequest createProjectRequest) throws GitLabApiException {
+		val issue = createProjectRequest.getIssue();
+
+		// look up issue in gitlab and return its title.
+		val issueTitle = gitLabService.getGitlabIssueTitle(issue);
+
+		return togglService.findOrCreateProject(createProjectRequest.getWorkspaceId(),
+				createProjectRequest.getClientId(), issue.getIssueNumber(), issueTitle);
+	}
+
 }

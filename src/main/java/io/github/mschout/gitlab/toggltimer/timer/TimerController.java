@@ -23,4 +23,11 @@ public class TimerController {
 		return timerService.startTimer(startTimerRequest);
 	}
 
+	@PostMapping("/create-project")
+	@Operation(summary = "Create a project in Toggl for a gitlab issue")
+	public TogglProject createProject(@Validated @RequestBody CreateProjectRequest createProjectRequest)
+			throws GitLabApiException {
+		return timerService.createProject(createProjectRequest);
+	}
+
 }
