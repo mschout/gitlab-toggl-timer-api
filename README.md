@@ -30,3 +30,14 @@ You must set the following environment variables for `docker compose up` to work
 
 - `GITLAB_ACCESS_TOKEN` - Your GitLab personal access token
 - `TOGGL_API_KEY` - Your Toggl API key
+
+# Dev Notes
+
+This project uses AspectJ, mainly so we can use things like `@Cacheable` on
+internal self-invocations.  In IntelliJ, you will likely get compile failures
+unless you do do the following:
+
+- Open File > Project Structure
+- In the dialog that opens, go to Modules > AspectJ
+- Under Compiler tick the box for "Post-compile weave mode".  This ensures
+  lombok runs before the AspectJ compiler
