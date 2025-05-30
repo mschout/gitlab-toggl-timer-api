@@ -14,42 +14,44 @@ import org.springframework.web.servlet.ModelAndView;
 @RequiredArgsConstructor
 public class TimerWebController {
 
-	private final TimerService timerService;
+  private final TimerService timerService;
 
-	@GetMapping
-	ModelAndView index() {
-		val mv = new ModelAndView("timer-index");
-		mv.addObject("message", "Welcome to the Timer Page!");
-		return mv;
-	}
+  @GetMapping
+  ModelAndView index() {
+    val mv = new ModelAndView("timer-index");
+    mv.addObject("message", "Welcome to the Timer Page!");
+    return mv;
+  }
 
-	@GetMapping("/create-project")
-	ModelAndView createProject(@RequestParam String issueUrl, @RequestParam Long workspaceId,
-			@RequestParam Long clientId) throws GitLabApiException {
-		val mv = new ModelAndView("create-project");
+  @GetMapping("/create-project")
+  ModelAndView createProject(
+      @RequestParam String issueUrl, @RequestParam Long workspaceId, @RequestParam Long clientId)
+      throws GitLabApiException {
+    val mv = new ModelAndView("create-project");
 
-		var project = timerService.createProject(new CreateProjectRequest(issueUrl, workspaceId, clientId));
+    var project =
+        timerService.createProject(new CreateProjectRequest(issueUrl, workspaceId, clientId));
 
-		mv.addObject("project", project);
+    mv.addObject("project", project);
 
-		return mv;
-	}
+    return mv;
+  }
 
-	@GetMapping("/start")
-	ModelAndView startTimer(@RequestParam String issueUrl, @RequestParam Long workspaceId, @RequestParam Long clientId)
-			throws GitLabApiException {
-		val mv = new ModelAndView("start-timer");
+  @GetMapping("/start")
+  ModelAndView startTimer(
+      @RequestParam String issueUrl, @RequestParam Long workspaceId, @RequestParam Long clientId)
+      throws GitLabApiException {
+    val mv = new ModelAndView("start-timer");
 
-		val request = new StartTimerRequest();
-		request.setIssueUrl(issueUrl);
-		request.setWorkspaceId(workspaceId);
-		request.setClientId(clientId);
+    val request = new StartTimerRequest();
+    request.setIssueUrl(issueUrl);
+    request.setWorkspaceId(workspaceId);
+    request.setClientId(clientId);
 
-		var start = timerService.startTimer(request);
+    var start = timerService.startTimer(request);
 
-		mv.addObject("startTime", start);
+    mv.addObject("startTime", start);
 
-		return mv;
-	}
-
+    return mv;
+  }
 }

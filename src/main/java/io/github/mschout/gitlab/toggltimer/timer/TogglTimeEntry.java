@@ -3,10 +3,9 @@ package io.github.mschout.gitlab.toggltimer.timer;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import java.time.Instant;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-
-import java.time.Instant;
 
 @Data
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -14,16 +13,15 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class TogglTimeEntry {
 
-	private final Long workspaceId;
+  private final Long workspaceId;
 
-	private final Long projectId;
+  private final Long projectId;
 
-	private final Instant start;
+  private final Instant start;
 
-	private String description;
+  private String description;
 
-	private Long duration = -1L;
+  private Long duration = -1L;
 
-	private String createdWith = "Gitlab Toggl Timer";
-
+  private String createdWith = "Gitlab Toggl Timer";
 }

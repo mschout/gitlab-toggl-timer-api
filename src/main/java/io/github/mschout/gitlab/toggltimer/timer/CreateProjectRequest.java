@@ -10,17 +10,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class CreateProjectRequest {
 
-	@NotNull
-	private String issueUrl;
+  @NotNull private String issueUrl;
 
-	@NotNull
-	private Long workspaceId;
+  @NotNull private Long workspaceId;
 
-	@NotNull
-	private Long clientId;
+  @NotNull private Long clientId;
 
-	GitLabIssue getIssue() {
-		return GitLabIssue.fromUrl(issueUrl);
-	}
-
+  GitLabIssue getIssue() {
+    return GitLabIssue.fromUrl(issueUrl);
+  }
 }

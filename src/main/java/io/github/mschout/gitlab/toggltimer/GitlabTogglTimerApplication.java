@@ -9,13 +9,12 @@ import org.springframework.web.client.RestTemplate;
 @SpringBootApplication
 public class GitlabTogglTimerApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(GitlabTogglTimerApplication.class, args);
-	}
+  public static void main(String[] args) {
+    SpringApplication.run(GitlabTogglTimerApplication.class, args);
+  }
 
-	@Bean
-	public RestTemplate restTemplate(RestTemplateBuilder builder) {
-		return builder.build();
-	}
-
+  @Bean
+  public RestTemplate restTemplate(RestTemplateBuilder builder) {
+    return builder.build();
+  }
 }

@@ -18,14 +18,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TogglProject {
 
-	private Boolean active;
+  private Boolean active;
 
-	private Long clientId;
+  private Long clientId;
 
-	private Long id;
+  private Long id;
 
-	private Long workspaceId;
+  private Long workspaceId;
 
-	private String name;
-
+  private String name;
 }

@@ -10,15 +10,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class JacksonConfiguration {
 
-	@Bean
-	Module jacksonJdk8Module() {
-		return new Jdk8Module();
-	}
+  @Bean
+  Module jacksonJdk8Module() {
+    return new Jdk8Module();
+  }
 
-	// serialize Instant as ISO-8601 string
-	@Bean
-	Jackson2ObjectMapperBuilderCustomizer jacksonCustomizer() {
-		return builder -> builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-	}
-
+  // serialize Instant as ISO-8601 string
+  @Bean
+  Jackson2ObjectMapperBuilderCustomizer jacksonCustomizer() {
+    return builder -> builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+  }
 }
