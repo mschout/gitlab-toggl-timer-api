@@ -54,6 +54,11 @@
       <artifactId>jackson-datatype-jdk8</artifactId>
       <version>2.19.0</version>
     </dependency>
+    <dependency>
+      <groupId>nz.net.ultraq.thymeleaf</groupId>
+      <artifactId>thymeleaf-layout-dialect</artifactId>
+      <version>3.4.0</version>
+    </dependency>
 
     <!-- AspectJ AOP -->
     <dependency>
