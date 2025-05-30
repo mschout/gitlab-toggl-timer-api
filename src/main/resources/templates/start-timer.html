@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/base}"
-      lang="en">
-<head>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+  layout:decorate="~{layout/base}"
+  lang="en"
+>
+  <head>
     <title>Timer Started</title>
-</head>
-<body>
-
-<div layout:fragment="content">
-    <h1>Timer Start</h1>
-    <p>Timer started at: <span th:text="${startTime}"></span></p>
-</div>
-
-</body>
+  </head>
+  <body>
+    <div layout:fragment="content">
+      <h1>Timer Start</h1>
+      <p>Timer started at: <span th:text="${startTime}"></span></p>
+    </div>
+  </body>
 </html>

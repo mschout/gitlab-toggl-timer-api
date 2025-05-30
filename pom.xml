@@ -169,6 +169,26 @@
               <expandEmptyElements>false</expandEmptyElements>
             </sortPom>
           </pom>
+          <formats>
+            <!-- Format thymeleaf templates with prettier -->
+            <format>
+              <includes>
+                <include>src/main/resources/templates/**/*.html</include>
+              </includes>
+              <prettier>
+                <devDependencies>
+                  <prettier>3.5.3</prettier>
+                </devDependencies>
+                <config>
+                  <parser>html</parser>
+                  <printWidth>120</printWidth>
+                  <tabWidth>2</tabWidth>
+                  <useTabs>false</useTabs>
+                  <singleQuote>true</singleQuote>
+                </config>
+              </prettier>
+            </format>
+          </formats>
         </configuration>
       </plugin>
       <!-- AspectJ Compile Time Weaving -->
