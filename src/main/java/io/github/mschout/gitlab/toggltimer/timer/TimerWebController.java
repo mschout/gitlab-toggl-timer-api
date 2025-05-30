@@ -16,6 +16,13 @@ public class TimerWebController {
 
 	private final TimerService timerService;
 
+	@GetMapping
+	ModelAndView index() {
+		val mv = new ModelAndView("timer-index");
+		mv.addObject("message", "Welcome to the Timer Page!");
+		return mv;
+	}
+
 	@GetMapping("/create-project")
 	ModelAndView createProject(@RequestParam String issueUrl, @RequestParam Long workspaceId,
 			@RequestParam Long clientId) throws GitLabApiException {
