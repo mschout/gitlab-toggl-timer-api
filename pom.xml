@@ -14,7 +14,7 @@
   <name>gitlab-toggl-timer</name>
   <description>Personal Toggl Timer Integrations for Gitlab</description>
   <properties>
-    <java.version>22</java.version>
+    <java.version>24</java.version>
     <aspectj.version>1.9.24</aspectj.version>
   </properties>
 
@@ -133,6 +133,21 @@
           </execution>
         </executions>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
