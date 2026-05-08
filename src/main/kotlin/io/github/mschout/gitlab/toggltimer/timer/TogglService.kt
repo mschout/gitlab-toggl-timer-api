@@ -29,10 +29,7 @@ class TogglService(private val togglClient: TogglClient) {
           logger.info { "Project not found in Toggl, creating project" }
 
           val createProjectRequest =
-              CreateTogglProjectRequest(
-                  name = "$issueNumber - $issueTitle",
-                  clientId = clientId,
-              )
+              CreateTogglProjectRequest(name = "$issueNumber - $issueTitle", clientId = clientId)
 
           togglClient.createProject(workspaceId, createProjectRequest)
         }
