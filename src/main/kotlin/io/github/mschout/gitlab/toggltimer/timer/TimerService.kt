@@ -1,5 +1,6 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import java.time.Instant
 import org.springframework.stereotype.Service
 

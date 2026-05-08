@@ -27,6 +27,7 @@ dependencies {
   implementation(libs.thymeleaf.layout.dialect)
   implementation(libs.aspectjrt)
   implementation(libs.jackson.module.kotlin)
+  implementation(libs.kotlin.logging)
   implementation(libs.kotlin.reflect)
 
   aspect("org.springframework:spring-aspects")

@@ -1,4 +1,4 @@
-package io.github.mschout.gitlab.toggltimer.timer
+package io.github.mschout.gitlab.toggltimer.toggl
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import java.time.Instant
