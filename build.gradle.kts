@@ -25,13 +25,8 @@ repositories {
 }
 
 dependencies {
-  implementation("org.springframework.boot:spring-boot-starter-web")
-  implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
-  implementation("org.springframework.boot:spring-boot-starter-validation")
-  implementation("org.springframework.boot:spring-boot-starter-cache")
-  implementation("org.springframework.boot:spring-boot-starter-aop")
-  implementation("com.github.ben-manes.caffeine:caffeine")
-  implementation("org.springframework:spring-tx")
+  implementation(libs.bundles.spring)
+  implementation(libs.caffeine)
   implementation(libs.gitlab4j.api)
   implementation(libs.springdoc.openapi.starter.webmvc.ui)
   implementation(libs.jackson.datatype.jdk8)
