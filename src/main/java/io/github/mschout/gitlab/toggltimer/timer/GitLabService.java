@@ -7,11 +7,11 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.gitlab4j.api.Constants;
 import org.gitlab4j.api.GitLabApi;
 import org.gitlab4j.api.GitLabApiException;
 import org.gitlab4j.api.models.Issue;
 import org.gitlab4j.api.models.Project;
+import org.gitlab4j.models.Constants;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
