@@ -29,7 +29,6 @@ dependencies {
   implementation(libs.caffeine)
   implementation(libs.gitlab4j.api)
   implementation(libs.springdoc.openapi.starter.webmvc.ui)
-  implementation(libs.jackson.datatype.jdk8)
   implementation(libs.thymeleaf.layout.dialect)
   implementation(libs.aspectjrt)
 
@@ -54,17 +53,17 @@ spotless {
     removeUnusedImports()
     formatAnnotations()
   }
-  format("thymeleaf") {
-    target("src/main/resources/templates/**/*.html")
-    prettier(mapOf("prettier" to libs.versions.prettier.get()))
-        .config(
-            mapOf(
-                "parser" to "html",
-                "printWidth" to 120,
-                "tabWidth" to 2,
-                "useTabs" to false,
-                "singleQuote" to true,
-            ),
-        )
-  }
+  //  format("thymeleaf") {
+  //    target("src/main/resources/templates/**/*.html")
+  //    prettier(mapOf("prettier" to libs.versions.prettier.get()))
+  //        .config(
+  //            mapOf(
+  //                "parser" to "html",
+  //                "printWidth" to 120,
+  //                "tabWidth" to 2,
+  //                "useTabs" to false,
+  //                "singleQuote" to true,
+  //            ),
+  //        )
+  //  }
 }

@@ -3,7 +3,6 @@ aspectj = "1.9.25.1"
 caffeine = "3.2.4"
 freefair = "9.5.0"
 gitlab4jApi = "6.3.0"
-jackson = "2.21.3"
 spotless = "8.4.0"
 springBoot = "4.0.6"
 springDependencyManagement = "1.1.7"
@@ -14,8 +13,8 @@ thymeleafLayoutDialect = "4.0.1"
 aspectjrt = { module = "org.aspectj:aspectjrt", version.ref = "aspectj" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 gitlab4j-api = { module = "org.gitlab4j:gitlab4j-api", version.ref = "gitlab4jApi" }
-jackson-datatype-jdk8 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jdk8", version.ref = "jackson" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "springBoot" }
+spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient", version.ref = "springBoot" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "springBoot" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation", version.ref = "springBoot" }
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBoot" }
@@ -32,6 +31,7 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 [bundles]
 spring = [
     "spring-boot-starter-cache",
+    "spring-boot-starter-restclient",
     "spring-boot-starter-thymeleaf",
     "spring-boot-starter-validation",
     "spring-boot-starter-web",
