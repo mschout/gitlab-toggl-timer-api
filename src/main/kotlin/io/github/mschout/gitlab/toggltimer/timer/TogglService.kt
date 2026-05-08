@@ -31,8 +31,7 @@ class TogglService(private val togglClient: TogglClient) {
           val createProjectRequest =
               CreateTogglProjectRequest(
                   name = "$issueNumber - $issueTitle",
-                  clientId = clientId.toString(),
-                  color = PROJECT_COLOR_PALETTE.random(),
+                  clientId = clientId,
               )
 
           togglClient.createProject(workspaceId, createProjectRequest)
