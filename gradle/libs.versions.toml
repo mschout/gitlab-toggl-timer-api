@@ -1,0 +1,25 @@
+[versions]
+springBoot = "3.4.6"
+springDependencyManagement = "1.1.7"
+freefair = "9.5.0"
+spotless = "8.4.0"
+
+aspectj = "1.9.24"
+gitlab4jApi = "6.0.0-rc.10"
+springdoc = "2.8.8"
+jackson = "2.19.0"
+thymeleafLayoutDialect = "3.4.0"
+prettier = "3.5.3"
+
+[libraries]
+gitlab4j-api = { module = "org.gitlab4j:gitlab4j-api", version.ref = "gitlab4jApi" }
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+jackson-datatype-jdk8 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jdk8", version.ref = "jackson" }
+thymeleaf-layout-dialect = { module = "nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect", version.ref = "thymeleafLayoutDialect" }
+aspectjrt = { module = "org.aspectj:aspectjrt", version.ref = "aspectj" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
+freefair-aspectj = { id = "io.freefair.aspectj.post-compile-weaving", version.ref = "freefair" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
