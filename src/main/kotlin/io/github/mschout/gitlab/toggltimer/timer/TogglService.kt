@@ -4,6 +4,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateT
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.time.Instant
 import org.springframework.stereotype.Service
 
 private val logger = KotlinLogging.logger {}
@@ -35,5 +36,9 @@ class TogglService(private val togglClient: TogglClient) {
 
           togglClient.createProject(workspaceId, createProjectRequest)
         }
+  }
+
+  fun startTimer(project: TogglProject, startTimerRequest: StartTimerRequest): Instant {
+    TODO("Not yet implemented")
   }
 }
