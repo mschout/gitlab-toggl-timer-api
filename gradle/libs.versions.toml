@@ -3,6 +3,7 @@ aspectj = "1.9.25.1"
 caffeine = "3.2.4"
 freefair = "9.5.0"
 gitlab4jApi = "6.3.0"
+kotlin = "2.3.20"
 spotless = "8.4.0"
 springBoot = "4.0.6"
 springDependencyManagement = "1.1.7"
@@ -13,6 +14,8 @@ thymeleafLayoutDialect = "4.0.1"
 aspectjrt = { module = "org.aspectj:aspectjrt", version.ref = "aspectj" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 gitlab4j-api = { module = "org.gitlab4j:gitlab4j-api", version.ref = "gitlab4jApi" }
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "springBoot" }
 spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient", version.ref = "springBoot" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "springBoot" }
@@ -24,6 +27,7 @@ thymeleaf-layout-dialect = { module = "nz.net.ultraq.thymeleaf:thymeleaf-layout-
 
 [plugins]
 freefair-aspectj = { id = "io.freefair.aspectj.post-compile-weaving", version.ref = "freefair" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
