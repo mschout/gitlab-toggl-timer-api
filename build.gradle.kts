@@ -39,4 +39,17 @@ dependencies {
 
 tasks.test { useJUnitPlatform() }
 
-tasks.named<BootBuildImage>("bootBuildImage") { imageName = "mschout/gitlab-toggl-timer" }
+tasks.named<BootBuildImage>("bootBuildImage") {
+  imageName = providers.environmentVariable("IMAGE_NAME").orElse("mschout/gitlab-toggl-timer").get()
+
+  val registryUsername = providers.environmentVariable("REGISTRY_USERNAME").orNull
+  val registryPassword = providers.environmentVariable("REGISTRY_PASSWORD").orNull
+  if (!registryUsername.isNullOrBlank() && !registryPassword.isNullOrBlank()) {
+    docker {
+      publishRegistry {
+        username = registryUsername
+        password = registryPassword
+      }
+    }
+  }
+}
