@@ -2,6 +2,7 @@ package io.github.mschout.gitlab.toggltimer.toggl
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.context.properties.bind.DefaultValue
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.support.DefaultConversionService
@@ -50,5 +51,5 @@ class TogglClientConfiguration {
 @ConfigurationProperties(prefix = "toggl")
 data class TogglClientProperties(
     val apiKey: String,
-    val baseUrl: String = "https://api.track.toggl.com/api/v9",
+    @DefaultValue("https://api.track.toggl.com/api/v9") val baseUrl: String,
 )
