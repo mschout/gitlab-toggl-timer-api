@@ -1,13 +1,13 @@
 package io.github.mschout.gitlab.toggltimer.gitlab
 
+import io.mockk.every
+import io.mockk.mockk
 import org.gitlab4j.api.models.Issue
 import org.gitlab4j.api.models.Project
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
 
 class GitLabServiceTest {
 
@@ -16,7 +16,7 @@ class GitLabServiceTest {
 
   @BeforeEach
   fun setUp() {
-    gitLabClient = mock(GitLabClient::class.java)
+    gitLabClient = mockk()
     service = GitLabService(gitLabClient)
   }
 
@@ -28,8 +28,8 @@ class GitLabServiceTest {
           path = "found-proj"
         }
     val issue = Issue().apply { title = "Hello world" }
-    `when`(gitLabClient.getProject("found-grp", "found-proj")).thenReturn(project)
-    `when`(gitLabClient.getIssue(7L, 42L)).thenReturn(issue)
+    every { gitLabClient.getProject("found-grp", "found-proj") } returns project
+    every { gitLabClient.getIssue(7L, 42L) } returns issue
 
     val result = service.getGitlabIssueTitle(GitLabIssue("found-grp", "found-proj", 42L))
 
@@ -38,7 +38,7 @@ class GitLabServiceTest {
 
   @Test
   fun `should throw when client returns no project`() {
-    `when`(gitLabClient.getProject("missing-grp", "missing-proj")).thenReturn(null)
+    every { gitLabClient.getProject("missing-grp", "missing-proj") } returns null
 
     val ex =
         assertThrows(IllegalStateException::class.java) {
@@ -54,8 +54,8 @@ class GitLabServiceTest {
           id = 9L
           path = "noissue-proj"
         }
-    `when`(gitLabClient.getProject("noissue-grp", "noissue-proj")).thenReturn(project)
-    `when`(gitLabClient.getIssue(9L, 42L)).thenReturn(null)
+    every { gitLabClient.getProject("noissue-grp", "noissue-proj") } returns project
+    every { gitLabClient.getIssue(9L, 42L) } returns null
 
     val ex =
         assertThrows(IllegalStateException::class.java) {

@@ -1,14 +1,14 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.verify
-import org.mockito.Mockito.`when`
 
 class TimerWebControllerTest {
 
@@ -17,7 +17,7 @@ class TimerWebControllerTest {
 
   @BeforeEach
   fun setUp() {
-    timerService = mock(TimerService::class.java)
+    timerService = mockk()
     controller = TimerWebController(timerService)
   }
 
@@ -38,7 +38,7 @@ class TimerWebControllerTest {
             workspaceId = 7L,
             clientId = 5L,
         )
-    `when`(timerService.createProject(expectedRequest)).thenReturn(project)
+    every { timerService.createProject(expectedRequest) } returns project
 
     val mav =
         controller.createProject(
@@ -49,7 +49,7 @@ class TimerWebControllerTest {
 
     assertEquals("create-project", mav.viewName)
     assertSame(project, mav.model["project"])
-    verify(timerService).createProject(expectedRequest)
+    verify { timerService.createProject(expectedRequest) }
   }
 
   @Test
@@ -61,7 +61,7 @@ class TimerWebControllerTest {
             workspaceId = 11L,
             clientId = 22L,
         )
-    `when`(timerService.startTimer(expectedRequest)).thenReturn(startInstant)
+    every { timerService.startTimer(expectedRequest) } returns startInstant
 
     val mav =
         controller.startTimer(
@@ -72,6 +72,6 @@ class TimerWebControllerTest {
 
     assertEquals("start-timer", mav.viewName)
     assertEquals(startInstant, mav.model["startTime"])
-    verify(timerService).startTimer(expectedRequest)
+    verify { timerService.startTimer(expectedRequest) }
   }
 }

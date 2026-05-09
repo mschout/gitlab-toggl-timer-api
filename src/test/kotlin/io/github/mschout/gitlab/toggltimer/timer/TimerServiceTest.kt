@@ -3,14 +3,16 @@ package io.github.mschout.gitlab.toggltimer.timer
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.mockk.Called
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.verify
-import org.mockito.Mockito.`when`
 
 class TimerServiceTest {
 
@@ -20,8 +22,8 @@ class TimerServiceTest {
 
   @BeforeEach
   fun setUp() {
-    gitLabService = mock(GitLabService::class.java)
-    togglService = mock(TogglService::class.java)
+    gitLabService = mockk()
+    togglService = mockk()
     service = TimerService(gitLabService, togglService)
   }
 
@@ -37,15 +39,15 @@ class TimerServiceTest {
     val project = TogglProject(id = 100L, name = "42 - Resolved title", clientId = 5L)
     val timerStart = Instant.parse("2026-05-08T15:00:00Z")
 
-    `when`(gitLabService.getGitlabIssueTitle(expectedIssue)).thenReturn("Resolved title")
-    `when`(togglService.findOrCreateProject(7L, 5L, 42L, "Resolved title")).thenReturn(project)
-    `when`(togglService.startTimer(project, request)).thenReturn(timerStart)
+    every { gitLabService.getGitlabIssueTitle(expectedIssue) } returns "Resolved title"
+    every { togglService.findOrCreateProject(7L, 5L, 42L, "Resolved title") } returns project
+    every { togglService.startTimer(project, request) } returns timerStart
 
     val result = service.startTimer(request)
 
     assertEquals(timerStart, result)
-    verify(togglService).findOrCreateProject(7L, 5L, 42L, "Resolved title")
-    verify(togglService).startTimer(project, request)
+    verify { togglService.findOrCreateProject(7L, 5L, 42L, "Resolved title") }
+    verify { togglService.startTimer(project, request) }
   }
 
   @Test
@@ -59,13 +61,13 @@ class TimerServiceTest {
     val expectedIssue = GitLabIssue("teamA", "repoA", 99L)
     val project = TogglProject(id = 200L, name = "99 - Some issue", clientId = 22L)
 
-    `when`(gitLabService.getGitlabIssueTitle(expectedIssue)).thenReturn("Some issue")
-    `when`(togglService.findOrCreateProject(11L, 22L, 99L, "Some issue")).thenReturn(project)
+    every { gitLabService.getGitlabIssueTitle(expectedIssue) } returns "Some issue"
+    every { togglService.findOrCreateProject(11L, 22L, 99L, "Some issue") } returns project
 
     val result = service.createProject(request)
 
     assertSame(project, result)
-    verify(togglService).findOrCreateProject(11L, 22L, 99L, "Some issue")
+    verify { togglService.findOrCreateProject(11L, 22L, 99L, "Some issue") }
   }
 
   @Test
@@ -76,15 +78,12 @@ class TimerServiceTest {
             workspaceId = 7L,
             clientId = 5L,
         )
-    `when`(gitLabService.getGitlabIssueTitle(GitLabIssue("mygroup", "myproject", 1L)))
-        .thenThrow(IllegalStateException("GitLab project not found"))
+    every { gitLabService.getGitlabIssueTitle(GitLabIssue("mygroup", "myproject", 1L)) } throws
+        IllegalStateException("GitLab project not found")
 
-    val ex =
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException::class.java) {
-          service.startTimer(request)
-        }
+    val ex = assertThrows(IllegalStateException::class.java) { service.startTimer(request) }
     assertEquals("GitLab project not found", ex.message)
-    org.mockito.Mockito.verifyNoInteractions(togglService)
+    verify { togglService wasNot Called }
   }
 
   @Test
@@ -95,12 +94,10 @@ class TimerServiceTest {
             workspaceId = 1L,
             clientId = 2L,
         )
-    `when`(gitLabService.getGitlabIssueTitle(GitLabIssue("g", "p", 7L)))
-        .thenThrow(IllegalStateException("GitLab issue not found: 7"))
+    every { gitLabService.getGitlabIssueTitle(GitLabIssue("g", "p", 7L)) } throws
+        IllegalStateException("GitLab issue not found: 7")
 
-    org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException::class.java) {
-      service.createProject(request)
-    }
-    org.mockito.Mockito.verifyNoInteractions(togglService)
+    assertThrows(IllegalStateException::class.java) { service.createProject(request) }
+    verify { togglService wasNot Called }
   }
 }

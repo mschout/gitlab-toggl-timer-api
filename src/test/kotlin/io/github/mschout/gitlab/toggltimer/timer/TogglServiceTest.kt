@@ -3,13 +3,13 @@ package io.github.mschout.gitlab.toggltimer.timer
 import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateTogglProjectRequest
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.verify
-import org.mockito.Mockito.`when`
 
 class TogglServiceTest {
 
@@ -18,14 +18,14 @@ class TogglServiceTest {
 
   @BeforeEach
   fun setUp() {
-    togglClient = mock(TogglClient::class.java)
+    togglClient = mockk()
     service = TogglService(togglClient)
   }
 
   @Test
   fun `should return existing project whose name starts with the issue prefix`() {
     val existing = TogglProject(id = 100L, name = "42 - Existing issue", clientId = 5L)
-    `when`(togglClient.getProjects(7L, "42")).thenReturn(listOf(existing))
+    every { togglClient.getProjects(7L, "42") } returns listOf(existing)
 
     val result =
         service.findOrCreateProject(
@@ -43,10 +43,10 @@ class TogglServiceTest {
     // "421 -" starts with "42" but not with "42 -" — must not match issue 42.
     val almostMatch = TogglProject(id = 1L, name = "421 - Different issue", clientId = 5L)
     val noMatch = TogglProject(id = 2L, name = "Some other project", clientId = 5L)
-    `when`(togglClient.getProjects(7L, "42")).thenReturn(listOf(almostMatch, noMatch))
+    every { togglClient.getProjects(7L, "42") } returns listOf(almostMatch, noMatch)
     val expectedRequest = CreateTogglProjectRequest(name = "42 - New issue", clientId = 5L)
     val created = TogglProject(id = 999L, name = "42 - New issue", clientId = 5L)
-    `when`(togglClient.createProject(7L, expectedRequest)).thenReturn(created)
+    every { togglClient.createProject(7L, expectedRequest) } returns created
 
     val result =
         service.findOrCreateProject(
@@ -62,10 +62,10 @@ class TogglServiceTest {
   @Test
   fun `should ignore projects with null name`() {
     val nullName = TogglProject(id = 1L, name = null, clientId = 5L)
-    `when`(togglClient.getProjects(7L, "42")).thenReturn(listOf(nullName))
+    every { togglClient.getProjects(7L, "42") } returns listOf(nullName)
     val expectedRequest = CreateTogglProjectRequest(name = "42 - Title", clientId = 5L)
     val created = TogglProject(id = 999L, name = "42 - Title", clientId = 5L)
-    `when`(togglClient.createProject(7L, expectedRequest)).thenReturn(created)
+    every { togglClient.createProject(7L, expectedRequest) } returns created
 
     val result =
         service.findOrCreateProject(
@@ -80,10 +80,10 @@ class TogglServiceTest {
 
   @Test
   fun `should create new project with correct name and client when no match found`() {
-    `when`(togglClient.getProjects(7L, "42")).thenReturn(emptyList())
+    every { togglClient.getProjects(7L, "42") } returns emptyList()
     val expectedRequest = CreateTogglProjectRequest(name = "42 - Brand new", clientId = 5L)
     val created = TogglProject(id = 999L, name = "42 - Brand new", clientId = 5L)
-    `when`(togglClient.createProject(7L, expectedRequest)).thenReturn(created)
+    every { togglClient.createProject(7L, expectedRequest) } returns created
 
     val result =
         service.findOrCreateProject(
@@ -95,14 +95,14 @@ class TogglServiceTest {
 
     assertSame(created, result)
     // Verify the exact request was sent (workspaceId, name, clientId, plus default fields).
-    verify(togglClient).createProject(7L, expectedRequest)
+    verify { togglClient.createProject(7L, expectedRequest) }
   }
 
   @Test
   fun `should pick first matching project when multiple share the prefix`() {
     val first = TogglProject(id = 1L, name = "42 - First", clientId = 5L)
     val second = TogglProject(id = 2L, name = "42 - Second", clientId = 5L)
-    `when`(togglClient.getProjects(7L, "42")).thenReturn(listOf(first, second))
+    every { togglClient.getProjects(7L, "42") } returns listOf(first, second)
 
     val result =
         service.findOrCreateProject(

@@ -1,5 +1,7 @@
 package io.github.mschout.gitlab.toggltimer.gitlab
 
+import io.mockk.every
+import io.mockk.mockk
 import java.util.stream.Stream
 import org.gitlab4j.api.GitLabApi
 import org.gitlab4j.api.IssuesApi
@@ -11,8 +13,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
 
 class GitLabClientTest {
 
@@ -23,24 +23,23 @@ class GitLabClientTest {
 
   @BeforeEach
   fun setUp() {
-    gitLabApi = mock(GitLabApi::class.java)
-    issuesApi = mock(IssuesApi::class.java)
-    searchApi = mock(SearchApi::class.java)
-    `when`(gitLabApi.issuesApi).thenReturn(issuesApi)
-    `when`(gitLabApi.searchApi).thenReturn(searchApi)
+    gitLabApi = mockk()
+    issuesApi = mockk()
+    searchApi = mockk()
+    every { gitLabApi.issuesApi } returns issuesApi
+    every { gitLabApi.searchApi } returns searchApi
     client = GitLabClient(gitLabApi)
   }
 
   @Test
   fun `getProject returns null when search returns no results`() {
-    `when`(
-            searchApi.groupSearchStream(
-                "client-empty-grp",
-                Constants.GroupSearchScope.PROJECTS,
-                "client-empty-proj",
-            )
-        )
-        .thenReturn(Stream.empty())
+    every {
+      searchApi.groupSearchStream(
+          "client-empty-grp",
+          Constants.GroupSearchScope.PROJECTS,
+          "client-empty-proj",
+      )
+    } returns Stream.empty()
 
     assertNull(client.getProject("client-empty-grp", "client-empty-proj"))
   }
@@ -52,14 +51,13 @@ class GitLabClientTest {
           id = 1L
           path = "client-actually-different"
         }
-    `when`(
-            searchApi.groupSearchStream(
-                "client-mismatch-grp",
-                Constants.GroupSearchScope.PROJECTS,
-                "client-mismatch-proj",
-            )
-        )
-        .thenReturn(Stream.of(mismatched))
+    every {
+      searchApi.groupSearchStream(
+          "client-mismatch-grp",
+          Constants.GroupSearchScope.PROJECTS,
+          "client-mismatch-proj",
+      )
+    } returns Stream.of(mismatched)
 
     assertNull(client.getProject("client-mismatch-grp", "client-mismatch-proj"))
   }
@@ -76,14 +74,13 @@ class GitLabClientTest {
           id = 2L
           path = "client-multi-proj"
         }
-    `when`(
-            searchApi.groupSearchStream(
-                "client-multi-grp",
-                Constants.GroupSearchScope.PROJECTS,
-                "client-multi-proj",
-            )
-        )
-        .thenReturn(Stream.of(mismatch, match))
+    every {
+      searchApi.groupSearchStream(
+          "client-multi-grp",
+          Constants.GroupSearchScope.PROJECTS,
+          "client-multi-proj",
+      )
+    } returns Stream.of(mismatch, match)
 
     val result = client.getProject("client-multi-grp", "client-multi-proj")
 
@@ -93,7 +90,7 @@ class GitLabClientTest {
   @Test
   fun `getIssue returns the issue from the API`() {
     val issue = Issue().apply { title = "Hello client" }
-    `when`(issuesApi.getIssue(101L, 202L)).thenReturn(issue)
+    every { issuesApi.getIssue(101L, 202L) } returns issue
 
     val result = client.getIssue(101L, 202L)
 
@@ -102,7 +99,7 @@ class GitLabClientTest {
 
   @Test
   fun `getIssue returns null when API returns null`() {
-    `when`(issuesApi.getIssue(303L, 404L)).thenReturn(null)
+    every { issuesApi.getIssue(303L, 404L) } returns null
 
     assertNull(client.getIssue(303L, 404L))
   }
