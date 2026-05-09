@@ -1,6 +1,5 @@
-package io.github.mschout.gitlab.toggltimer.timer
+package io.github.mschout.gitlab.toggltimer.gitlab
 
-import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
 import io.kotest.assertions.assertSoftly
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
