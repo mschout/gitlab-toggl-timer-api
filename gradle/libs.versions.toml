@@ -9,7 +9,6 @@ spotless = "8.4.0"
 springBoot = "4.0.6"
 springDependencyManagement = "1.1.7"
 springdoc = "3.0.3"
-thymeleafLayoutDialect = "4.0.1"
 
 [libraries]
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
@@ -27,7 +26,6 @@ spring-boot-starter-validation = { module = "org.springframework.boot:spring-boo
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBoot" }
 spring-tx = { module = "org.springframework:spring-tx" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
-thymeleaf-layout-dialect = { module = "nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect", version.ref = "thymeleafLayoutDialect" }
 
 [plugins]
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }

@@ -1,17 +1,13 @@
 <!DOCTYPE html>
 <html
   xmlns:th="http://www.thymeleaf.org"
-  xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-  layout:decorate="~{layout/base}"
+  th:replace="~{layout/base :: layout('Gitlab Toggl Issue', ~{::main})}"
   lang="en"
 >
-  <head>
-    <title>Gitlab Toggl Issue</title>
-  </head>
   <body>
-    <div layout:fragment="content">
+    <main>
       <h1>Toggle Issue Found</h1>
       <p>Issue: <span th:text="${project.name}"></span></p>
-    </div>
+    </main>
   </body>
 </html>

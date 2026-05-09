@@ -23,7 +23,6 @@ dependencies {
   implementation(libs.caffeine)
   implementation(libs.gitlab4j.api)
   implementation(libs.springdoc.openapi.starter.webmvc.ui)
-  implementation(libs.thymeleaf.layout.dialect)
   implementation(libs.jackson.module.kotlin)
   implementation(libs.kotlin.logging)
   implementation(libs.kotlin.reflect)
