@@ -1,7 +1,5 @@
 [versions]
-aspectj = "1.9.25.1"
 caffeine = "3.2.4"
-freefair = "9.5.0"
 gitlab4jApi = "6.3.0"
 kotest = "6.1.11"
 kotlin = "2.3.21"
@@ -14,7 +12,6 @@ springdoc = "3.0.3"
 thymeleafLayoutDialect = "4.0.1"
 
 [libraries]
-aspectjrt = { module = "org.aspectj:aspectjrt", version.ref = "aspectj" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 gitlab4j-api = { module = "org.gitlab4j:gitlab4j-api", version.ref = "gitlab4jApi" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
@@ -33,7 +30,6 @@ springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openap
 thymeleaf-layout-dialect = { module = "nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect", version.ref = "thymeleafLayoutDialect" }
 
 [plugins]
-freefair-aspectj = { id = "io.freefair.aspectj.post-compile-weaving", version.ref = "freefair" }
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

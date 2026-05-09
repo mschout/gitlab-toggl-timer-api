@@ -14,12 +14,6 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 
-/**
- * The methods on [GitLabClient] are `@Cacheable` with AspectJ post-compile weaving, so results are
- * cached at the JVM level once any other Spring Boot test in this run has initialized the
- * CacheManager. Each test uses a unique (groupName, projectPath, issueNumber) tuple to avoid
- * collisions between cached entries from sibling tests.
- */
 class GitLabClientTest {
 
   private lateinit var gitLabApi: GitLabApi

@@ -6,12 +6,11 @@ import org.springframework.cache.CacheManager
 import org.springframework.cache.annotation.EnableCaching
 import org.springframework.cache.caffeine.CaffeineCache
 import org.springframework.cache.support.SimpleCacheManager
-import org.springframework.context.annotation.AdviceMode
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@EnableCaching(mode = AdviceMode.ASPECTJ)
+@EnableCaching
 class CacheManagerConfiguration {
   @Bean
   fun cacheManager(): CacheManager =

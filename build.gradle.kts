@@ -5,7 +5,6 @@ plugins {
   alias(libs.plugins.kotlin.spring)
   alias(libs.plugins.spring.boot)
   alias(libs.plugins.spring.dependency.management)
-  alias(libs.plugins.freefair.aspectj)
 }
 
 group = "io.github.mschout"
@@ -25,12 +24,9 @@ dependencies {
   implementation(libs.gitlab4j.api)
   implementation(libs.springdoc.openapi.starter.webmvc.ui)
   implementation(libs.thymeleaf.layout.dialect)
-  implementation(libs.aspectjrt)
   implementation(libs.jackson.module.kotlin)
   implementation(libs.kotlin.logging)
   implementation(libs.kotlin.reflect)
-
-  aspect("org.springframework:spring-aspects")
 
   developmentOnly("org.springframework.boot:spring-boot-devtools")
 
