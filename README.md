@@ -5,14 +5,14 @@ timer using a project that has a name like: `12345 - Issue Title`. Where the git
 title of the issue in gitlab is `Issue Title`.
 
 If no such project exists in toggl that starts with `12345 -`, then a new toggle project will be created automatically. 
-This can be paird with a bookmarklet to make it easy to start your toggl timer from a gitlab issue page.  This is
+This can be paired with a bookmarklet to make it easy to start your toggl timer from a gitlab issue page.  This is
 possibly not useful to anyone except myself.
 
 # Requirements
 
 Docker, Docker Compose.
 
-If you want to compile this outside of docker you need Java 22.
+If you want to compile this outside of docker, you need Java 25.
 
 # How to run it
 
@@ -21,7 +21,7 @@ If you want to compile this outside of docker you need Java 22.
 3. Define the necessary environment variables for your toggl and gitlab accounts (see below)
 4. Run `docker compose up -d`
 
-The API will be available at http://localhost:8080 and the Swagger UI is available at
+The API will be available at http://localhost:8080, and the Swagger UI is available at
 http://localhost:8080/swagger-ui.html
 
 # Environment Variables
@@ -37,7 +37,7 @@ In all bookmarks, you must use your own Toggl `workspaceId` and `clientId`
 values.
 
 The following bookmarklet will create a toggle project for the current gitlab
-issue page, or return the existing project if it already exists:
+issue page or return the existing project if it already exists:
 
 ```
 javascript:(function(){
@@ -59,14 +59,3 @@ javascript:(function(){
     "_blank");
 })();
 ```
-
-# Dev Notes
-
-This project uses AspectJ, mainly so we can use things like `@Cacheable` on
-internal self-invocations.  In IntelliJ, you will likely get compile failures
-unless you do do the following:
-
-- Open File > Project Structure
-- In the dialog that opens, go to Modules > AspectJ
-- Under Compiler tick the box for "Post-compile weave mode".  This ensures
-  lombok runs before the AspectJ compiler
