@@ -3,8 +3,10 @@ aspectj = "1.9.25.1"
 caffeine = "3.2.4"
 freefair = "9.5.0"
 gitlab4jApi = "6.3.0"
+kotest = "6.1.11"
 kotlin = "2.3.21"
 kotlinLogging = "8.0.02"
+mockk = "1.14.9"
 spotless = "8.4.0"
 springBoot = "4.0.6"
 springDependencyManagement = "1.1.7"
@@ -16,8 +18,11 @@ aspectjrt = { module = "org.aspectj:aspectjrt", version.ref = "aspectj" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 gitlab4j-api = { module = "org.gitlab4j:gitlab4j-api", version.ref = "gitlab4jApi" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlinLogging" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "springBoot" }
 spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient", version.ref = "springBoot" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "springBoot" }
@@ -35,6 +40,10 @@ spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
 
 [bundles]
+kotest = [
+    "kotest-assertions-core",
+    "kotest-runner-junit5",
+]
 spring = [
     "spring-boot-starter-cache",
     "spring-boot-starter-restclient",
