@@ -1,11 +1,11 @@
 package io.github.mschout.gitlab.toggltimer.gitlab
 
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.gitlab4j.api.models.Issue
 import org.gitlab4j.api.models.Project
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -33,7 +33,7 @@ class GitLabServiceTest {
 
     val result = service.getGitlabIssueTitle(GitLabIssue("found-grp", "found-proj", 42L))
 
-    assertEquals("Hello world", result)
+    result shouldBe "Hello world"
   }
 
   @Test
@@ -41,10 +41,10 @@ class GitLabServiceTest {
     every { gitLabClient.getProject("missing-grp", "missing-proj") } returns null
 
     val ex =
-        assertThrows(IllegalStateException::class.java) {
+        shouldThrow<IllegalStateException> {
           service.getGitlabIssueTitle(GitLabIssue("missing-grp", "missing-proj", 1L))
         }
-    assertEquals("GitLab project not found: missing-grp/missing-proj", ex.message)
+    ex.message shouldBe "GitLab project not found: missing-grp/missing-proj"
   }
 
   @Test
@@ -58,9 +58,9 @@ class GitLabServiceTest {
     every { gitLabClient.getIssue(9L, 42L) } returns null
 
     val ex =
-        assertThrows(IllegalStateException::class.java) {
+        shouldThrow<IllegalStateException> {
           service.getGitlabIssueTitle(GitLabIssue("noissue-grp", "noissue-proj", 42L))
         }
-    assertEquals("GitLab issue not found: 42", ex.message)
+    ex.message shouldBe "GitLab issue not found: 42"
   }
 }

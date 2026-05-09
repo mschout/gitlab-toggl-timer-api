@@ -1,5 +1,7 @@
 package io.github.mschout.gitlab.toggltimer.gitlab
 
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import java.util.stream.Stream
@@ -9,8 +11,6 @@ import org.gitlab4j.api.SearchApi
 import org.gitlab4j.api.models.Issue
 import org.gitlab4j.api.models.Project
 import org.gitlab4j.models.Constants
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -41,7 +41,7 @@ class GitLabClientTest {
       )
     } returns Stream.empty()
 
-    assertNull(client.getProject("client-empty-grp", "client-empty-proj"))
+    client.getProject("client-empty-grp", "client-empty-proj").shouldBeNull()
   }
 
   @Test
@@ -59,7 +59,7 @@ class GitLabClientTest {
       )
     } returns Stream.of(mismatched)
 
-    assertNull(client.getProject("client-mismatch-grp", "client-mismatch-proj"))
+    client.getProject("client-mismatch-grp", "client-mismatch-proj").shouldBeNull()
   }
 
   @Test
@@ -84,7 +84,7 @@ class GitLabClientTest {
 
     val result = client.getProject("client-multi-grp", "client-multi-proj")
 
-    assertEquals(2L, result?.id)
+    result?.id shouldBe 2L
   }
 
   @Test
@@ -94,13 +94,13 @@ class GitLabClientTest {
 
     val result = client.getIssue(101L, 202L)
 
-    assertEquals("Hello client", result?.title)
+    result?.title shouldBe "Hello client"
   }
 
   @Test
   fun `getIssue returns null when API returns null`() {
     every { issuesApi.getIssue(303L, 404L) } returns null
 
-    assertNull(client.getIssue(303L, 404L))
+    client.getIssue(303L, 404L).shouldBeNull()
   }
 }

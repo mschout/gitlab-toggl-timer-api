@@ -3,11 +3,11 @@ package io.github.mschout.gitlab.toggltimer.timer
 import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateTogglProjectRequest
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -35,7 +35,7 @@ class TogglServiceTest {
             issueTitle = "Existing issue",
         )
 
-    assertSame(existing, result)
+    result shouldBeSameInstanceAs existing
   }
 
   @Test
@@ -56,7 +56,7 @@ class TogglServiceTest {
             issueTitle = "New issue",
         )
 
-    assertSame(created, result)
+    result shouldBeSameInstanceAs created
   }
 
   @Test
@@ -75,7 +75,7 @@ class TogglServiceTest {
             issueTitle = "Title",
         )
 
-    assertSame(created, result)
+    result shouldBeSameInstanceAs created
   }
 
   @Test
@@ -93,7 +93,7 @@ class TogglServiceTest {
             issueTitle = "Brand new",
         )
 
-    assertSame(created, result)
+    result shouldBeSameInstanceAs created
     // Verify the exact request was sent (workspaceId, name, clientId, plus default fields).
     verify { togglClient.createProject(7L, expectedRequest) }
   }
@@ -112,7 +112,7 @@ class TogglServiceTest {
             issueTitle = "Anything",
         )
 
-    assertSame(first, result)
+    result shouldBeSameInstanceAs first
   }
 
   @Test
@@ -125,6 +125,6 @@ class TogglServiceTest {
             clientId = 5L,
         )
 
-    assertThrows(NotImplementedError::class.java) { service.startTimer(project, request) }
+    shouldThrow<NotImplementedError> { service.startTimer(project, request) }
   }
 }

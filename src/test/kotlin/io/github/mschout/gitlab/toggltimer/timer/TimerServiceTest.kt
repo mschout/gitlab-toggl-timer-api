@@ -3,14 +3,14 @@ package io.github.mschout.gitlab.toggltimer.timer
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import java.time.Instant
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -45,7 +45,7 @@ class TimerServiceTest {
 
     val result = service.startTimer(request)
 
-    assertEquals(timerStart, result)
+    result shouldBe timerStart
     verify { togglService.findOrCreateProject(7L, 5L, 42L, "Resolved title") }
     verify { togglService.startTimer(project, request) }
   }
@@ -66,7 +66,7 @@ class TimerServiceTest {
 
     val result = service.createProject(request)
 
-    assertSame(project, result)
+    result shouldBeSameInstanceAs project
     verify { togglService.findOrCreateProject(11L, 22L, 99L, "Some issue") }
   }
 
@@ -81,8 +81,8 @@ class TimerServiceTest {
     every { gitLabService.getGitlabIssueTitle(GitLabIssue("mygroup", "myproject", 1L)) } throws
         IllegalStateException("GitLab project not found")
 
-    val ex = assertThrows(IllegalStateException::class.java) { service.startTimer(request) }
-    assertEquals("GitLab project not found", ex.message)
+    val ex = shouldThrow<IllegalStateException> { service.startTimer(request) }
+    ex.message shouldBe "GitLab project not found"
     verify { togglService wasNot Called }
   }
 
@@ -97,7 +97,7 @@ class TimerServiceTest {
     every { gitLabService.getGitlabIssueTitle(GitLabIssue("g", "p", 7L)) } throws
         IllegalStateException("GitLab issue not found: 7")
 
-    assertThrows(IllegalStateException::class.java) { service.createProject(request) }
+    shouldThrow<IllegalStateException> { service.createProject(request) }
     verify { togglService wasNot Called }
   }
 }

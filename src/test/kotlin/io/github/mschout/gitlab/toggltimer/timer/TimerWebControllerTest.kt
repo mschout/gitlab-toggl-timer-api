@@ -1,12 +1,13 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.kotest.assertions.assertSoftly
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import java.time.Instant
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -25,8 +26,10 @@ class TimerWebControllerTest {
   fun `index should return timer-index view with welcome message`() {
     val mav = controller.index()
 
-    assertEquals("timer-index", mav.viewName)
-    assertEquals("Welcome to the Timer Page!", mav.model["message"])
+    assertSoftly(mav) {
+      viewName shouldBe "timer-index"
+      model["message"] shouldBe "Welcome to the Timer Page!"
+    }
   }
 
   @Test
@@ -47,8 +50,10 @@ class TimerWebControllerTest {
             clientId = 5L,
         )
 
-    assertEquals("create-project", mav.viewName)
-    assertSame(project, mav.model["project"])
+    assertSoftly(mav) {
+      viewName shouldBe "create-project"
+      model["project"] shouldBeSameInstanceAs project
+    }
     verify { timerService.createProject(expectedRequest) }
   }
 
@@ -70,8 +75,10 @@ class TimerWebControllerTest {
             clientId = 22L,
         )
 
-    assertEquals("start-timer", mav.viewName)
-    assertEquals(startInstant, mav.model["startTime"])
+    assertSoftly(mav) {
+      viewName shouldBe "start-timer"
+      model["startTime"] shouldBe startInstant
+    }
     verify { timerService.startTimer(expectedRequest) }
   }
 }
