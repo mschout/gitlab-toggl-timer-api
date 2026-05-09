@@ -1,5 +1,6 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
 import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import tools.jackson.databind.PropertyNamingStrategies

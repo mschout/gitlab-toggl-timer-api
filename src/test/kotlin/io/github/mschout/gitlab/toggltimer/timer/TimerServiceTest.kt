@@ -1,5 +1,7 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals

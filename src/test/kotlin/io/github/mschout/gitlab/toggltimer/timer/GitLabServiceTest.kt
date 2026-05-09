@@ -1,5 +1,7 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
 import java.util.stream.Stream
 import org.gitlab4j.api.GitLabApi
 import org.gitlab4j.api.IssuesApi
@@ -15,10 +17,11 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 
 /**
- * The production methods on [GitLabService] are `@Cacheable` with AspectJ post-compile weaving, so
- * results are cached at the JVM level once any other Spring Boot test in this run has initialized
- * the CacheManager. Each test uses a unique (groupName, projectPath, issueNumber) tuple to avoid
- * collisions between cached entries from sibling tests.
+ * The production methods on [io.github.mschout.gitlab.toggltimer.gitlab.GitLabService] are
+ * `@Cacheable` with AspectJ post-compile weaving, so results are cached at the JVM level once any
+ * other Spring Boot test in this run has initialized the CacheManager. Each test uses a unique
+ * (groupName, projectPath, issueNumber) tuple to avoid collisions between cached entries from
+ * sibling tests.
  */
 class GitLabServiceTest {
 

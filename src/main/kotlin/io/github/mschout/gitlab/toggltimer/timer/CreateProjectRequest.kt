@@ -1,5 +1,6 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
 import jakarta.validation.constraints.NotNull
 
 data class CreateProjectRequest(

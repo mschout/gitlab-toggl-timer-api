@@ -1,7 +1,6 @@
-package io.github.mschout.gitlab.toggltimer.timer
+package io.github.mschout.gitlab.toggltimer.gitlab
 
-import io.github.mschout.gitlab.toggltimer.configuration.CacheManagerConfiguration.Companion.GITLAB_ISSUE_CACHE
-import io.github.mschout.gitlab.toggltimer.configuration.CacheManagerConfiguration.Companion.GITLAB_PROJECT_CACHE
+import io.github.mschout.gitlab.toggltimer.configuration.CacheManagerConfiguration
 import org.gitlab4j.api.GitLabApi
 import org.gitlab4j.api.models.Issue
 import org.gitlab4j.api.models.Project
@@ -39,13 +38,13 @@ class GitLabService(private val gitLabApi: GitLabApi) {
     return gitLabIssue.title
   }
 
-  @Cacheable(GITLAB_ISSUE_CACHE)
+  @Cacheable(CacheManagerConfiguration.GITLAB_ISSUE_CACHE)
   protected fun getGitlabProjectIssue(projectId: Long, issueNumber: Long): Issue? {
     log.info("Looking up project {} issue {} using GitLab API", projectId, issueNumber)
     return gitLabApi.issuesApi.getIssue(projectId, issueNumber)
   }
 
-  @Cacheable(GITLAB_PROJECT_CACHE)
+  @Cacheable(CacheManagerConfiguration.GITLAB_PROJECT_CACHE)
   protected fun getProject(groupName: String, projectPath: String): Project? {
     log.info("Looking up project {}/{} using GitLab API", groupName, projectPath)
     return gitLabApi.searchApi

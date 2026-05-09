@@ -1,4 +1,4 @@
-package io.github.mschout.gitlab.toggltimer.timer
+package io.github.mschout.gitlab.toggltimer.gitlab
 
 import org.springframework.web.util.UriComponentsBuilder
 
