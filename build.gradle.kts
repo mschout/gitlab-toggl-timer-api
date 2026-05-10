@@ -2,6 +2,7 @@ import org.springframework.boot.gradle.tasks.bundling.BootBuildImage
 
 plugins {
   id("mschout.all-conventions")
+  alias(libs.plugins.kotlin.jpa)
   alias(libs.plugins.kotlin.spring)
   alias(libs.plugins.spring.boot)
   alias(libs.plugins.spring.dependency.management)
@@ -22,17 +23,25 @@ dependencies {
   implementation(libs.bundles.spring)
   implementation(libs.bundles.webjars)
   implementation(libs.caffeine)
+  implementation(libs.flyway.core)
+  implementation(libs.flyway.database.postgresql)
   implementation(libs.gitlab4j.api)
   implementation(libs.springdoc.openapi.starter.webmvc.ui)
   implementation(libs.jackson.module.kotlin)
   implementation(libs.kotlin.logging)
   implementation(libs.kotlin.reflect)
+  implementation(libs.thymeleaf.extras.springsecurity)
+
+  runtimeOnly(libs.postgresql)
 
   developmentOnly("org.springframework.boot:spring-boot-devtools")
 
   testImplementation("org.springframework.boot:spring-boot-starter-test")
   testImplementation(libs.bundles.kotest)
+  testImplementation(libs.bundles.testcontainers)
   testImplementation(libs.mockk)
+  testImplementation(libs.spring.boot.starter.webmvc.test)
+  testImplementation(libs.spring.security.test)
 }
 
 tasks.test { useJUnitPlatform() }
