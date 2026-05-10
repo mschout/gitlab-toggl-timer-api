@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <body>
+    <footer th:fragment="footer" class="app-footer border-top mt-auto py-3 text-body-secondary">
+      <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2 small">
+        <span>
+          <i class="bi bi-stopwatch me-1"></i>Gitlab Toggl Timer
+        </span>
+        <span>
+          <a class="link-secondary text-decoration-none" th:href="@{/swagger-ui.html}">API</a>
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

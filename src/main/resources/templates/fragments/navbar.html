@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <body>
+    <nav th:fragment="navbar" class="navbar navbar-expand-md navbar-dark bg-primary shadow-sm">
+      <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" th:href="@{/}">
+          <i class="bi bi-stopwatch"></i>
+          <span>Gitlab Toggl Timer</span>
+        </a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#primaryNav"
+          aria-controls="primaryNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="primaryNav">
+          <ul class="navbar-nav ms-auto mb-2 mb-md-0">
+            <li class="nav-item">
+              <a class="nav-link" th:href="@{/}">
+                <i class="bi bi-house-door me-1"></i>Home
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" th:href="@{/timer}">
+                <i class="bi bi-stopwatch me-1"></i>Timer
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" th:href="@{/swagger-ui.html}" target="_blank" rel="noopener">
+                <i class="bi bi-file-earmark-code me-1"></i>API Docs
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+  </body>
+</html>
