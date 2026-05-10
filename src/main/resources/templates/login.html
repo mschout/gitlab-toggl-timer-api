@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{layout/base :: layout('Sign in', ~{::main})}"
+  lang="en"
+>
+  <body>
+    <main>
+      <section class="row justify-content-center">
+        <div class="col-md-5">
+          <div class="card shadow-sm">
+            <div class="card-body p-4">
+              <h1 class="h4 mb-3">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Sign in
+              </h1>
+
+              <div class="alert alert-danger" th:if="${param.error}" role="alert">
+                Invalid credentials.
+              </div>
+              <div class="alert alert-success" th:if="${param.logout}" role="alert">
+                You have been signed out.
+              </div>
+
+              <form th:action="@{/login}" method="post" class="mb-3">
+                <div class="mb-3">
+                  <label class="form-label" for="username">Email</label>
+                  <input
+                    class="form-control"
+                    type="email"
+                    id="username"
+                    name="username"
+                    autocomplete="username"
+                    required
+                  />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label" for="password">Password</label>
+                  <input
+                    class="form-control"
+                    type="password"
+                    id="password"
+                    name="password"
+                    autocomplete="current-password"
+                    required
+                  />
+                </div>
+                <button class="btn btn-primary w-100" type="submit">
+                  <i class="bi bi-box-arrow-in-right me-1"></i>Sign in
+                </button>
+              </form>
+
+              <div th:if="${!#lists.isEmpty(oidcProviders)}">
+                <hr />
+                <div class="d-grid gap-2">
+                  <a
+                    th:each="provider : ${oidcProviders}"
+                    class="btn btn-outline-secondary"
+                    th:href="@{|/oauth2/authorization/${provider.id}|}"
+                  >
+                    <i class="bi bi-shield-lock me-1"></i>
+                    <span th:text="|Sign in with ${provider.name}|">Sign in with SSO</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -18,6 +18,25 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  security:
+    oauth2:
+      client:
+        registration:
+          oidc:
+            client-id: ${OIDC_CLIENT_ID}
+            client-secret: ${OIDC_CLIENT_SECRET}
+            client-name: ${OIDC_CLIENT_NAME:Single Sign-On}
+            provider: oidc
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - email
+              - profile
+        provider:
+          oidc:
+            issuer-uri: ${OIDC_ISSUER_URI}
+
 gitlab:
   accessToken: ${GITLAB_ACCESS_TOKEN}
 

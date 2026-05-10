@@ -1,0 +1,71 @@
+package io.github.mschout.gitlab.toggltimer.security
+
+import io.github.mschout.gitlab.toggltimer.user.User
+import io.github.mschout.gitlab.toggltimer.user.UserAuthIdentity
+import io.github.mschout.gitlab.toggltimer.user.UserAuthIdentityRepository
+import io.github.mschout.gitlab.toggltimer.user.UserRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.security.core.GrantedAuthority
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService
+import org.springframework.security.oauth2.core.oidc.IdTokenClaimNames
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser
+import org.springframework.security.oauth2.core.oidc.user.OidcUser
+import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+private val log = KotlinLogging.logger {}
+
+@Service
+class CustomOidcUserService(
+    private val userRepository: UserRepository,
+    private val identityRepository: UserAuthIdentityRepository,
+) : OidcUserService() {
+
+  override fun loadUser(userRequest: OidcUserRequest): OidcUser {
+    val oidcUser = super.loadUser(userRequest)
+    val provider = userRequest.clientRegistration.registrationId
+    val subject = oidcUser.subject
+    val email =
+        requireNotNull(oidcUser.email) {
+          "OIDC userinfo missing 'email' claim — ensure the provider is configured to release the email scope"
+        }
+    val displayName = oidcUser.fullName ?: oidcUser.preferredUsername
+
+    val user = findOrCreate(provider, subject, email, displayName)
+
+    val nameAttribute =
+        userRequest.clientRegistration.providerDetails.userInfoEndpoint.userNameAttributeName
+            .ifBlank { IdTokenClaimNames.SUB }
+
+    val authorities: Collection<GrantedAuthority> =
+        user.roles.map { SimpleGrantedAuthority(it) } +
+            OidcUserAuthority(oidcUser.idToken, oidcUser.userInfo)
+
+    return DefaultOidcUser(authorities, oidcUser.idToken, oidcUser.userInfo, nameAttribute)
+  }
+
+  @Transactional
+  fun findOrCreate(provider: String, subject: String, email: String, displayName: String?): User {
+    identityRepository.findByProviderAndSubject(provider, subject)?.let {
+      return it.user
+    }
+
+    val user =
+        userRepository.findByEmail(email)
+            ?: userRepository.save(User(email = email, displayName = displayName)).also {
+              log.info {
+                "Provisioned new OIDC user id=${it.id} email=${it.email} provider=$provider"
+              }
+            }
+
+    if (displayName != null && user.displayName == null) {
+      user.displayName = displayName
+    }
+
+    identityRepository.save(UserAuthIdentity(provider = provider, subject = subject, user = user))
+    return user
+  }
+}
