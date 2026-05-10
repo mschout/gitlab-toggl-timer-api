@@ -1,0 +1,29 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          oidc:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            client-name: Test SSO
+            provider: oidc
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - email
+              - profile
+        provider:
+          oidc:
+            authorization-uri: http://localhost/issuer-test/authorize
+            token-uri: http://localhost/issuer-test/token
+            jwk-set-uri: http://localhost/issuer-test/jwks
+            user-info-uri: http://localhost/issuer-test/userinfo
+            user-name-attribute: sub
+
+gitlab:
+  accessToken: test-gitlab-token
+
+toggl:
+  apiKey: test-toggl-key
