@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{layout/base :: layout('Home', ~{::main})}"
+  lang="en"
+>
+  <body>
+    <main>
+      <section class="px-3 py-4 py-md-5 mb-4 bg-body rounded-3 border shadow-sm">
+        <div class="row align-items-center g-4">
+          <div class="col-md-8">
+            <h1 class="display-5 fw-semibold mb-2">
+              <i class="bi bi-stopwatch text-primary me-2"></i>Gitlab Toggl Timer
+            </h1>
+            <p class="lead text-body-secondary mb-0">
+              Track time on GitLab issues with Toggl &mdash; create projects from issue URLs and
+              start timers without leaving your browser.
+            </p>
+          </div>
+          <div class="col-md-4 text-md-end">
+            <a class="btn btn-primary btn-lg" th:href="@{/timer}">
+              <i class="bi bi-play-circle me-1"></i>Open Timer
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <a class="card h-100 text-decoration-none border shadow-sm" th:href="@{/timer}">
+            <div class="card-body">
+              <div class="d-flex align-items-start gap-3">
+                <i class="bi bi-stopwatch text-primary fs-2"></i>
+                <div>
+                  <h2 class="h5 mb-1 text-body">Timer</h2>
+                  <p class="text-body-secondary small mb-0">
+                    Paste a GitLab issue URL, choose a Toggl workspace and client, then create a
+                    project or start a timer.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <div class="col-md-6">
+          <a
+            class="card h-100 text-decoration-none border shadow-sm"
+            th:href="@{/swagger-ui.html}"
+            target="_blank"
+            rel="noopener"
+          >
+            <div class="card-body">
+              <div class="d-flex align-items-start gap-3">
+                <i class="bi bi-file-earmark-code text-primary fs-2"></i>
+                <div>
+                  <h2 class="h5 mb-1 text-body">
+                    API Docs
+                    <i class="bi bi-box-arrow-up-right small text-body-secondary ms-1"></i>
+                  </h2>
+                  <p class="text-body-secondary small mb-0">
+                    Browse the OpenAPI documentation for the REST endpoints under
+                    <code>/api/timer</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
