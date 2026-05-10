@@ -20,6 +20,7 @@ repositories {
 
 dependencies {
   implementation(libs.bundles.spring)
+  implementation(libs.bundles.webjars)
   implementation(libs.caffeine)
   implementation(libs.gitlab4j.api)
   implementation(libs.springdoc.openapi.starter.webmvc.ui)

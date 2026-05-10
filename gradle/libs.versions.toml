@@ -1,6 +1,9 @@
 [versions]
+bootstrap = "5.3.8"
+bootstrapIcons = "1.13.1"
 caffeine = "3.2.4"
 gitlab4jApi = "6.3.0"
+htmx = "2.0.10"
 kotest = "6.1.11"
 kotlin = "2.3.21"
 kotlinLogging = "8.0.02"
@@ -26,6 +29,9 @@ spring-boot-starter-validation = { module = "org.springframework.boot:spring-boo
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBoot" }
 spring-tx = { module = "org.springframework:spring-tx" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+webjars-bootstrap = { module = "org.webjars.npm:bootstrap", version.ref = "bootstrap" }
+webjars-bootstrap-icons = { module = "org.webjars.npm:bootstrap-icons", version.ref = "bootstrapIcons" }
+webjars-htmx = { module = "org.webjars.npm:htmx.org", version.ref = "htmx" }
 
 [plugins]
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
@@ -45,4 +51,9 @@ spring = [
     "spring-boot-starter-validation",
     "spring-boot-starter-web",
     "spring-tx",
+]
+webjars = [
+    "webjars-bootstrap",
+    "webjars-bootstrap-icons",
+    "webjars-htmx",
 ]
