@@ -1,13 +1,142 @@
 <!DOCTYPE html>
 <html
   xmlns:th="http://www.thymeleaf.org"
-  th:replace="~{layout/base :: layout('Timer Started', ~{::main})}"
+  th:replace="~{layout/base :: layout('Home', ~{::main})}"
   lang="en"
 >
   <body>
     <main>
-      <h1>Gitlab Toggl Timer</h1>
-      <p><span th:text="${message}"></span></p>
+      <section class="mb-4">
+        <h1 class="display-6 mb-1">
+          <i class="bi bi-stopwatch text-primary me-2"></i>Gitlab Toggl Timer
+        </h1>
+        <p class="lead text-body-secondary mb-0" th:text="${message}">Welcome</p>
+      </section>
+
+      <div th:fragment="timer-form" id="timer-form-card" class="card shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="h5 card-title mb-3">
+            <i class="bi bi-bullseye me-2"></i>Track time on a GitLab issue
+          </h2>
+          <p class="text-body-secondary small mb-4">
+            Paste a GitLab issue URL and your Toggl workspace + client. Use
+            <strong>Create Project</strong> to set up a Toggl project for the issue, or
+            <strong>Start Timer</strong> to begin tracking time immediately.
+          </p>
+
+          <form th:object="${form}" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label for="issueUrl" class="form-label">GitLab issue URL</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                  <input
+                    type="url"
+                    id="issueUrl"
+                    class="form-control"
+                    th:field="*{issueUrl}"
+                    th:errorclass="is-invalid"
+                    placeholder="https://gitlab.com/group/project/-/issues/42"
+                    autocomplete="off"
+                    required
+                  />
+                  <div
+                    class="invalid-feedback"
+                    th:if="${#fields.hasErrors('issueUrl')}"
+                    th:errors="*{issueUrl}"
+                  ></div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label for="workspaceId" class="form-label">Toggl workspace ID</label>
+                <input
+                  type="number"
+                  id="workspaceId"
+                  class="form-control"
+                  th:field="*{workspaceId}"
+                  th:errorclass="is-invalid"
+                  min="1"
+                  required
+                />
+                <div
+                  class="invalid-feedback"
+                  th:if="${#fields.hasErrors('workspaceId')}"
+                  th:errors="*{workspaceId}"
+                ></div>
+              </div>
+
+              <div class="col-md-6">
+                <label for="clientId" class="form-label">Toggl client ID</label>
+                <input
+                  type="number"
+                  id="clientId"
+                  class="form-control"
+                  th:field="*{clientId}"
+                  th:errorclass="is-invalid"
+                  min="1"
+                  required
+                />
+                <div
+                  class="invalid-feedback"
+                  th:if="${#fields.hasErrors('clientId')}"
+                  th:errors="*{clientId}"
+                ></div>
+              </div>
+
+              <div class="col-12">
+                <label for="description" class="form-label">
+                  Description
+                  <span class="text-body-secondary fw-normal">(optional, used by Start Timer)</span>
+                </label>
+                <input
+                  type="text"
+                  id="description"
+                  class="form-control"
+                  th:field="*{description}"
+                  placeholder="What are you working on?"
+                />
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
+              <button
+                type="submit"
+                class="btn btn-outline-primary"
+                hx-post="/timer/create-project"
+                hx-target="#result"
+                hx-swap="innerHTML"
+                hx-indicator="#timer-spinner"
+              >
+                <i class="bi bi-folder-plus me-1"></i>Create Project
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                hx-post="/timer/start"
+                hx-target="#result"
+                hx-swap="innerHTML"
+                hx-indicator="#timer-spinner"
+              >
+                <i class="bi bi-play-circle me-1"></i>Start Timer
+              </button>
+              <span
+                id="timer-spinner"
+                class="htmx-indicator d-inline-flex align-items-center text-body-secondary small"
+              >
+                <span
+                  class="spinner-border spinner-border-sm text-primary me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                Working&hellip;
+              </span>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="result" class="mt-4"></div>
     </main>
   </body>
 </html>
