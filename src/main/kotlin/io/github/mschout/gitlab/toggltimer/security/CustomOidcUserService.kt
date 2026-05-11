@@ -9,7 +9,7 @@ import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService
-import org.springframework.security.oauth2.core.oidc.IdTokenClaimNames
+import org.springframework.security.oauth2.core.oidc.StandardClaimNames
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser
 import org.springframework.security.oauth2.core.oidc.user.OidcUser
 import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority
@@ -36,21 +36,25 @@ class CustomOidcUserService(
 
     val user = findOrCreate(provider, subject, email, displayName)
 
-    val nameAttribute =
-        userRequest.clientRegistration.providerDetails.userInfoEndpoint.userNameAttributeName
-            .ifBlank { IdTokenClaimNames.SUB }
-
     val authorities: Collection<GrantedAuthority> =
         user.roles.map { SimpleGrantedAuthority(it) } +
             OidcUserAuthority(oidcUser.idToken, oidcUser.userInfo)
 
-    return DefaultOidcUser(authorities, oidcUser.idToken, oidcUser.userInfo, nameAttribute)
+    return DefaultOidcUser(
+        authorities,
+        oidcUser.idToken,
+        oidcUser.userInfo,
+        StandardClaimNames.EMAIL,
+    )
   }
 
   @Transactional
   fun findOrCreate(provider: String, subject: String, email: String, displayName: String?): User {
     identityRepository.findByProviderAndSubject(provider, subject)?.let {
-      return it.user
+      // Touch roles to initialize the lazy User proxy before the session closes.
+      val user = it.user
+      user.roles.size
+      return user
     }
 
     val user =
