@@ -1,5 +1,6 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
 import org.springframework.stereotype.Controller
@@ -15,12 +16,18 @@ import org.springframework.web.servlet.ModelAndView
 
 @Controller
 @RequestMapping("/timer")
-class TimerWebController(private val timerService: TimerService) {
+class TimerWebController(
+    private val timerService: TimerService,
+    private val credentialsService: CurrentUserCredentialsService,
+) {
 
   @GetMapping
   fun index(model: Model): String {
     if (!model.containsAttribute("form")) {
-      model.addAttribute("form", TimerForm())
+      model.addAttribute(
+          "form",
+          TimerForm(workspaceId = credentialsService.currentTogglWorkspaceId()),
+      )
     }
     model.addAttribute("message", "Welcome to the Timer Page!")
     return "timer-index"

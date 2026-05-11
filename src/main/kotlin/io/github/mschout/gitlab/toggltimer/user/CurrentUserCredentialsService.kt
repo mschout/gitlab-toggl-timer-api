@@ -27,6 +27,8 @@ class CurrentUserCredentialsService(
   fun currentSettings(): UserSettings? =
       currentUserOrNull()?.let { userSettingsRepository.findById(it.id).orElse(null) }
 
+  fun currentTogglWorkspaceId(): Long? = currentSettings()?.togglWorkspaceId
+
   fun requireGitlabToken(): String =
       currentSettings()?.gitlabAccessToken?.takeIf { it.isNotBlank() }
           ?: throw MissingCredentialsException("gitlab")

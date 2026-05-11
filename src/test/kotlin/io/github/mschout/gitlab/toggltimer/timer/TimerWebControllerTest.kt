@@ -1,6 +1,7 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.assertSoftly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -18,12 +19,15 @@ import org.springframework.validation.BeanPropertyBindingResult
 class TimerWebControllerTest {
 
   private lateinit var timerService: TimerService
+  private lateinit var credentialsService: CurrentUserCredentialsService
   private lateinit var controller: TimerWebController
 
   @BeforeEach
   fun setUp() {
     timerService = mockk()
-    controller = TimerWebController(timerService)
+    credentialsService = mockk()
+    every { credentialsService.currentTogglWorkspaceId() } returns null
+    controller = TimerWebController(timerService, credentialsService)
   }
 
   @Test
@@ -37,6 +41,16 @@ class TimerWebControllerTest {
       model["message"] shouldBe "Welcome to the Timer Page!"
       model["form"] shouldBe TimerForm()
     }
+  }
+
+  @Test
+  fun `index pre-fills workspaceId from saved user settings`() {
+    every { credentialsService.currentTogglWorkspaceId() } returns 99L
+    val model = ExtendedModelMap()
+
+    controller.index(model)
+
+    (model["form"] as TimerForm).workspaceId shouldBe 99L
   }
 
   @Test
