@@ -90,6 +90,14 @@ To swap providers later, just change `OIDC_*` — no code changes needed.
 |---|---|---|---|
 | `APP_AUTH_PASSWORD_LOGIN_ENABLED` | no | `true` | When `false`, the email + password form is removed from `/login`, the `/settings/sign-in` page returns 404, and Spring Security's form-login filter is not registered — leaving OIDC as the only way to sign in. Existing password hashes are kept in the database and become usable again if the flag is turned back on. |
 
+## Reverse proxy / SSL termination
+
+If you run the app behind an SSL-terminating reverse proxy (e.g. Traefik, Nginx, Caddy), set:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `SERVER_FORWARD_HEADERS_STRATEGY` | yes (behind a proxy) | Set to `native` so Spring Boot honours the `X-Forwarded-*` headers from the proxy. Without this, OIDC redirect URIs are generated with the internal `http://` scheme and port, causing the OIDC handshake to fail. |
+
 # Bookmarklets
 
 Bookmarklets run in your browser and reuse your existing login session, so they will work after you've signed in to http://localhost:8080 in the same browser.
