@@ -48,6 +48,46 @@
                   An API key is currently set. Submit a new value to replace it.
                 </div>
               </div>
+
+              <div class="col-12" th:if="${hasTogglApiKey}">
+                <label for="togglWorkspaceId" class="form-label">Toggl workspace</label>
+
+                <div
+                  th:if="${workspacesError}"
+                  class="alert alert-warning py-2 mb-2"
+                  role="alert"
+                  th:text="${workspacesError}"
+                ></div>
+
+                <div th:if="${workspacesPrompt}" class="form-text mb-2" th:text="${workspacesPrompt}"></div>
+
+                <select
+                  th:if="${workspaces != null and !#lists.isEmpty(workspaces)}"
+                  id="togglWorkspaceId"
+                  class="form-select"
+                  th:field="*{togglWorkspaceId}"
+                >
+                  <option th:if="${currentWorkspaceId == null}" value="">Select a workspace…</option>
+                  <option
+                    th:each="ws : ${workspaces}"
+                    th:value="${ws.id}"
+                    th:text="${ws.name}"
+                  ></option>
+                </select>
+
+                <div
+                  th:if="${workspaces != null and #lists.isEmpty(workspaces) and workspacesError == null}"
+                  class="alert alert-info py-2 mb-0"
+                  role="alert"
+                >
+                  No workspaces were found for this Toggl account.
+                </div>
+
+                <div class="form-text" th:if="${currentWorkspaceId != null}">
+                  Current default workspace ID:
+                  <code th:text="${currentWorkspaceId}"></code>
+                </div>
+              </div>
             </div>
 
             <div class="d-flex flex-wrap align-items-center gap-2 mt-4">

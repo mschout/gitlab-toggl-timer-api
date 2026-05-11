@@ -101,13 +101,42 @@ class OnboardingFilterTest {
   }
 
   @Test
-  fun `passes through when both credentials configured`() {
+  fun `redirects to settings when workspace id missing`() {
     val user = User(email = "alice@example.com", id = 1L)
     authenticateAs("alice@example.com")
     every { userRepo.findByEmail("alice@example.com") } returns user
     every { settingsRepo.findById(1L) } returns
         Optional.of(
-            UserSettings(user = user, gitlabAccessToken = "x", togglApiKey = "y", userId = 1L)
+            UserSettings(
+                user = user,
+                gitlabAccessToken = "x",
+                togglApiKey = "y",
+                togglWorkspaceId = null,
+                userId = 1L,
+            )
+        )
+    val res = MockHttpServletResponse()
+
+    filter.doFilter(request("/timer"), res, chain)
+
+    res.redirectedUrl shouldBe "/settings"
+    verify(exactly = 0) { chain.doFilter(any(), any()) }
+  }
+
+  @Test
+  fun `passes through when all settings configured`() {
+    val user = User(email = "alice@example.com", id = 1L)
+    authenticateAs("alice@example.com")
+    every { userRepo.findByEmail("alice@example.com") } returns user
+    every { settingsRepo.findById(1L) } returns
+        Optional.of(
+            UserSettings(
+                user = user,
+                gitlabAccessToken = "x",
+                togglApiKey = "y",
+                togglWorkspaceId = 42L,
+                userId = 1L,
+            )
         )
     val req = request("/timer")
     val res = MockHttpServletResponse()

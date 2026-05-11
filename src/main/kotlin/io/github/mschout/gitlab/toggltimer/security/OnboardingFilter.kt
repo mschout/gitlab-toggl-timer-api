@@ -41,7 +41,8 @@ class OnboardingFilter(
     val configured =
         settings != null &&
             !settings.gitlabAccessToken.isNullOrBlank() &&
-            !settings.togglApiKey.isNullOrBlank()
+            !settings.togglApiKey.isNullOrBlank() &&
+            settings.togglWorkspaceId != null
     if (!configured) {
       response.sendRedirect(request.contextPath + "/settings")
       return
