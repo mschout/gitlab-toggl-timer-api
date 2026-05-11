@@ -19,8 +19,8 @@ If you want to compile this outside of Docker, you need Java 25.
 # Local development
 
 `./gradlew bootRun` uses Spring Boot's Docker Compose support to start a Postgres container from `compose-dev.yaml` and
-wire the datasource automatically — you do not need to set `DB_*` env vars locally. `GITLAB_ACCESS_TOKEN`,
-`TOGGL_API_KEY`, and the `OIDC_*` variables are still required. The container is stopped when the app exits.
+wire the datasource automatically — you do not need to set `DB_*` env vars locally. The `OIDC_*` and `APP_ENCRYPTION_*`
+variables are still required. The container is stopped when the app exits.
 
 # How to run it
 
@@ -36,18 +36,24 @@ The web UI is at http://localhost:8080 — visiting any protected page will redi
 via OIDC. The Swagger UI is at http://localhost:8080/swagger-ui.html.
 
 On first OIDC sign-in a user record is auto-provisioned from the provider's `sub`/`email`/`name` claims; there is no
-public signup form.
+public signup form. After signing in, a new user is redirected to `/settings` to enter their personal GitLab access
+token and Toggl API key. The app cannot reach GitLab or Toggl until both are saved. Credentials are stored in the
+`user_settings` table, encrypted at rest with AES.
 
 # Environment Variables
 
 The app reads all configuration from environment variables. None have safe defaults except where noted.
 
-## GitLab / Toggl
+## Encryption
+
+GitLab access tokens and Toggl API keys are encrypted at rest using a key derived from the values below. **If you
+change either of these in production, existing per-user credentials will no longer decrypt** — users will have to
+re-enter them at `/settings`.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `GITLAB_ACCESS_TOKEN` | yes | GitLab personal access token used to read issue metadata. |
-| `TOGGL_API_KEY` | yes | Toggl API key used to create projects and start timers. |
+| `APP_ENCRYPTION_PASSWORD` | yes | Master password used to derive the AES key. |
+| `APP_ENCRYPTION_SALT` | yes | Hex-encoded salt — generate with `openssl rand -hex 16`. |
 
 ## Database
 
@@ -57,7 +63,7 @@ The app reads all configuration from environment variables. None have safe defau
 | `DB_USERNAME` | no | `gitlab_toggl_timer` | Database user. |
 | `DB_PASSWORD` | yes | — | Database password. |
 
-Flyway runs at startup and creates the `users`, `user_roles`, and `user_auth_identities` tables.
+Flyway runs at startup and creates the `users`, `user_roles`, `user_auth_identities`, and `user_settings` tables.
 
 ## OIDC (sign-in)
 
