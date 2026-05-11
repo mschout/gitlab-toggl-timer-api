@@ -40,6 +40,10 @@ public signup form. After signing in, a new user is redirected to `/settings` to
 token and Toggl API key. The app cannot reach GitLab or Toggl until both are saved. Credentials are stored in the
 `user_settings` table, encrypted at rest with AES.
 
+Once signed in, a user can optionally set a local password at `/settings/sign-in` to enable email + password sign-in
+alongside OIDC. Both methods then work against the same account. To run the app as OIDC-only and block password
+sign-in entirely, set `APP_AUTH_PASSWORD_LOGIN_ENABLED=false` (see below).
+
 # Environment Variables
 
 The app reads all configuration from environment variables. None have safe defaults except where noted.
@@ -79,6 +83,12 @@ The app uses standard OIDC discovery, so you only need to supply the issuer base
 Whichever provider you use, register `http://<host>:8080/login/oauth2/code/oidc` as the allowed redirect URI and ensure the client releases the `email` scope (without it the provisioning step will fail with a clear error).
 
 To swap providers later, just change `OIDC_*` — no code changes needed.
+
+## Authentication
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `APP_AUTH_PASSWORD_LOGIN_ENABLED` | no | `true` | When `false`, the email + password form is removed from `/login`, the `/settings/sign-in` page returns 404, and Spring Security's form-login filter is not registered — leaving OIDC as the only way to sign in. Existing password hashes are kept in the database and become usable again if the flag is turned back on. |
 
 # Bookmarklets
 

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{layout/base :: layout('Sign-in', ~{::main})}"
+  lang="en"
+>
+  <body>
+    <main>
+      <section class="mb-4">
+        <h1 class="display-6 mb-1">
+          <i class="bi bi-shield-lock text-primary me-2"></i>Sign-in
+        </h1>
+        <p class="lead text-body-secondary mb-0" th:if="${hasPassword}">
+          Change your account password.
+        </p>
+        <p class="lead text-body-secondary mb-0" th:unless="${hasPassword}">
+          Set a password so you can sign in with email and password in addition to SSO.
+        </p>
+      </section>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <div class="alert alert-success" th:if="${success}" role="alert" th:text="${success}"></div>
+          <div class="alert alert-danger" th:if="${error}" role="alert" th:text="${error}"></div>
+
+          <form th:object="${form}" th:action="@{/settings/sign-in}" method="post">
+            <div class="row g-3">
+              <div class="col-12" th:if="${hasPassword}">
+                <label for="currentPassword" class="form-label">Current password</label>
+                <input
+                  type="password"
+                  id="currentPassword"
+                  class="form-control"
+                  th:field="*{currentPassword}"
+                  autocomplete="current-password"
+                  required
+                />
+              </div>
+
+              <div class="col-12">
+                <label for="newPassword" class="form-label">New password</label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  class="form-control"
+                  th:field="*{newPassword}"
+                  autocomplete="new-password"
+                  minlength="12"
+                  required
+                />
+                <div class="form-text">Must be at least 12 characters.</div>
+              </div>
+
+              <div class="col-12">
+                <label for="confirmPassword" class="form-label">Confirm new password</label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  class="form-control"
+                  th:field="*{confirmPassword}"
+                  autocomplete="new-password"
+                  minlength="12"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i>
+                <span th:text="${hasPassword} ? 'Update password' : 'Set password'">Save</span>
+              </button>
+              <a th:href="@{/settings}" class="btn btn-link">Back to settings</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

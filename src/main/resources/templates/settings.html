@@ -99,6 +99,20 @@
           </form>
         </div>
       </div>
+
+      <div class="card shadow-sm mt-4" th:if="${passwordLoginEnabled}">
+        <div class="card-body p-4">
+          <h2 class="h5 mb-2">
+            <i class="bi bi-shield-lock text-primary me-2"></i>Sign-in
+          </h2>
+          <p class="text-body-secondary mb-3">
+            Set or change the password used to sign in with email and password.
+          </p>
+          <a th:href="@{/settings/sign-in}" class="btn btn-outline-primary">
+            <i class="bi bi-key me-1"></i>Manage password
+          </a>
+        </div>
+      </div>
     </main>
   </body>
 </html>
