@@ -4,8 +4,10 @@ import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateT
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
@@ -121,6 +123,20 @@ class TogglServiceTest {
         )
 
     result shouldBeSameInstanceAs first
+  }
+
+  @Test
+  fun `fetchWorkspaces uses the supplied api key directly`() {
+    val freshClient = mockk<TogglClient>()
+    every { togglClientFactory.forApiKey("brand-new-key") } returns freshClient
+    val workspaces =
+        listOf(TogglWorkspace(id = 1L, name = "Alpha"), TogglWorkspace(id = 2L, name = "Beta"))
+    every { freshClient.getWorkspaces() } returns workspaces
+
+    service.fetchWorkspaces("brand-new-key") shouldBe workspaces
+
+    verify { togglClientFactory.forApiKey("brand-new-key") }
+    verify(exactly = 0) { credentialsService.requireTogglApiKey() }
   }
 
   @Test

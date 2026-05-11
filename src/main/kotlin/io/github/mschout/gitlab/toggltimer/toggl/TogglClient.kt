@@ -9,6 +9,8 @@ import org.springframework.web.service.annotation.PostExchange
 
 @HttpExchange("https://api.track.toggl.com/api/v9")
 interface TogglClient {
+  @GetExchange("/workspaces") fun getWorkspaces(): List<TogglWorkspace>
+
   @GetExchange("/workspaces/{workspaceId}/projects")
   fun getProjects(
       @PathVariable workspaceId: Long,
