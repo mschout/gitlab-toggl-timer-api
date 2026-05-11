@@ -26,7 +26,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirec
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @WebMvcTest(controllers = [TimerWebController::class])
-@Import(SecurityConfig::class, SecurityConfigWebMvcTest.MockBeans::class)
+@Import(SecurityConfig::class, AuthConfiguration::class, SecurityConfigWebMvcTest.MockBeans::class)
 class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
 
   @TestConfiguration

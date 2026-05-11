@@ -45,6 +45,8 @@ app:
   encryption:
     password: ${APP_ENCRYPTION_PASSWORD}
     salt: ${APP_ENCRYPTION_SALT}
+  auth:
+    password-login-enabled: ${APP_AUTH_PASSWORD_LOGIN_ENABLED:true}
 
 logging:
   level:

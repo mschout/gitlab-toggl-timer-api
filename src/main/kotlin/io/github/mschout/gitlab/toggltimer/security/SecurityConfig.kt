@@ -18,31 +18,38 @@ class SecurityConfig {
       http: HttpSecurity,
       customOidcUserService: CustomOidcUserService,
       onboardingFilter: OnboardingFilter,
-  ): SecurityFilterChain =
-      http
-          .authorizeHttpRequests {
-            it.requestMatchers(
-                    "/",
-                    "/login",
-                    "/error",
-                    "/css/**",
-                    "/static/**",
-                    "/webjars/**",
-                    "/actuator/health",
-                )
-                .permitAll()
-                .anyRequest()
-                .authenticated()
-          }
-          .formLogin { it.loginPage("/login").defaultSuccessUrl("/timer", true).permitAll() }
-          .oauth2Login {
-            it.loginPage("/login")
-                .userInfoEndpoint { ui -> ui.oidcUserService(customOidcUserService) }
-                .defaultSuccessUrl("/timer", true)
-          }
-          .logout { it.logoutSuccessUrl("/").permitAll() }
-          .addFilterAfter(onboardingFilter, AuthorizationFilter::class.java)
-          .build()
+      authProperties: AuthProperties,
+  ): SecurityFilterChain {
+    http.authorizeHttpRequests {
+      it.requestMatchers(
+              "/",
+              "/login",
+              "/error",
+              "/css/**",
+              "/static/**",
+              "/webjars/**",
+              "/actuator/health",
+          )
+          .permitAll()
+          .anyRequest()
+          .authenticated()
+    }
+
+    if (authProperties.passwordLoginEnabled) {
+      http.formLogin { it.loginPage("/login").defaultSuccessUrl("/timer", true).permitAll() }
+    }
+
+    http
+        .oauth2Login {
+          it.loginPage("/login")
+              .userInfoEndpoint { ui -> ui.oidcUserService(customOidcUserService) }
+              .defaultSuccessUrl("/timer", true)
+        }
+        .logout { it.logoutSuccessUrl("/").permitAll() }
+        .addFilterAfter(onboardingFilter, AuthorizationFilter::class.java)
+
+    return http.build()
+  }
 
   @Bean
   fun passwordEncoder(): PasswordEncoder =
