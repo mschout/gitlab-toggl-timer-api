@@ -2,10 +2,14 @@ spring:
   application:
     name: gitlab-toggl-timer
 
+  docker:
+    compose:
+      file: compose-dev.yaml
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/gitlab_toggl_timer}
     username: ${DB_USERNAME:gitlab_toggl_timer}
-    password: ${DB_PASSWORD}
+    password: ${DB_PASSWORD:}
 
   jpa:
     open-in-view: false

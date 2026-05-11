@@ -35,6 +35,7 @@ dependencies {
   runtimeOnly(libs.postgresql)
 
   developmentOnly("org.springframework.boot:spring-boot-devtools")
+  developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 
   testImplementation("org.springframework.boot:spring-boot-starter-test")
   testImplementation(libs.bundles.kotest)

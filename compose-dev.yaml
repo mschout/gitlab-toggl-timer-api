@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: gitlab_toggl_timer
+      POSTGRES_USER: gitlab_toggl_timer
+      POSTGRES_PASSWORD: gitlab_toggl_timer
+    ports:
+      - "5432:5432"

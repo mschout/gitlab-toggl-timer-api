@@ -16,17 +16,27 @@ possibly not useful to anyone except myself.
 
 If you want to compile this outside of Docker, you need Java 25.
 
+# Local development
+
+`./gradlew bootRun` uses Spring Boot's Docker Compose support to start a Postgres container from `compose-dev.yaml` and
+wire the datasource automatically — you do not need to set `DB_*` env vars locally. `GITLAB_ACCESS_TOKEN`,
+`TOGGL_API_KEY`, and the `OIDC_*` variables are still required. The container is stopped when the app exits.
+
 # How to run it
 
 1. Clone the repo.
 2. Build the docker image with `./scripts/build-docker-image`.
-3. Provision a PostgreSQL database and an OIDC client (see below). The bundled `docker-compose.yml` only runs the app container; you'll need to add a `postgres` service (or run Postgres separately) and pass the `DB_*` and `OIDC_*` variables through the `environment:` block.
+3. Provision a PostgreSQL database and an OIDC client (see below). The bundled `docker-compose.yml` only runs the app
+   container; you'll need to add a `postgres` service (or run Postgres separately) and pass the `DB_*` and `OIDC_*`
+   variables through the `environment:` block.
 4. Define the required environment variables (see below).
 5. Run `docker compose up -d`.
 
-The web UI is at http://localhost:8080 — visiting any protected page will redirect you to `/login` where you can sign in via OIDC. The Swagger UI is at http://localhost:8080/swagger-ui.html.
+The web UI is at http://localhost:8080 — visiting any protected page will redirect you to `/login` where you can sign in
+via OIDC. The Swagger UI is at http://localhost:8080/swagger-ui.html.
 
-On first OIDC sign-in a user record is auto-provisioned from the provider's `sub`/`email`/`name` claims; there is no public signup form.
+On first OIDC sign-in a user record is auto-provisioned from the provider's `sub`/`email`/`name` claims; there is no
+public signup form.
 
 # Environment Variables
 
