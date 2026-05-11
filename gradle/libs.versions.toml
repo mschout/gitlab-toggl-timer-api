@@ -16,8 +16,8 @@ testcontainers = "1.21.3"
 
 [libraries]
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
-flyway-core = { module = "org.flywaydb:flyway-core" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway", version.ref = "springBoot" }
 gitlab4j-api = { module = "org.gitlab4j:gitlab4j-api", version.ref = "gitlab4jApi" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
