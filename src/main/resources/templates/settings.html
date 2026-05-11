@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{layout/base :: layout('Settings', ~{::main})}"
+  lang="en"
+>
+  <body>
+    <main>
+      <section class="mb-4">
+        <h1 class="display-6 mb-1">
+          <i class="bi bi-gear text-primary me-2"></i>Settings
+        </h1>
+        <p class="lead text-body-secondary mb-0">
+          Configure your personal GitLab and Toggl credentials. They are encrypted at rest.
+        </p>
+      </section>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <form th:object="${form}" th:action="@{/settings}" method="post">
+            <div class="row g-3">
+              <div class="col-12">
+                <label for="gitlabAccessToken" class="form-label">GitLab access token</label>
+                <input
+                  type="password"
+                  id="gitlabAccessToken"
+                  class="form-control"
+                  th:field="*{gitlabAccessToken}"
+                  autocomplete="off"
+                  th:placeholder="${hasGitlabToken} ? '••••••••  (leave blank to keep current)' : 'Personal access token with read_api scope'"
+                />
+                <div class="form-text" th:if="${hasGitlabToken}">
+                  A token is currently set. Submit a new value to replace it.
+                </div>
+              </div>
+
+              <div class="col-12">
+                <label for="togglApiKey" class="form-label">Toggl API key</label>
+                <input
+                  type="password"
+                  id="togglApiKey"
+                  class="form-control"
+                  th:field="*{togglApiKey}"
+                  autocomplete="off"
+                  th:placeholder="${hasTogglApiKey} ? '••••••••  (leave blank to keep current)' : 'Found under Profile → API Token in Toggl'"
+                />
+                <div class="form-text" th:if="${hasTogglApiKey}">
+                  An API key is currently set. Submit a new value to replace it.
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i>Save
+              </button>
+              <a th:href="@{/timer}" class="btn btn-link">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
