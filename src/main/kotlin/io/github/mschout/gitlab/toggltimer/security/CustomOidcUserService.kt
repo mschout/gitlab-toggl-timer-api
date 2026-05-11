@@ -50,11 +50,15 @@ class CustomOidcUserService(
 
   @Transactional
   fun findOrCreate(provider: String, subject: String, email: String, displayName: String?): User {
-    identityRepository.findByProviderAndSubject(provider, subject)?.let {
-      // Touch roles to initialize the lazy User proxy before the session closes.
-      val user = it.user
-      user.roles.size
-      return user
+    identityRepository.findByProviderAndSubject(provider, subject)?.let { identity ->
+      // Re-fetch the user by id so the eagerly-mapped roles collection is loaded
+      // even if @Transactional did not actually intercept this call (Spring AOP
+      // self-invocation via the OIDC filter chain is fragile here). Accessing
+      // identity.user.id on the lazy proxy is safe — Hibernate exposes @Id
+      // without triggering initialization.
+      return userRepository.findById(identity.user.id).orElseThrow {
+        IllegalStateException("OIDC identity ${identity.id} references missing user")
+      }
     }
 
     val user =

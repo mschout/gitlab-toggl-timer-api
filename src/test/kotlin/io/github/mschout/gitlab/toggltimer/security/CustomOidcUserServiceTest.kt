@@ -9,6 +9,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.util.Optional
 import org.junit.jupiter.api.Test
 
 class CustomOidcUserServiceTest {
@@ -53,9 +54,10 @@ class CustomOidcUserServiceTest {
 
   @Test
   fun `returns existing user when provider and subject already linked`() {
-    val existing = User(email = "carol@example.com", displayName = "Carol")
+    val existing = User(email = "carol@example.com", displayName = "Carol", id = 99L)
     val identity = UserAuthIdentity(provider = "oidc", subject = "sub-3", user = existing)
     every { identityRepo.findByProviderAndSubject("oidc", "sub-3") } returns identity
+    every { userRepo.findById(99L) } returns Optional.of(existing)
 
     val result = service.findOrCreate("oidc", "sub-3", "carol@example.com", "Carol")
 
