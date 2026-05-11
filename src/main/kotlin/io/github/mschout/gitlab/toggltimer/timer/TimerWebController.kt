@@ -1,6 +1,9 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
 import org.springframework.stereotype.Controller
@@ -14,22 +17,25 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.servlet.ModelAndView
 
+private val logger = KotlinLogging.logger {}
+
 @Controller
 @RequestMapping("/timer")
 class TimerWebController(
     private val timerService: TimerService,
     private val credentialsService: CurrentUserCredentialsService,
+    private val togglService: TogglService,
 ) {
 
   @GetMapping
   fun index(model: Model): String {
-    if (!model.containsAttribute("form")) {
-      model.addAttribute(
-          "form",
-          TimerForm(workspaceId = credentialsService.currentTogglWorkspaceId()),
-      )
-    }
+    val form =
+        model.getAttribute("form") as? TimerForm
+            ?: TimerForm(workspaceId = credentialsService.currentTogglWorkspaceId()).also {
+              model.addAttribute("form", it)
+            }
     model.addAttribute("message", "Welcome to the Timer Page!")
+    loadDropdownData(form, model)
     return "timer-index"
   }
 
@@ -52,7 +58,7 @@ class TimerWebController(
       response: HttpServletResponse,
   ): String {
     if (bindingResult.hasErrors()) {
-      return formErrorView(model, hxRequest, response)
+      return formErrorView(form, model, hxRequest, response)
     }
     val project = timerService.createProject(form.toCreateProjectRequest())
     model.addAttribute("project", project)
@@ -80,24 +86,71 @@ class TimerWebController(
       response: HttpServletResponse,
   ): String {
     if (bindingResult.hasErrors()) {
-      return formErrorView(model, hxRequest, response)
+      return formErrorView(form, model, hxRequest, response)
     }
     val start = timerService.startTimer(form.toStartTimerRequest())
     model.addAttribute("startTime", start)
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 
+  @GetMapping("/clients")
+  fun clientsFragment(@RequestParam(required = false) workspaceId: Long?, model: Model): String {
+    val result = workspaceId?.let { runCatching { togglService.fetchClients(it) } }
+    val clients = result?.getOrDefault(emptyList()) ?: emptyList()
+    val error =
+        result?.exceptionOrNull()?.let { ex ->
+          logger.warn(ex) { "Failed to fetch Toggl clients for workspace $workspaceId" }
+          "Could not load Toggl clients — check that your API key is valid."
+        }
+    model.addAttribute("clients", clients)
+    model.addAttribute("clientsFetchError", error)
+    model.addAttribute("togglFetchError", null)
+    return "timer-index :: client-select"
+  }
+
   private fun formErrorView(
+      form: TimerForm,
       model: Model,
       hxRequest: Boolean,
       response: HttpServletResponse,
   ): String {
     model.addAttribute("message", "Welcome to the Timer Page!")
+    loadDropdownData(form, model)
     if (hxRequest) {
       response.setHeader("HX-Retarget", "#timer-form-card")
       response.setHeader("HX-Reswap", "outerHTML")
       return "timer-index :: timer-form"
     }
     return "timer-index"
+  }
+
+  private fun loadDropdownData(form: TimerForm, model: Model) {
+    val workspacesResult = runCatching { togglService.fetchWorkspaces() }
+    val workspaces: List<TogglWorkspace> = workspacesResult.getOrDefault(emptyList())
+    val togglFetchError =
+        workspacesResult.exceptionOrNull()?.let { ex ->
+          logger.warn(ex) { "Failed to fetch Toggl workspaces" }
+          "Could not load Toggl workspaces — check that your API key is valid."
+        }
+
+    val clients: List<TogglWorkspaceClient>
+    val clientsFetchError: String?
+    if (togglFetchError != null || form.workspaceId == null) {
+      clients = emptyList()
+      clientsFetchError = null
+    } else {
+      val clientsResult = runCatching { togglService.fetchClients(form.workspaceId) }
+      clients = clientsResult.getOrDefault(emptyList())
+      clientsFetchError =
+          clientsResult.exceptionOrNull()?.let { ex ->
+            logger.warn(ex) { "Failed to fetch Toggl clients for workspace ${form.workspaceId}" }
+            "Could not load Toggl clients — check that your API key is valid."
+          }
+    }
+
+    model.addAttribute("workspaces", workspaces)
+    model.addAttribute("clients", clients)
+    model.addAttribute("togglFetchError", togglFetchError)
+    model.addAttribute("clientsFetchError", clientsFetchError)
   }
 }

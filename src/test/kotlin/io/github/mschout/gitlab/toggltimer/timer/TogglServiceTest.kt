@@ -5,6 +5,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
@@ -137,6 +138,41 @@ class TogglServiceTest {
 
     verify { togglClientFactory.forApiKey("brand-new-key") }
     verify(exactly = 0) { credentialsService.requireTogglApiKey() }
+  }
+
+  @Test
+  fun `fetchWorkspaces (no-arg) uses the saved api key from credentialsService`() {
+    val workspaces =
+        listOf(TogglWorkspace(id = 1L, name = "Alpha"), TogglWorkspace(id = 2L, name = "Beta"))
+    every { togglClient.getWorkspaces() } returns workspaces
+
+    service.fetchWorkspaces() shouldBe workspaces
+
+    verify { credentialsService.requireTogglApiKey() }
+    verify { togglClientFactory.forApiKey("test-api-key") }
+  }
+
+  @Test
+  fun `fetchClients returns clients from Toggl using the saved api key`() {
+    val clients =
+        listOf(
+            TogglWorkspaceClient(id = 10L, name = "Globex"),
+            TogglWorkspaceClient(id = 11L, name = "Initech"),
+        )
+    every { togglClient.getClients(7L) } returns clients
+
+    service.fetchClients(7L) shouldBe clients
+
+    verify { credentialsService.requireTogglApiKey() }
+    verify { togglClientFactory.forApiKey("test-api-key") }
+    verify { togglClient.getClients(7L) }
+  }
+
+  @Test
+  fun `fetchClients propagates exceptions from the http client`() {
+    every { togglClient.getClients(7L) } throws RuntimeException("toggl down")
+
+    shouldThrow<RuntimeException> { service.fetchClients(7L) }
   }
 
   @Test

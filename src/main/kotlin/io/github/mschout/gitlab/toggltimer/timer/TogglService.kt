@@ -5,6 +5,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
@@ -48,6 +49,11 @@ class TogglService(
 
   fun fetchWorkspaces(apiKey: String): List<TogglWorkspace> =
       togglClientFactory.forApiKey(apiKey).getWorkspaces()
+
+  fun fetchWorkspaces(): List<TogglWorkspace> = togglClient().getWorkspaces()
+
+  fun fetchClients(workspaceId: Long): List<TogglWorkspaceClient> =
+      togglClient().getClients(workspaceId)
 
   private fun togglClient(): TogglClient =
       togglClientFactory.forApiKey(credentialsService.requireTogglApiKey())

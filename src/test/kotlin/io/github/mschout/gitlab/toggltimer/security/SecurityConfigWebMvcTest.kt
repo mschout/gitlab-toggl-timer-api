@@ -2,6 +2,7 @@ package io.github.mschout.gitlab.toggltimer.security
 
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
+import io.github.mschout.gitlab.toggltimer.timer.TogglService
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.mschout.gitlab.toggltimer.user.User
 import io.github.mschout.gitlab.toggltimer.user.UserAuthIdentityRepository
@@ -41,6 +42,8 @@ class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
         )
 
     @Bean fun timerService(): TimerService = mockk(relaxed = true)
+
+    @Bean fun togglService(): TogglService = mockk(relaxed = true)
 
     @Bean fun currentUserCredentialsService(): CurrentUserCredentialsService = mockk(relaxed = true)
 

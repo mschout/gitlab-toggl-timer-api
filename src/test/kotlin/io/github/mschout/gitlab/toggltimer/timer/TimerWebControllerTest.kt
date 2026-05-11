@@ -1,8 +1,11 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.assertSoftly
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
@@ -20,14 +23,18 @@ class TimerWebControllerTest {
 
   private lateinit var timerService: TimerService
   private lateinit var credentialsService: CurrentUserCredentialsService
+  private lateinit var togglService: TogglService
   private lateinit var controller: TimerWebController
 
   @BeforeEach
   fun setUp() {
     timerService = mockk()
     credentialsService = mockk()
+    togglService = mockk()
     every { credentialsService.currentTogglWorkspaceId() } returns null
-    controller = TimerWebController(timerService, credentialsService)
+    every { togglService.fetchWorkspaces() } returns emptyList()
+    every { togglService.fetchClients(any()) } returns emptyList()
+    controller = TimerWebController(timerService, credentialsService, togglService)
   }
 
   @Test
@@ -62,6 +69,113 @@ class TimerWebControllerTest {
     controller.index(model)
 
     model["form"] shouldBeSameInstanceAs existing
+  }
+
+  @Test
+  fun `index loads workspaces and clients into the model when fetch succeeds`() {
+    every { credentialsService.currentTogglWorkspaceId() } returns 7L
+    val workspaces = listOf(TogglWorkspace(id = 7L, name = "Acme"))
+    val clients = listOf(TogglWorkspaceClient(id = 5L, name = "Globex"))
+    every { togglService.fetchWorkspaces() } returns workspaces
+    every { togglService.fetchClients(7L) } returns clients
+    val model = ExtendedModelMap()
+
+    controller.index(model)
+
+    assertSoftly {
+      model["workspaces"] shouldBe workspaces
+      model["clients"] shouldBe clients
+      model["togglFetchError"].shouldBeNull()
+      model["clientsFetchError"].shouldBeNull()
+    }
+  }
+
+  @Test
+  fun `index sets togglFetchError when fetchWorkspaces throws`() {
+    every { togglService.fetchWorkspaces() } throws RuntimeException("boom")
+    val model = ExtendedModelMap()
+
+    controller.index(model)
+
+    assertSoftly {
+      (model["workspaces"] as List<*>).shouldBeEmpty()
+      (model["clients"] as List<*>).shouldBeEmpty()
+      model["togglFetchError"] shouldBe
+          "Could not load Toggl workspaces — check that your API key is valid."
+    }
+    verify(exactly = 0) { togglService.fetchClients(any()) }
+  }
+
+  @Test
+  fun `index does not call fetchClients when form has no workspaceId`() {
+    every { togglService.fetchWorkspaces() } returns listOf(TogglWorkspace(id = 1L, name = "Acme"))
+    val model = ExtendedModelMap()
+
+    controller.index(model)
+
+    (model["clients"] as List<*>).shouldBeEmpty()
+    verify(exactly = 0) { togglService.fetchClients(any()) }
+  }
+
+  @Test
+  fun `index sets clientsFetchError when fetchClients throws`() {
+    every { credentialsService.currentTogglWorkspaceId() } returns 7L
+    every { togglService.fetchWorkspaces() } returns listOf(TogglWorkspace(id = 7L, name = "Acme"))
+    every { togglService.fetchClients(7L) } throws RuntimeException("boom")
+    val model = ExtendedModelMap()
+
+    controller.index(model)
+
+    assertSoftly {
+      (model["clients"] as List<*>).shouldBeEmpty()
+      model["clientsFetchError"] shouldBe
+          "Could not load Toggl clients — check that your API key is valid."
+      model["togglFetchError"].shouldBeNull()
+    }
+  }
+
+  @Test
+  fun `clientsFragment returns timer-index client-select with clients for the workspace`() {
+    val clients = listOf(TogglWorkspaceClient(id = 5L, name = "Globex"))
+    every { togglService.fetchClients(7L) } returns clients
+    val model = ExtendedModelMap()
+
+    val view = controller.clientsFragment(workspaceId = 7L, model = model)
+
+    assertSoftly {
+      view shouldBe "timer-index :: client-select"
+      model["clients"] shouldBe clients
+      model["clientsFetchError"].shouldBeNull()
+    }
+  }
+
+  @Test
+  fun `clientsFragment surfaces clientsFetchError when fetchClients throws`() {
+    every { togglService.fetchClients(7L) } throws RuntimeException("boom")
+    val model = ExtendedModelMap()
+
+    val view = controller.clientsFragment(workspaceId = 7L, model = model)
+
+    assertSoftly {
+      view shouldBe "timer-index :: client-select"
+      (model["clients"] as List<*>).shouldBeEmpty()
+      model["clientsFetchError"] shouldBe
+          "Could not load Toggl clients — check that your API key is valid."
+    }
+  }
+
+  @Test
+  fun `clientsFragment returns empty clients when workspaceId is null`() {
+    val model = ExtendedModelMap()
+
+    val view = controller.clientsFragment(workspaceId = null, model = model)
+
+    assertSoftly {
+      view shouldBe "timer-index :: client-select"
+      (model["clients"] as List<*>).shouldBeEmpty()
+      model["clientsFetchError"].shouldBeNull()
+    }
+    verify(exactly = 0) { togglService.fetchClients(any()) }
   }
 
   @Test
@@ -180,6 +294,8 @@ class TimerWebControllerTest {
       response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
       response.getHeader("HX-Reswap") shouldBe "outerHTML"
       model["message"] shouldBe "Welcome to the Timer Page!"
+      model["workspaces"] shouldBe emptyList<TogglWorkspace>()
+      model["clients"] shouldBe emptyList<TogglWorkspaceClient>()
     }
     verify(exactly = 0) { timerService.createProject(any()) }
   }
@@ -204,6 +320,7 @@ class TimerWebControllerTest {
       view shouldBe "timer-index"
       response.getHeader("HX-Retarget").shouldBeNull()
       model["message"] shouldBe "Welcome to the Timer Page!"
+      model["workspaces"] shouldBe emptyList<TogglWorkspace>()
     }
     verify(exactly = 0) { timerService.createProject(any()) }
   }
@@ -273,6 +390,7 @@ class TimerWebControllerTest {
       view shouldBe "timer-index :: timer-form"
       response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
       response.getHeader("HX-Reswap") shouldBe "outerHTML"
+      model["workspaces"] shouldBe emptyList<TogglWorkspace>()
     }
     verify(exactly = 0) { timerService.startTimer(any()) }
   }

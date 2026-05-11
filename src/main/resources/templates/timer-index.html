@@ -19,10 +19,20 @@
             <i class="bi bi-bullseye me-2"></i>Track time on a GitLab issue
           </h2>
           <p class="text-body-secondary small mb-4">
-            Paste a GitLab issue URL and your Toggl workspace + client. Use
+            Paste a GitLab issue URL and choose your Toggl workspace + client. Use
             <strong>Create Project</strong> to set up a Toggl project for the issue, or
             <strong>Start Timer</strong> to begin tracking time immediately.
           </p>
+
+          <div
+            th:if="${togglFetchError != null}"
+            class="alert alert-warning"
+            role="alert"
+          >
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <span th:text="${togglFetchError}"></span>
+            Enter IDs manually below.
+          </div>
 
           <form th:object="${form}" novalidate>
             <div class="row g-3">
@@ -49,8 +59,9 @@
               </div>
 
               <div class="col-md-6">
-                <label for="workspaceId" class="form-label">Toggl workspace ID</label>
+                <label for="workspaceId" class="form-label">Toggl workspace</label>
                 <input
+                  th:if="${togglFetchError != null}"
                   type="number"
                   id="workspaceId"
                   class="form-control"
@@ -59,6 +70,26 @@
                   min="1"
                   required
                 />
+                <select
+                  th:if="${togglFetchError == null}"
+                  id="workspaceId"
+                  class="form-select"
+                  th:field="*{workspaceId}"
+                  th:errorclass="is-invalid"
+                  hx-get="/timer/clients"
+                  hx-trigger="change"
+                  hx-target="#client-select-wrapper"
+                  hx-swap="outerHTML"
+                  hx-include="this"
+                  required
+                >
+                  <option value="">Select a workspace…</option>
+                  <option
+                    th:each="ws : ${workspaces}"
+                    th:value="${ws.id}"
+                    th:text="${ws.name}"
+                  ></option>
+                </select>
                 <div
                   class="invalid-feedback"
                   th:if="${#fields.hasErrors('workspaceId')}"
@@ -66,22 +97,39 @@
                 ></div>
               </div>
 
-              <div class="col-md-6">
-                <label for="clientId" class="form-label">Toggl client ID</label>
+              <div th:fragment="client-select" id="client-select-wrapper" class="col-md-6">
+                <label for="clientId" class="form-label">Toggl client</label>
+                <div
+                  th:if="${clientsFetchError != null}"
+                  class="alert alert-warning py-2 mb-2"
+                  role="alert"
+                  th:text="${clientsFetchError}"
+                ></div>
                 <input
+                  th:if="${togglFetchError != null or clientsFetchError != null}"
                   type="number"
                   id="clientId"
+                  name="clientId"
                   class="form-control"
-                  th:field="*{clientId}"
-                  th:errorclass="is-invalid"
+                  th:value="${form?.clientId}"
                   min="1"
                   required
                 />
-                <div
-                  class="invalid-feedback"
-                  th:if="${#fields.hasErrors('clientId')}"
-                  th:errors="*{clientId}"
-                ></div>
+                <select
+                  th:if="${togglFetchError == null and clientsFetchError == null}"
+                  id="clientId"
+                  name="clientId"
+                  class="form-select"
+                  required
+                >
+                  <option value="">Select a client…</option>
+                  <option
+                    th:each="c : ${clients}"
+                    th:value="${c.id}"
+                    th:text="${c.name}"
+                    th:selected="${form != null and form.clientId != null and form.clientId == c.id}"
+                  ></option>
+                </select>
               </div>
 
               <div class="col-12">

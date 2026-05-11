@@ -25,4 +25,7 @@ interface TogglClient {
       @PathVariable workspaceId: Long,
       @RequestBody project: CreateProjectRequest,
   ): TogglProject
+
+  @GetExchange("/workspaces/{workspaceId}/clients")
+  fun getClients(@PathVariable workspaceId: Long): List<TogglWorkspaceClient>
 }
