@@ -27,6 +27,7 @@ class UserSettings(
     @Convert(converter = EncryptedStringConverter::class)
     @Column(name = "toggl_api_key_encrypted")
     var togglApiKey: String? = null,
+    @Column(name = "toggl_workspace_id") var togglWorkspaceId: Long? = null,
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false) var updatedAt: Instant = Instant.now(),
