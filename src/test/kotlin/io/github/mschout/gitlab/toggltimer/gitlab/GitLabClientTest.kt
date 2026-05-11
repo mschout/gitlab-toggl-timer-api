@@ -1,5 +1,6 @@
 package io.github.mschout.gitlab.toggltimer.gitlab
 
+import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -19,6 +20,8 @@ class GitLabClientTest {
   private lateinit var gitLabApi: GitLabApi
   private lateinit var issuesApi: IssuesApi
   private lateinit var searchApi: SearchApi
+  private lateinit var apiFactory: GitLabApiFactory
+  private lateinit var credentialsService: CurrentUserCredentialsService
   private lateinit var client: GitLabClient
 
   @BeforeEach
@@ -28,7 +31,12 @@ class GitLabClientTest {
     searchApi = mockk()
     every { gitLabApi.issuesApi } returns issuesApi
     every { gitLabApi.searchApi } returns searchApi
-    client = GitLabClient(gitLabApi)
+    apiFactory = mockk()
+    credentialsService = mockk()
+    every { credentialsService.requireGitlabToken() } returns "test-token"
+    every { credentialsService.currentUserId() } returns 1L
+    every { apiFactory.forToken("test-token") } returns gitLabApi
+    client = GitLabClient(apiFactory, credentialsService)
   }
 
   @Test

@@ -22,8 +22,7 @@ spring:
             user-info-uri: http://localhost/issuer-test/userinfo
             user-name-attribute: sub
 
-gitlab:
-  accessToken: test-gitlab-token
-
-toggl:
-  apiKey: test-toggl-key
+app:
+  encryption:
+    password: test-encryption-password
+    salt: deadbeefcafebabe1234567890abcdef

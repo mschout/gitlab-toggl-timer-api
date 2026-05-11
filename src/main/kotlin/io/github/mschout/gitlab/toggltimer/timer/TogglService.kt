@@ -2,7 +2,9 @@ package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateTogglProjectRequest
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
+import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
 import org.springframework.stereotype.Service
@@ -10,7 +12,10 @@ import org.springframework.stereotype.Service
 private val logger = KotlinLogging.logger {}
 
 @Service
-class TogglService(private val togglClient: TogglClient) {
+class TogglService(
+    private val togglClientFactory: TogglClientFactory,
+    private val credentialsService: CurrentUserCredentialsService,
+) {
 
   fun findOrCreateProject(
       workspaceId: Long,
@@ -18,7 +23,8 @@ class TogglService(private val togglClient: TogglClient) {
       issueNumber: Long,
       issueTitle: String,
   ): TogglProject {
-    val projects = togglClient.getProjects(workspaceId, name = issueNumber.toString())
+    val client = togglClient()
+    val projects = client.getProjects(workspaceId, name = issueNumber.toString())
 
     logger.info { "Found projects: $projects" }
 
@@ -31,13 +37,16 @@ class TogglService(private val togglClient: TogglClient) {
           val createProjectRequest =
               CreateTogglProjectRequest(name = "$issueNumber - $issueTitle", clientId = clientId)
 
-          togglClient.createProject(workspaceId, createProjectRequest)
+          client.createProject(workspaceId, createProjectRequest)
         }
   }
 
   fun startTimer(project: TogglProject, startTimerRequest: StartTimerRequest): Instant {
     TODO("Not yet implemented")
   }
+
+  private fun togglClient(): TogglClient =
+      togglClientFactory.forApiKey(credentialsService.requireTogglApiKey())
 
   companion object {
     private val PROJECT_COLOR_PALETTE =

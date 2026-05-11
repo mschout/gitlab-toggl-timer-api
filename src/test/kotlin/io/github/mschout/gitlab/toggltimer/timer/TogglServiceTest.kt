@@ -2,7 +2,9 @@ package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateTogglProjectRequest
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
+import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
@@ -14,12 +16,18 @@ import org.junit.jupiter.api.Test
 class TogglServiceTest {
 
   private lateinit var togglClient: TogglClient
+  private lateinit var togglClientFactory: TogglClientFactory
+  private lateinit var credentialsService: CurrentUserCredentialsService
   private lateinit var service: TogglService
 
   @BeforeEach
   fun setUp() {
     togglClient = mockk()
-    service = TogglService(togglClient)
+    togglClientFactory = mockk()
+    credentialsService = mockk()
+    every { credentialsService.requireTogglApiKey() } returns "test-api-key"
+    every { togglClientFactory.forApiKey("test-api-key") } returns togglClient
+    service = TogglService(togglClientFactory, credentialsService)
   }
 
   @Test
