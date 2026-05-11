@@ -1,6 +1,9 @@
 .envrc
 CLAUDE.md
 
+## Kotlin ##
+.kotlin/
+
 ### Gradle ###
 .gradle/
 
