@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{layout/base :: layout('Two-factor authentication', ~{::main})}"
+  lang="en"
+>
+  <body>
+    <main>
+      <section class="row justify-content-center">
+        <div class="col-md-5">
+          <div class="card shadow-sm">
+            <div class="card-body p-4">
+              <h1 class="h4 mb-3">
+                <i class="bi bi-shield-lock me-2"></i>Two-factor authentication
+              </h1>
+
+              <div class="alert alert-danger" th:if="${error}" role="alert" th:text="${error}"></div>
+
+              <form th:action="@{/login/mfa}" method="post" class="mb-3">
+                <input type="hidden" name="type" value="totp" />
+                <div class="mb-3">
+                  <label class="form-label" for="code">Authenticator code</label>
+                  <input
+                    class="form-control"
+                    type="text"
+                    name="code"
+                    id="code"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    maxlength="6"
+                    autofocus
+                    required
+                  />
+                  <div class="form-text">Enter the 6-digit code from your authenticator app.</div>
+                </div>
+                <button class="btn btn-primary w-100" type="submit">
+                  <i class="bi bi-check-lg me-1"></i>Verify
+                </button>
+              </form>
+
+              <hr />
+
+              <button class="btn btn-outline-secondary w-100 mb-2" type="button" id="passkey-btn">
+                <i class="bi bi-fingerprint me-1"></i>Use a passkey instead
+              </button>
+              <p class="small text-danger d-none" id="passkey-error"></p>
+
+              <details class="mt-3">
+                <summary class="text-body-secondary small">Use a recovery code</summary>
+                <form th:action="@{/login/mfa}" method="post" class="mt-2">
+                  <input type="hidden" name="type" value="recovery" />
+                  <div class="mb-2">
+                    <input
+                      class="form-control"
+                      type="text"
+                      name="code"
+                      autocomplete="off"
+                      placeholder="xxxxx-xxxxx"
+                      required
+                    />
+                  </div>
+                  <button class="btn btn-outline-primary btn-sm" type="submit">Use recovery code</button>
+                </form>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <script th:src="@{/login/webauthn.js}"></script>
+      <script>
+        (function () {
+          function meta(name) {
+            const el = document.querySelector('meta[name="' + name + '"]');
+            return el ? el.content : '';
+          }
+          const csrfToken = meta('_csrf');
+          const csrfHeader = meta('_csrf_header');
+          const btn = document.getElementById('passkey-btn');
+          if (!btn) return;
+          if (!window.PublicKeyCredential || !window.setupLogin) {
+            btn.disabled = true;
+            return;
+          }
+          const headers = {};
+          if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
+          window.setupLogin(headers, '', btn);
+        })();
+      </script>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{layout/base :: layout('Two-factor authentication', ~{::main})}"
+  lang="en"
+>
+  <body>
+    <main>
+      <section class="mb-4">
+        <h1 class="display-6 mb-1">
+          <i class="bi bi-shield-check text-primary me-2"></i>Two-factor authentication
+        </h1>
+        <p class="lead text-body-secondary mb-0">
+          Add an authenticator app or a passkey to require a second step at sign-in. You can
+          register more than one of either.
+        </p>
+      </section>
+
+      <div class="alert alert-success" th:if="${success}" role="alert" th:text="${success}"></div>
+      <div class="alert alert-danger" th:if="${error}" role="alert" th:text="${error}"></div>
+      <div class="alert alert-info" th:if="${info}" role="alert" th:text="${info}"></div>
+
+      <!-- Freshly generated recovery codes (shown once) -->
+      <div class="card border-warning shadow-sm mb-4" th:if="${freshRecoveryCodes}">
+        <div class="card-body">
+          <h2 class="h5">
+            <i class="bi bi-key-fill text-warning me-1"></i>Save your recovery codes
+          </h2>
+          <p class="mb-2 small text-body-secondary">
+            Each code can be used once if you lose access to your authenticator and passkeys.
+            They will not be shown again — copy or download them now.
+          </p>
+          <div id="recovery-codes" class="bg-light p-3 rounded border font-monospace small mb-2">
+            <div th:each="c : ${freshRecoveryCodes}" th:text="${c}">xxxxx-xxxxx</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="recovery-copy-btn">
+            <i class="bi bi-clipboard me-1"></i><span id="recovery-copy-label">Copy to clipboard</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Authenticator apps (TOTP) -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h2 class="h5 mb-3">
+            <i class="bi bi-phone text-primary me-1"></i>Authenticator apps
+          </h2>
+
+          <div th:if="${pendingTotpQr}" class="border rounded p-3 mb-3 bg-body-tertiary">
+            <p class="mb-2 small">Scan this QR code with your authenticator app, then enter the 6-digit code to confirm.</p>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+              <img th:src="${pendingTotpQr}" alt="TOTP QR code" width="180" height="180" />
+              <form th:action="@{/settings/mfa/totp/confirm}" method="post" class="flex-grow-1">
+                <div class="mb-2">
+                  <label class="form-label" for="code">Confirmation code</label>
+                  <input
+                    class="form-control"
+                    type="text"
+                    name="code"
+                    id="code"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    maxlength="6"
+                    required
+                  />
+                </div>
+                <button class="btn btn-primary" type="submit">
+                  <i class="bi bi-check-lg me-1"></i>Confirm
+                </button>
+                <button
+                  class="btn btn-link"
+                  type="submit"
+                  formaction="/settings/mfa/totp/cancel"
+                >
+                  Cancel
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <ul class="list-group mb-3" th:if="${!#lists.isEmpty(totps)}">
+            <li class="list-group-item d-flex justify-content-between align-items-center" th:each="t : ${totps}">
+              <div>
+                <span th:text="${t.label}">Authenticator</span>
+                <small class="text-body-secondary ms-2">Added <span th:text="${#temporals.format(t.createdAt, 'yyyy-MM-dd')}"></span></small>
+              </div>
+              <form th:action="@{|/settings/mfa/totp/${t.id}/delete|}" method="post">
+                <button class="btn btn-sm btn-outline-danger" type="submit">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </li>
+          </ul>
+          <p class="text-body-secondary small" th:if="${#lists.isEmpty(totps)}">
+            No authenticator apps registered yet.
+          </p>
+
+          <form th:action="@{/settings/mfa/totp/start}" method="post" th:unless="${pendingTotpQr}" class="d-flex gap-2 align-items-end">
+            <div class="flex-grow-1">
+              <label class="form-label small" for="label">Add an authenticator (label, optional)</label>
+              <input class="form-control" type="text" name="label" id="label" maxlength="100" placeholder="e.g. iPhone, 1Password" />
+            </div>
+            <button class="btn btn-outline-primary" type="submit">
+              <i class="bi bi-plus-lg me-1"></i>Add
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Passkeys -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h2 class="h5 mb-3">
+            <i class="bi bi-fingerprint text-primary me-1"></i>Passkeys
+          </h2>
+
+          <ul class="list-group mb-3" th:if="${!#lists.isEmpty(passkeys)}">
+            <li class="list-group-item d-flex justify-content-between align-items-center" th:each="p : ${passkeys}">
+              <div>
+                <span th:text="${p.label}">Passkey</span>
+                <small class="text-body-secondary ms-2" th:if="${p.created}">
+                  Added <span th:text="${#temporals.format(p.created, 'yyyy-MM-dd')}"></span>
+                </small>
+              </div>
+              <form th:action="@{|/settings/mfa/passkey/${p.credentialId}/delete|}" method="post">
+                <button class="btn btn-sm btn-outline-danger" type="submit">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </li>
+          </ul>
+          <p class="text-body-secondary small" th:if="${#lists.isEmpty(passkeys)}">
+            No passkeys registered yet.
+          </p>
+
+          <div class="d-flex gap-2 align-items-end">
+            <div class="flex-grow-1">
+              <label class="form-label small" for="passkey-label">Passkey label</label>
+              <input class="form-control" type="text" id="passkey-label" maxlength="100" placeholder="e.g. MacBook, YubiKey" />
+            </div>
+            <button class="btn btn-outline-primary" type="button" id="passkey-register-btn">
+              <i class="bi bi-plus-lg me-1"></i>Add passkey
+            </button>
+          </div>
+          <p class="small text-danger mt-2 d-none" id="passkey-error"></p>
+        </div>
+      </div>
+
+      <!-- Recovery codes -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h2 class="h5 mb-3">
+            <i class="bi bi-key text-primary me-1"></i>Recovery codes
+          </h2>
+          <p class="text-body-secondary small mb-3">
+            Unused codes remaining: <strong th:text="${recoveryCodeCount}">0</strong>. Regenerating
+            invalidates any previous codes.
+          </p>
+          <form th:action="@{/settings/mfa/recovery-codes}" method="post">
+            <button class="btn btn-outline-primary" type="submit">
+              <i class="bi bi-arrow-clockwise me-1"></i>Regenerate recovery codes
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <a th:href="@{/settings}" class="btn btn-link">Back to settings</a>
+
+      <script>
+        (function () {
+          const copyBtn = document.getElementById('recovery-copy-btn');
+          const codesEl = document.getElementById('recovery-codes');
+          if (!copyBtn || !codesEl) return;
+          const label = document.getElementById('recovery-copy-label');
+          copyBtn.addEventListener('click', async () => {
+            const codes = Array.from(codesEl.querySelectorAll('div'))
+              .map(el => el.textContent.trim())
+              .filter(Boolean)
+              .join('\n');
+            try {
+              await navigator.clipboard.writeText(codes);
+              if (label) label.textContent = 'Copied!';
+              setTimeout(() => { if (label) label.textContent = 'Copy to clipboard'; }, 2000);
+            } catch (e) {
+              if (label) label.textContent = 'Copy failed';
+              console.error('clipboard:', e);
+            }
+          });
+        })();
+      </script>
+      <script>
+        (function () {
+          function meta(name) {
+            const el = document.querySelector('meta[name="' + name + '"]');
+            return el ? el.content : '';
+          }
+          const csrfToken = meta('_csrf');
+          const csrfHeader = meta('_csrf_header');
+
+          function b64urlDecode(b) {
+            const s = b.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = s.length % 4 === 0 ? s : s + '='.repeat(4 - (s.length % 4));
+            const bin = atob(pad);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return buf.buffer;
+          }
+          function b64urlEncode(buf) {
+            const b = btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+            return b.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+          }
+
+          function showError(msg) {
+            const errorEl = document.getElementById('passkey-error');
+            if (!errorEl) return;
+            errorEl.textContent = msg;
+            errorEl.classList.remove('d-none');
+            console.error('passkey:', msg);
+          }
+
+          const btn = document.getElementById('passkey-register-btn');
+          if (!btn) return;
+          if (!window.PublicKeyCredential) {
+            btn.disabled = true;
+            showError('This browser does not support WebAuthn / passkeys.');
+            return;
+          }
+
+          btn.addEventListener('click', async () => {
+            const errorEl = document.getElementById('passkey-error');
+            if (errorEl) errorEl.classList.add('d-none');
+            const labelInput = document.getElementById('passkey-label');
+            const label = (labelInput && labelInput.value || '').trim();
+            if (!label) {
+              showError('Please give the passkey a label.');
+              return;
+            }
+            try {
+              const headers = { 'Content-Type': 'application/json' };
+              if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
+              const optsResp = await fetch('/webauthn/register/options', { method: 'POST', headers });
+              if (!optsResp.ok) throw new Error('register/options returned HTTP ' + optsResp.status);
+              const opts = await optsResp.json();
+              opts.challenge = b64urlDecode(opts.challenge);
+              opts.user.id = b64urlDecode(opts.user.id);
+              opts.excludeCredentials = (opts.excludeCredentials || []).map(function (c) { return Object.assign({}, c, { id: b64urlDecode(c.id) }); });
+              const cred = await navigator.credentials.create({ publicKey: opts });
+              const body = {
+                publicKey: {
+                  credential: {
+                    id: cred.id,
+                    rawId: b64urlEncode(cred.rawId),
+                    response: {
+                      attestationObject: b64urlEncode(cred.response.attestationObject),
+                      clientDataJSON: b64urlEncode(cred.response.clientDataJSON),
+                      transports: cred.response.getTransports ? cred.response.getTransports() : [],
+                    },
+                    type: cred.type,
+                    clientExtensionResults: cred.getClientExtensionResults(),
+                    authenticatorAttachment: cred.authenticatorAttachment,
+                  },
+                  label: label,
+                }
+              };
+              const regResp = await fetch('/webauthn/register', { method: 'POST', headers, body: JSON.stringify(body) });
+              if (!regResp.ok) throw new Error('register returned HTTP ' + regResp.status);
+              window.location.reload();
+            } catch (e) {
+              showError(e.message || String(e));
+            }
+          });
+        })();
+      </script>
+    </main>
+  </body>
+</html>

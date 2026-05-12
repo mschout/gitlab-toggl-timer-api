@@ -57,6 +57,7 @@ class OnboardingFilter(
             "/logout",
             "/login",
             "/oauth2",
+            "/webauthn",
             "/error",
             "/css",
             "/static",

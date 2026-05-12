@@ -25,7 +25,12 @@ class SignInSettingsControllerTest {
           credentialsService,
           userRepository,
           passwordEncoder,
-          AuthProperties(passwordLoginEnabled = passwordLoginEnabled),
+          AuthProperties(
+              passwordLoginEnabled = passwordLoginEnabled,
+              rpName = "Test",
+              rpId = "localhost",
+              origins = setOf("http://localhost:8080"),
+          ),
       )
 
   @Test

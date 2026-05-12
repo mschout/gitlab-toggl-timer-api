@@ -1,5 +1,6 @@
 package io.github.mschout.gitlab.toggltimer.security
 
+import io.github.mschout.gitlab.toggltimer.mfa.MfaService
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
 import io.github.mschout.gitlab.toggltimer.timer.TogglService
@@ -74,6 +75,10 @@ class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
     @Bean
     fun onboardingFilter(): OnboardingFilter =
         OnboardingFilter(userRepository(), userSettingsRepository())
+
+    @Bean fun preMfaGuardFilter(): PreMfaGuardFilter = PreMfaGuardFilter()
+
+    @Bean fun mfaService(): MfaService = mockk(relaxed = true)
   }
 
   @Test

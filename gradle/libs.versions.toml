@@ -11,8 +11,10 @@ mockk = "1.14.9"
 spotless = "8.4.0"
 springBoot = "4.0.6"
 springDependencyManagement = "1.1.7"
+springSecurityWebauthn = "7.0.5"
 springdoc = "3.0.3"
 testcontainers = "1.21.3"
+totp = "1.7.1"
 
 [libraries]
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
@@ -31,6 +33,9 @@ spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-
 spring-boot-starter-oauth2-client = { module = "org.springframework.boot:spring-boot-starter-oauth2-client", version.ref = "springBoot" }
 spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient", version.ref = "springBoot" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security", version.ref = "springBoot" }
+spring-security-webauthn = { module = "org.springframework.security:spring-security-webauthn", version.ref = "springSecurityWebauthn" }
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc", version.ref = "springBoot" }
+samstevens-totp = { module = "dev.samstevens.totp:totp", version.ref = "totp" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test", version.ref = "springBoot" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "springBoot" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation", version.ref = "springBoot" }
@@ -64,6 +69,7 @@ spring = [
     "spring-boot-starter-oauth2-client",
     "spring-boot-starter-restclient",
     "spring-boot-starter-security",
+    "spring-security-webauthn",
     "spring-boot-starter-thymeleaf",
     "spring-boot-starter-validation",
     "spring-boot-starter-web",
