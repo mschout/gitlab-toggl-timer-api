@@ -189,6 +189,7 @@
       <script>
         (function () {
           var STORAGE_KEY = 'gitlabTogglTimer.timer.selectedClient';
+          var ISSUE_URL_KEY = 'gitlabTogglTimer.timer.issueUrl';
 
           function getWorkspaceId() {
             var el = document.getElementById('workspaceId');
@@ -240,7 +241,19 @@
             }
           }
 
-          document.addEventListener('DOMContentLoaded', restoreClientSelection);
+          function restoreIssueUrl() {
+            var el = document.getElementById('issueUrl');
+            if (!el || el.value) return;
+            try {
+              var stored = localStorage.getItem(ISSUE_URL_KEY);
+              if (stored) el.value = stored;
+            } catch (e) {}
+          }
+
+          document.addEventListener('DOMContentLoaded', function () {
+            restoreClientSelection();
+            restoreIssueUrl();
+          });
 
           document.addEventListener('change', function (evt) {
             var target = evt.target;
@@ -254,6 +267,14 @@
               }
             } else if (target.id === 'workspaceId') {
               clearStored();
+            } else if (target.id === 'issueUrl') {
+              try {
+                if (target.value) {
+                  localStorage.setItem(ISSUE_URL_KEY, target.value);
+                } else {
+                  localStorage.removeItem(ISSUE_URL_KEY);
+                }
+              } catch (e) {}
             }
           });
 
