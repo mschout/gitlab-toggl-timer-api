@@ -25,6 +25,8 @@ class TimerService(
     return togglService.startTimer(project, startTimerRequest)
   }
 
+  fun stopTimer(): StopTimerResult? = togglService.stopRunningTimer()
+
   fun createProject(createProjectRequest: CreateProjectRequest): TogglProject {
     val issue = createProjectRequest.issue()
     val issueTitle = gitLabService.getGitlabIssueTitle(issue)

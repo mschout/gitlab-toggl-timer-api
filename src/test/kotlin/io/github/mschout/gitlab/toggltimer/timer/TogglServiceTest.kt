@@ -382,6 +382,48 @@ class TogglServiceTest {
   }
 
   @Test
+  fun `stopRunningTimer returns null when no timer is running`() {
+    every { togglClient.getCurrentTimeEntry() } returns null
+
+    service.stopRunningTimer().shouldBeNull()
+
+    verify(exactly = 0) { togglClient.stopTimeEntry(any(), any()) }
+  }
+
+  @Test
+  fun `stopRunningTimer stops the running entry and returns formatted elapsed duration`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = Instant.now().minusSeconds(125),
+            description = "going",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    every { togglClient.stopTimeEntry(7L, 1234L) } returns running.copy(duration = 125L)
+
+    val result = service.stopRunningTimer()
+
+    result.shouldNotBeNull()
+    (result.durationSeconds >= 125L) shouldBe true
+    (result.durationSeconds < 130L) shouldBe true
+    result.durationFormatted shouldBe StopTimerResult.formatHms(result.durationSeconds)
+    verify { togglClient.stopTimeEntry(7L, 1234L) }
+  }
+
+  @Test
+  fun `formatHms zero-pads hours minutes and seconds`() {
+    StopTimerResult.formatHms(0L) shouldBe "00:00:00"
+    StopTimerResult.formatHms(59L) shouldBe "00:00:59"
+    StopTimerResult.formatHms(60L) shouldBe "00:01:00"
+    StopTimerResult.formatHms(3661L) shouldBe "01:01:01"
+    StopTimerResult.formatHms(36000L) shouldBe "10:00:00"
+  }
+
+  @Test
   fun `getCurrentRunningTimer returns null when no timer is running`() {
     every { togglClient.getCurrentTimeEntry() } returns null
 

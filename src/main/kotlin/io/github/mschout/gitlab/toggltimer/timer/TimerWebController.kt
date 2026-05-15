@@ -109,6 +109,21 @@ class TimerWebController(
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 
+  @PostMapping("/stop")
+  fun stopTimerSubmit(
+      @RequestHeader(name = "HX-Request", required = false) hxRequest: Boolean = false,
+      model: Model,
+  ): String {
+    val result = timerService.stopTimer()
+    if (result != null) {
+      model.addAttribute("durationFormatted", result.durationFormatted)
+      model.addAttribute("stopped", true)
+    } else {
+      model.addAttribute("stopped", false)
+    }
+    return if (hxRequest) "stop-timer :: result-card" else "stop-timer"
+  }
+
   @GetMapping("/clients")
   fun clientsFragment(@RequestParam(required = false) workspaceId: Long?, model: Model): String {
     val result = workspaceId?.let { runCatching { togglService.fetchClients(it) } }

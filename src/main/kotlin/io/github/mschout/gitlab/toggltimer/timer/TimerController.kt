@@ -20,6 +20,10 @@ class TimerController(private val timerService: TimerService) {
   fun startTimer(@Validated @RequestBody startTimerRequest: StartTimerRequest): Instant =
       timerService.startTimer(startTimerRequest).startTime
 
+  @PostMapping("/stop")
+  @Operation(summary = "Stop the currently running Toggl timer")
+  fun stopTimer(): StopTimerResult? = timerService.stopTimer()
+
   @PostMapping("/create-project")
   @Operation(summary = "Create a project in Toggl for a gitlab issue")
   fun createProject(

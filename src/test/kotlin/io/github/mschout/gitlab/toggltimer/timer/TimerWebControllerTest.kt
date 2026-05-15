@@ -463,6 +463,48 @@ class TimerWebControllerTest {
     verify(exactly = 0) { timerService.startTimer(any()) }
   }
 
+  @Test
+  fun `stopTimer POST returns full view when not HTMX with running timer`() {
+    every { timerService.stopTimer() } returns
+        StopTimerResult(durationSeconds = 125L, durationFormatted = "00:02:05")
+    val model = ExtendedModelMap()
+
+    val view = controller.stopTimerSubmit(hxRequest = false, model = model)
+
+    assertSoftly {
+      view shouldBe "stop-timer"
+      model["durationFormatted"] shouldBe "00:02:05"
+      model["stopped"] shouldBe true
+    }
+  }
+
+  @Test
+  fun `stopTimer POST returns fragment view when HTMX with running timer`() {
+    every { timerService.stopTimer() } returns
+        StopTimerResult(durationSeconds = 3661L, durationFormatted = "01:01:01")
+    val model = ExtendedModelMap()
+
+    val view = controller.stopTimerSubmit(hxRequest = true, model = model)
+
+    assertSoftly {
+      view shouldBe "stop-timer :: result-card"
+      model["durationFormatted"] shouldBe "01:01:01"
+      model["stopped"] shouldBe true
+    }
+  }
+
+  @Test
+  fun `stopTimer POST sets stopped=false when no timer was running`() {
+    every { timerService.stopTimer() } returns null
+    val model = ExtendedModelMap()
+
+    val view = controller.stopTimerSubmit(hxRequest = true, model = model)
+
+    view shouldBe "stop-timer :: result-card"
+    model["stopped"] shouldBe false
+    model.containsAttribute("durationFormatted") shouldBe false
+  }
+
   private fun validForm(description: String? = null) =
       TimerForm(
           issueUrl = "https://gitlab.com/g/p/-/issues/42",

@@ -9,6 +9,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.time.Duration
 import java.time.Instant
 import org.springframework.stereotype.Service
 
@@ -131,6 +132,31 @@ class TogglService(
         startTime = start,
         projectName = projectName,
         description = current.description,
+    )
+  }
+
+  fun stopRunningTimer(): StopTimerResult? {
+    val client = togglClient()
+    val current = client.getCurrentTimeEntry() ?: return null
+    val workspaceId =
+        current.workspaceId
+            ?: run {
+              logger.warn { "Running entry missing workspaceId; cannot stop" }
+              return null
+            }
+    val entryId =
+        current.id
+            ?: run {
+              logger.warn { "Running entry missing id; cannot stop" }
+              return null
+            }
+    val start = current.start
+    client.stopTimeEntry(workspaceId, entryId)
+    val elapsed =
+        if (start != null) Duration.between(start, Instant.now()).seconds.coerceAtLeast(0L) else 0L
+    return StopTimerResult(
+        durationSeconds = elapsed,
+        durationFormatted = StopTimerResult.formatHms(elapsed),
     )
   }
 
