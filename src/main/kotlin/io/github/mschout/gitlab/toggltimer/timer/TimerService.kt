@@ -2,7 +2,6 @@ package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
-import java.time.Instant
 import org.springframework.stereotype.Service
 
 @Service
@@ -11,7 +10,7 @@ class TimerService(
     private val togglService: TogglService,
 ) {
 
-  fun startTimer(startTimerRequest: StartTimerRequest): Instant {
+  fun startTimer(startTimerRequest: StartTimerRequest): StartTimerResult {
     val issue = startTimerRequest.issue()
     val issueTitle = gitLabService.getGitlabIssueTitle(issue)
 

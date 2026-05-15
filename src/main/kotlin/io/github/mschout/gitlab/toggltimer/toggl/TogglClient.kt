@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.service.annotation.GetExchange
 import org.springframework.web.service.annotation.HttpExchange
 import org.springframework.web.service.annotation.PostExchange
+import org.springframework.web.service.annotation.PutExchange
 
 @HttpExchange("https://api.track.toggl.com/api/v9")
 interface TogglClient {
@@ -28,4 +29,19 @@ interface TogglClient {
 
   @GetExchange("/workspaces/{workspaceId}/clients")
   fun getClients(@PathVariable workspaceId: Long): List<TogglWorkspaceClient>
+
+  @GetExchange("/me/time_entries/current") fun getCurrentTimeEntry(): TogglTimeEntry?
+
+  @PostExchange("/workspaces/{workspaceId}/time_entries")
+  fun createTimeEntry(
+      @PathVariable workspaceId: Long,
+      @RequestBody entry: TogglTimeEntry,
+  ): TogglTimeEntry
+
+  @PutExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}")
+  fun updateTimeEntry(
+      @PathVariable workspaceId: Long,
+      @PathVariable timeEntryId: Long,
+      @RequestBody entry: TogglTimeEntry,
+  ): TogglTimeEntry
 }

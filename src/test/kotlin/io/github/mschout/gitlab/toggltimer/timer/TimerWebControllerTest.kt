@@ -204,7 +204,7 @@ class TimerWebControllerTest {
   }
 
   @Test
-  fun `startTimer GET should delegate to timer service and expose start time in the model`() {
+  fun `startTimer GET should delegate to timer service and expose result fields in the model`() {
     val startInstant = Instant.parse("2026-05-08T15:30:00Z")
     val expectedRequest =
         StartTimerRequest(
@@ -212,7 +212,13 @@ class TimerWebControllerTest {
             workspaceId = 11L,
             clientId = 22L,
         )
-    every { timerService.startTimer(expectedRequest) } returns startInstant
+    val timerResult =
+        StartTimerResult(
+            startTime = startInstant,
+            projectName = "99 - Some issue",
+            description = "tracking",
+        )
+    every { timerService.startTimer(expectedRequest) } returns timerResult
 
     val mav =
         controller.startTimer(
@@ -224,6 +230,8 @@ class TimerWebControllerTest {
     assertSoftly(mav) {
       viewName shouldBe "start-timer"
       model["startTime"] shouldBe startInstant
+      model["projectName"] shouldBe "99 - Some issue"
+      model["description"] shouldBe "tracking"
     }
     verify { timerService.startTimer(expectedRequest) }
   }
@@ -329,7 +337,13 @@ class TimerWebControllerTest {
   fun `startTimer POST returns full view when not an HTMX request`() {
     val form = validForm(description = "tracking")
     val startInstant = Instant.parse("2026-05-08T15:30:00Z")
-    every { timerService.startTimer(form.toStartTimerRequest()) } returns startInstant
+    val timerResult =
+        StartTimerResult(
+            startTime = startInstant,
+            projectName = "42 - Some issue",
+            description = "tracking",
+        )
+    every { timerService.startTimer(form.toStartTimerRequest()) } returns timerResult
     val model = ExtendedModelMap()
     val response = MockHttpServletResponse()
 
@@ -345,6 +359,8 @@ class TimerWebControllerTest {
     assertSoftly {
       view shouldBe "start-timer"
       model["startTime"] shouldBe startInstant
+      model["projectName"] shouldBe "42 - Some issue"
+      model["description"] shouldBe "tracking"
       response.getHeader("HX-Retarget").shouldBeNull()
     }
   }
@@ -353,7 +369,13 @@ class TimerWebControllerTest {
   fun `startTimer POST returns fragment view when HTMX request`() {
     val form = validForm()
     val startInstant = Instant.parse("2026-05-08T15:30:00Z")
-    every { timerService.startTimer(form.toStartTimerRequest()) } returns startInstant
+    val timerResult =
+        StartTimerResult(
+            startTime = startInstant,
+            projectName = "42 - Some issue",
+            description = null,
+        )
+    every { timerService.startTimer(form.toStartTimerRequest()) } returns timerResult
     val model = ExtendedModelMap()
     val response = MockHttpServletResponse()
 
@@ -368,6 +390,8 @@ class TimerWebControllerTest {
 
     view shouldBe "start-timer :: result-card"
     model["startTime"] shouldBe startInstant
+    model["projectName"] shouldBe "42 - Some issue"
+    model["description"].shouldBeNull()
   }
 
   @Test

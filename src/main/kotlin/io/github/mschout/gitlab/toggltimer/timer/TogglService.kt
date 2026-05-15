@@ -4,6 +4,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateT
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
@@ -43,8 +44,72 @@ class TogglService(
         }
   }
 
-  fun startTimer(project: TogglProject, startTimerRequest: StartTimerRequest): Instant {
-    TODO("Not yet implemented")
+  fun startTimer(project: TogglProject, startTimerRequest: StartTimerRequest): StartTimerResult {
+    val client = togglClient()
+    val projectId = requireNotNull(project.id) { "Toggl project is missing an id" }
+    val current = client.getCurrentTimeEntry()
+
+    return when {
+      current == null -> {
+        val start = startTimerRequest.start ?: Instant.now()
+        val description = startTimerRequest.description?.takeIf { it.isNotBlank() }
+        val newEntry =
+            TogglTimeEntry(
+                workspaceId = startTimerRequest.workspaceId,
+                projectId = projectId,
+                start = start,
+                description = description,
+                duration = -1L,
+                createdWith = "Gitlab Toggl Timer",
+            )
+        client.createTimeEntry(startTimerRequest.workspaceId, newEntry)
+        StartTimerResult(startTime = start, projectName = project.name, description = description)
+      }
+
+      current.projectId == null -> {
+        val workspaceId =
+            requireNotNull(current.workspaceId) { "Running entry missing workspaceId" }
+        val entryId = requireNotNull(current.id) { "Running entry missing id" }
+        val start = requireNotNull(current.start) { "Running entry missing start" }
+        val newDescription =
+            startTimerRequest.description?.takeIf { it.isNotBlank() } ?: current.description
+        val updated =
+            TogglTimeEntry(
+                workspaceId = workspaceId,
+                projectId = projectId,
+                start = start,
+                description = newDescription,
+                duration = current.duration,
+                createdWith = current.createdWith ?: "Gitlab Toggl Timer",
+                id = entryId,
+            )
+        client.updateTimeEntry(workspaceId, entryId, updated)
+        StartTimerResult(
+            startTime = start,
+            projectName = project.name,
+            description = newDescription,
+        )
+      }
+
+      else -> {
+        val start = requireNotNull(current.start) { "Running entry missing start" }
+        val workspaceId =
+            requireNotNull(current.workspaceId) { "Running entry missing workspaceId" }
+        val runningProject =
+            runCatching { client.getProject(workspaceId, current.projectId) }
+                .onFailure {
+                  logger.warn(it) {
+                    "Failed to fetch Toggl project ${current.projectId} for running entry"
+                  }
+                }
+                .getOrNull()
+        StartTimerResult(
+            startTime = start,
+            projectName = runningProject?.name,
+            description = current.description,
+        )
+      }
+    }
   }
 
   fun fetchWorkspaces(apiKey: String): List<TogglWorkspace> =

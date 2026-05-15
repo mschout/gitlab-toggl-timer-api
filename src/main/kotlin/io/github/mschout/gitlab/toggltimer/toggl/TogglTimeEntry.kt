@@ -8,10 +8,11 @@ import tools.jackson.databind.annotation.JsonNaming
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class TogglTimeEntry(
-    val workspaceId: Long,
-    val projectId: Long,
-    val start: Instant,
+    val workspaceId: Long? = null,
+    val projectId: Long? = null,
+    val start: Instant? = null,
     val description: String? = null,
     val duration: Long = -1L,
-    val createdWith: String = "Gitlab Toggl Timer",
+    val createdWith: String? = null,
+    val id: Long? = null,
 )

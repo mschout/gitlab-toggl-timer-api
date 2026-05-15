@@ -38,14 +38,23 @@ class TimerServiceTest {
     val expectedIssue = GitLabIssue("mygroup", "myproject", 42L)
     val project = TogglProject(id = 100L, name = "42 - Resolved title", clientId = 5L)
     val timerStart = Instant.parse("2026-05-08T15:00:00Z")
+    val timerResult =
+        StartTimerResult(
+            startTime = timerStart,
+            projectName = "42 - Resolved title",
+            description = "tracking",
+        )
 
     every { gitLabService.getGitlabIssueTitle(expectedIssue) } returns "Resolved title"
     every { togglService.findOrCreateProject(7L, 5L, 42L, "Resolved title") } returns project
-    every { togglService.startTimer(project, request) } returns timerStart
+    every { togglService.startTimer(project, request) } returns timerResult
 
     val result = service.startTimer(request)
 
-    result shouldBe timerStart
+    result shouldBe timerResult
+    result.startTime shouldBe timerStart
+    result.projectName shouldBe "42 - Resolved title"
+    result.description shouldBe "tracking"
     verify { togglService.findOrCreateProject(7L, 5L, 42L, "Resolved title") }
     verify { togglService.startTimer(project, request) }
   }

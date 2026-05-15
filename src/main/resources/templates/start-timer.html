@@ -26,10 +26,51 @@
             </p>
             <dl class="row mb-0 small">
               <dt class="col-sm-3 text-body-secondary">Started at</dt>
-              <dd class="col-sm-9 mb-0">
-                <code th:text="${startTime}">2026-05-09T12:00:00Z</code>
+              <dd class="col-sm-9 mb-1">
+                <time
+                  class="js-local-time"
+                  th:attr="datetime=${startTime}"
+                  th:text="${startTime}"
+                  >2026-05-09T12:00:00Z</time
+                >
+              </dd>
+              <dt class="col-sm-3 text-body-secondary" th:if="${projectName != null}">Project</dt>
+              <dd
+                class="col-sm-9 mb-1"
+                th:if="${projectName != null}"
+                th:text="${projectName}"
+              >
+                Project name
+              </dd>
+              <dt
+                class="col-sm-3 text-body-secondary"
+                th:if="${description != null and !#strings.isEmpty(description)}"
+              >
+                Description
+              </dt>
+              <dd
+                class="col-sm-9 mb-0"
+                th:if="${description != null and !#strings.isEmpty(description)}"
+                th:text="${description}"
+              >
+                Description
               </dd>
             </dl>
+            <script>
+              (function () {
+                var fmt = new Intl.DateTimeFormat(undefined, {
+                  dateStyle: 'medium',
+                  timeStyle: 'medium',
+                });
+                document.querySelectorAll('time.js-local-time').forEach(function (el) {
+                  var iso = el.getAttribute('datetime');
+                  if (!iso) return;
+                  var d = new Date(iso);
+                  if (isNaN(d.getTime())) return;
+                  el.textContent = fmt.format(d);
+                });
+              })();
+            </script>
           </div>
         </div>
       </div>

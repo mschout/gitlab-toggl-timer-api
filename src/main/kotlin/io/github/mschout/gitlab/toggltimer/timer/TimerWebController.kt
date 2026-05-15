@@ -73,8 +73,12 @@ class TimerWebController(
   ): ModelAndView {
     val request =
         StartTimerRequest(issueUrl = issueUrl, workspaceId = workspaceId, clientId = clientId)
-    val start = timerService.startTimer(request)
-    return ModelAndView("start-timer").apply { addObject("startTime", start) }
+    val result = timerService.startTimer(request)
+    return ModelAndView("start-timer").apply {
+      addObject("startTime", result.startTime)
+      addObject("projectName", result.projectName)
+      addObject("description", result.description)
+    }
   }
 
   @PostMapping("/start")
@@ -88,8 +92,10 @@ class TimerWebController(
     if (bindingResult.hasErrors()) {
       return formErrorView(form, model, hxRequest, response)
     }
-    val start = timerService.startTimer(form.toStartTimerRequest())
-    model.addAttribute("startTime", start)
+    val result = timerService.startTimer(form.toStartTimerRequest())
+    model.addAttribute("startTime", result.startTime)
+    model.addAttribute("projectName", result.projectName)
+    model.addAttribute("description", result.description)
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 

@@ -4,15 +4,19 @@ import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateT
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
+import java.time.Instant
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -176,15 +180,203 @@ class TogglServiceTest {
   }
 
   @Test
-  fun `startTimer should throw NotImplementedError until implemented`() {
-    val project = TogglProject(id = 1L, name = "42 - X", clientId = 5L)
+  fun `startTimer creates a new running entry when no timer is running`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val explicitStart = Instant.parse("2026-05-15T12:00:00Z")
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+            start = explicitStart,
+            description = "hacking on 42",
+        )
+    every { togglClient.getCurrentTimeEntry() } returns null
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.createTimeEntry(7L, capture(captured)) } answers
+        {
+          captured.captured.copy(id = 555L)
+        }
+
+    val result = service.startTimer(project, request)
+
+    result.startTime shouldBe explicitStart
+    result.projectName shouldBe "42 - X"
+    result.description shouldBe "hacking on 42"
+    captured.captured.workspaceId shouldBe 7L
+    captured.captured.projectId shouldBe 99L
+    captured.captured.start shouldBe explicitStart
+    captured.captured.description shouldBe "hacking on 42"
+    captured.captured.duration shouldBe -1L
+    captured.captured.createdWith shouldBe "Gitlab Toggl Timer"
+    verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+  }
+
+  @Test
+  fun `startTimer uses Instant now when start is not provided and no timer is running`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
             issueUrl = "https://gitlab.com/g/p/-/issues/42",
             workspaceId = 7L,
             clientId = 5L,
         )
+    every { togglClient.getCurrentTimeEntry() } returns null
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.createTimeEntry(7L, capture(captured)) } answers
+        {
+          captured.captured.copy(id = 555L)
+        }
 
-    shouldThrow<NotImplementedError> { service.startTimer(project, request) }
+    val before = Instant.now()
+    val result = service.startTimer(project, request)
+    val after = Instant.now()
+
+    result.startTime.shouldNotBeNull()
+    (result.startTime >= before) shouldBe true
+    (result.startTime <= after) shouldBe true
+    result.projectName shouldBe "42 - X"
+    result.description shouldBe null
+    captured.captured.start shouldBe result.startTime
+    captured.captured.description shouldBe null
+  }
+
+  @Test
+  fun `startTimer assigns project to a running entry that has no project`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+        )
+    val existingStart = Instant.parse("2026-05-15T10:00:00Z")
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = null,
+            start = existingStart,
+            description = "already going",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.updateTimeEntry(7L, 1234L, capture(captured)) } answers
+        {
+          captured.captured
+        }
+
+    val result = service.startTimer(project, request)
+
+    result.startTime shouldBe existingStart
+    result.projectName shouldBe "42 - X"
+    result.description shouldBe "already going"
+    captured.captured.workspaceId shouldBe 7L
+    captured.captured.projectId shouldBe 99L
+    captured.captured.start shouldBe existingStart
+    captured.captured.description shouldBe "already going"
+    captured.captured.id shouldBe 1234L
+    captured.captured.createdWith shouldBe "Toggl Web"
+    verify(exactly = 0) { togglClient.createTimeEntry(any(), any()) }
+  }
+
+  @Test
+  fun `startTimer overwrites description on running entry when form provides one`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+            description = "fresh description",
+        )
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = null,
+            start = Instant.parse("2026-05-15T10:00:00Z"),
+            description = "stale",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.updateTimeEntry(7L, 1234L, capture(captured)) } answers
+        {
+          captured.captured
+        }
+
+    service.startTimer(project, request)
+
+    captured.captured.description shouldBe "fresh description"
+  }
+
+  @Test
+  fun `startTimer keeps existing description on running entry when form description is blank`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+            description = "   ",
+        )
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = null,
+            start = Instant.parse("2026-05-15T10:00:00Z"),
+            description = "keep me",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.updateTimeEntry(7L, 1234L, capture(captured)) } answers
+        {
+          captured.captured
+        }
+
+    service.startTimer(project, request)
+
+    captured.captured.description shouldBe "keep me"
+  }
+
+  @Test
+  fun `startTimer is a no-op when running entry already has a project`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+        )
+    val existingStart = Instant.parse("2026-05-15T09:30:00Z")
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = existingStart,
+            description = "doing something else",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    val runningProject = TogglProject(id = 88L, name = "88 - Other work", clientId = 5L)
+    every { togglClient.getCurrentTimeEntry() } returns running
+    every { togglClient.getProject(7L, 88L) } returns runningProject
+
+    val result = service.startTimer(project, request)
+
+    result.startTime shouldBe existingStart
+    result.projectName shouldBe "88 - Other work"
+    result.description shouldBe "doing something else"
+    verify { togglClient.getProject(7L, 88L) }
+    verify(exactly = 0) { togglClient.createTimeEntry(any(), any()) }
+    verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
   }
 }
