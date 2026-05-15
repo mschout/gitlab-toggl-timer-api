@@ -13,6 +13,8 @@
         <p class="lead text-body-secondary mb-0" th:text="${message}">Welcome</p>
       </section>
 
+      <div id="result" class="mb-4"></div>
+
       <div th:fragment="timer-form" id="timer-form-card" class="card shadow-sm">
         <div class="card-body p-4">
           <h2 class="h5 card-title mb-3">
@@ -183,8 +185,6 @@
           </form>
         </div>
       </div>
-
-      <div id="result" class="mt-4"></div>
 
       <script>
         (function () {
