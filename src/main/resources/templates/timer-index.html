@@ -185,6 +185,86 @@
       </div>
 
       <div id="result" class="mt-4"></div>
+
+      <script>
+        (function () {
+          var STORAGE_KEY = 'gitlabTogglTimer.timer.selectedClient';
+
+          function getWorkspaceId() {
+            var el = document.getElementById('workspaceId');
+            return el && el.value ? el.value : null;
+          }
+
+          function readStored() {
+            try {
+              var raw = localStorage.getItem(STORAGE_KEY);
+              return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+              return null;
+            }
+          }
+
+          function writeStored(workspaceId, clientId) {
+            try {
+              localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({ workspaceId: String(workspaceId), clientId: String(clientId) })
+              );
+            } catch (e) {}
+          }
+
+          function clearStored() {
+            try {
+              localStorage.removeItem(STORAGE_KEY);
+            } catch (e) {}
+          }
+
+          function restoreClientSelection() {
+            var clientEl = document.getElementById('clientId');
+            if (!clientEl) return;
+            if (clientEl.value) return;
+            var workspaceId = getWorkspaceId();
+            if (!workspaceId) return;
+            var stored = readStored();
+            if (!stored || stored.workspaceId !== String(workspaceId)) return;
+            var clientId = String(stored.clientId);
+            if (clientEl.tagName === 'SELECT') {
+              for (var i = 0; i < clientEl.options.length; i++) {
+                if (clientEl.options[i].value === clientId) {
+                  clientEl.value = clientId;
+                  return;
+                }
+              }
+            } else {
+              clientEl.value = clientId;
+            }
+          }
+
+          document.addEventListener('DOMContentLoaded', restoreClientSelection);
+
+          document.addEventListener('change', function (evt) {
+            var target = evt.target;
+            if (!target || !target.id) return;
+            if (target.id === 'clientId') {
+              var workspaceId = getWorkspaceId();
+              if (workspaceId && target.value) {
+                writeStored(workspaceId, target.value);
+              } else {
+                clearStored();
+              }
+            } else if (target.id === 'workspaceId') {
+              clearStored();
+            }
+          });
+
+          document.body.addEventListener('htmx:afterSwap', function (evt) {
+            var tgt = evt.detail && evt.detail.target;
+            if (tgt && tgt.id === 'client-select-wrapper') {
+              restoreClientSelection();
+            }
+          });
+        })();
+      </script>
     </main>
   </body>
 </html>
