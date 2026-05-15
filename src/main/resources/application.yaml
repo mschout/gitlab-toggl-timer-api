@@ -47,6 +47,8 @@ app:
     salt: ${APP_ENCRYPTION_SALT}
   auth:
     password-login-enabled: ${APP_AUTH_PASSWORD_LOGIN_ENABLED:true}
+    rp-id: ${APP_AUTH_RP_ID:localhost}
+    origins: ${APP_AUTH_ORIGINS:http://localhost:8080}
 
 logging:
   level:

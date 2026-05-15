@@ -89,6 +89,8 @@ To swap providers later, just change `OIDC_*` — no code changes needed.
 | Variable | Required | Default | Notes |
 |---|---|---|---|
 | `APP_AUTH_PASSWORD_LOGIN_ENABLED` | no | `true` | When `false`, the email + password form is removed from `/login`, the `/settings/sign-in` page returns 404, and Spring Security's form-login filter is not registered — leaving OIDC as the only way to sign in. Existing password hashes are kept in the database and become usable again if the flag is turned back on. |
+| `APP_AUTH_RP_ID` | yes (for passkeys, unless serving from `localhost`) | `localhost` | WebAuthn Relying Party ID — the bare domain you serve the app from, e.g. `timer.example.com`. Must be a registrable suffix of the browser's origin host, otherwise passkey registration fails with `'rp.id' cannot be used with the current origin`. Do not include a scheme or port. |
+| `APP_AUTH_ORIGINS` | yes (for passkeys, unless serving from `http://localhost:8080`) | `http://localhost:8080` | Comma-separated list of full origins (scheme + host + port) the browser will use when registering or asserting passkeys, e.g. `https://timer.example.com`. Must match what the browser sees, including `https` when behind a TLS-terminating proxy. |
 
 ## Reverse proxy / SSL termination
 
