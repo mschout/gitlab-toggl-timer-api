@@ -52,6 +52,15 @@
                     autocomplete="off"
                     required
                   />
+                  <button
+                    type="button"
+                    id="issueUrlClear"
+                    class="btn btn-outline-secondary"
+                    aria-label="Clear issue URL"
+                    title="Clear"
+                  >
+                    <i class="bi bi-x-lg"></i>
+                  </button>
                   <div
                     class="invalid-feedback"
                     th:if="${#fields.hasErrors('issueUrl')}"
@@ -276,6 +285,18 @@
                 }
               } catch (e) {}
             }
+          });
+
+          document.addEventListener('click', function (evt) {
+            var btn = evt.target.closest && evt.target.closest('#issueUrlClear');
+            if (!btn) return;
+            var input = document.getElementById('issueUrl');
+            if (!input) return;
+            input.value = '';
+            try {
+              localStorage.removeItem(ISSUE_URL_KEY);
+            } catch (e) {}
+            input.focus();
           });
 
           document.body.addEventListener('htmx:afterSwap', function (evt) {
