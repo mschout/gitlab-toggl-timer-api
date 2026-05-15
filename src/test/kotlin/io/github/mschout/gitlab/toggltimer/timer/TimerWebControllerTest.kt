@@ -34,6 +34,7 @@ class TimerWebControllerTest {
     every { credentialsService.currentTogglWorkspaceId() } returns null
     every { togglService.fetchWorkspaces() } returns emptyList()
     every { togglService.fetchClients(any()) } returns emptyList()
+    every { togglService.getCurrentRunningTimer() } returns null
     controller = TimerWebController(timerService, credentialsService, togglService)
   }
 
@@ -58,6 +59,49 @@ class TimerWebControllerTest {
     controller.index(model)
 
     (model["form"] as TimerForm).workspaceId shouldBe 99L
+  }
+
+  @Test
+  fun `index exposes running timer fields when a Toggl timer is already running`() {
+    val startInstant = Instant.parse("2026-05-15T10:00:00Z")
+    every { togglService.getCurrentRunningTimer() } returns
+        StartTimerResult(
+            startTime = startInstant,
+            projectName = "42 - Some issue",
+            description = "in progress",
+        )
+    val model = ExtendedModelMap()
+
+    val view = controller.index(model)
+
+    assertSoftly {
+      view shouldBe "timer-index"
+      model["startTime"] shouldBe startInstant
+      model["projectName"] shouldBe "42 - Some issue"
+      model["description"] shouldBe "in progress"
+    }
+  }
+
+  @Test
+  fun `index does not expose running timer fields when no timer is running`() {
+    val model = ExtendedModelMap()
+
+    controller.index(model)
+
+    model.containsAttribute("startTime") shouldBe false
+    model.containsAttribute("projectName") shouldBe false
+    model.containsAttribute("description") shouldBe false
+  }
+
+  @Test
+  fun `index does not crash when getCurrentRunningTimer throws`() {
+    every { togglService.getCurrentRunningTimer() } throws RuntimeException("toggl down")
+    val model = ExtendedModelMap()
+
+    val view = controller.index(model)
+
+    view shouldBe "timer-index"
+    model.containsAttribute("startTime") shouldBe false
   }
 
   @Test

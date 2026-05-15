@@ -36,6 +36,16 @@ class TimerWebController(
             }
     model.addAttribute("message", "Welcome to the Timer Page!")
     loadDropdownData(form, model)
+
+    val running =
+        runCatching { togglService.getCurrentRunningTimer() }
+            .onFailure { logger.warn(it) { "Failed to fetch current Toggl timer" } }
+            .getOrNull()
+    if (running != null) {
+      model.addAttribute("startTime", running.startTime)
+      model.addAttribute("projectName", running.projectName)
+      model.addAttribute("description", running.description)
+    }
     return "timer-index"
   }
 

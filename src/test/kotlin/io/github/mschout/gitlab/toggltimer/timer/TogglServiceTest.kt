@@ -9,6 +9,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
@@ -378,5 +379,88 @@ class TogglServiceTest {
     verify { togglClient.getProject(7L, 88L) }
     verify(exactly = 0) { togglClient.createTimeEntry(any(), any()) }
     verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+  }
+
+  @Test
+  fun `getCurrentRunningTimer returns null when no timer is running`() {
+    every { togglClient.getCurrentTimeEntry() } returns null
+
+    service.getCurrentRunningTimer().shouldBeNull()
+
+    verify(exactly = 0) { togglClient.getProject(any(), any()) }
+  }
+
+  @Test
+  fun `getCurrentRunningTimer returns running entry with project name`() {
+    val startInstant = Instant.parse("2026-05-15T10:00:00Z")
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = startInstant,
+            description = "currently going",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    val runningProject = TogglProject(id = 88L, name = "88 - Some project", clientId = 5L)
+    every { togglClient.getCurrentTimeEntry() } returns running
+    every { togglClient.getProject(7L, 88L) } returns runningProject
+
+    val result = service.getCurrentRunningTimer()
+
+    result.shouldNotBeNull()
+    result.startTime shouldBe startInstant
+    result.projectName shouldBe "88 - Some project"
+    result.description shouldBe "currently going"
+    verify { togglClient.getProject(7L, 88L) }
+  }
+
+  @Test
+  fun `getCurrentRunningTimer returns null projectName when entry has no projectId`() {
+    val startInstant = Instant.parse("2026-05-15T10:00:00Z")
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = null,
+            start = startInstant,
+            description = "no project yet",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+
+    val result = service.getCurrentRunningTimer()
+
+    result.shouldNotBeNull()
+    result.startTime shouldBe startInstant
+    result.projectName.shouldBeNull()
+    result.description shouldBe "no project yet"
+    verify(exactly = 0) { togglClient.getProject(any(), any()) }
+  }
+
+  @Test
+  fun `getCurrentRunningTimer returns null projectName when getProject throws`() {
+    val startInstant = Instant.parse("2026-05-15T10:00:00Z")
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = startInstant,
+            description = "going",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    every { togglClient.getProject(7L, 88L) } throws RuntimeException("toggl down")
+
+    val result = service.getCurrentRunningTimer()
+
+    result.shouldNotBeNull()
+    result.startTime shouldBe startInstant
+    result.projectName.shouldBeNull()
+    result.description shouldBe "going"
   }
 }

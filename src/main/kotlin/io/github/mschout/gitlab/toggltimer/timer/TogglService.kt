@@ -112,6 +112,28 @@ class TogglService(
     }
   }
 
+  fun getCurrentRunningTimer(): StartTimerResult? {
+    val client = togglClient()
+    val current = client.getCurrentTimeEntry() ?: return null
+    val start = current.start ?: return null
+    val workspaceId = current.workspaceId
+    val projectName =
+        current.projectId?.let { projectId ->
+          if (workspaceId == null) return@let null
+          runCatching { client.getProject(workspaceId, projectId) }
+              .onFailure {
+                logger.warn(it) { "Failed to fetch Toggl project $projectId for running entry" }
+              }
+              .getOrNull()
+              ?.name
+        }
+    return StartTimerResult(
+        startTime = start,
+        projectName = projectName,
+        description = current.description,
+    )
+  }
+
   fun fetchWorkspaces(apiKey: String): List<TogglWorkspace> =
       togglClientFactory.forApiKey(apiKey).getWorkspaces()
 
