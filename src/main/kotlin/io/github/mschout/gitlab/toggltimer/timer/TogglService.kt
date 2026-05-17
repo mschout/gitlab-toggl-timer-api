@@ -131,8 +131,15 @@ class TogglService(
   fun getCurrentRunningTimer(): StartTimerResult? {
     val client = togglClient()
     val current = client.getCurrentTimeEntry() ?: return null
+
+    // Toggl marks a running entry with a negative duration (-unix_seconds);
+    // a non-negative value means the entry has already been stopped.
+    if (current.duration >= 0) return null
+
     val start = current.start ?: return null
+
     val workspaceId = current.workspaceId
+
     val projectName =
         current.projectId?.let { projectId ->
           if (workspaceId == null) return@let null
@@ -143,6 +150,7 @@ class TogglService(
               .getOrNull()
               ?.name
         }
+
     return StartTimerResult(
         startTime = start,
         projectName = projectName,
@@ -153,22 +161,28 @@ class TogglService(
   fun stopRunningTimer(): StopTimerResult? {
     val client = togglClient()
     val current = client.getCurrentTimeEntry() ?: return null
+
     val workspaceId =
         current.workspaceId
             ?: run {
               logger.warn { "Running entry missing workspaceId; cannot stop" }
               return null
             }
+
     val entryId =
         current.id
             ?: run {
               logger.warn { "Running entry missing id; cannot stop" }
               return null
             }
+
     val start = current.start
+
     client.stopTimeEntry(workspaceId, entryId)
+
     val elapsed =
         if (start != null) Duration.between(start, Instant.now()).seconds.coerceAtLeast(0L) else 0L
+
     return StopTimerResult(
         durationSeconds = elapsed,
         durationFormatted = StopTimerResult.formatHms(elapsed),

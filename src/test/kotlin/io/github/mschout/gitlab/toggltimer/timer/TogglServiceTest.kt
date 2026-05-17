@@ -448,6 +448,24 @@ class TogglServiceTest {
   }
 
   @Test
+  fun `getCurrentRunningTimer returns null when entry is stopped`() {
+    val stopped =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = Instant.parse("2026-05-15T10:00:00Z"),
+            description = "already stopped",
+            duration = 125L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns stopped
+
+    service.getCurrentRunningTimer().shouldBeNull()
+
+    verify(exactly = 0) { togglClient.getProject(any(), any()) }
+  }
+
+  @Test
   fun `getCurrentRunningTimer returns running entry with project name`() {
     val startInstant = Instant.parse("2026-05-15T10:00:00Z")
     val running =

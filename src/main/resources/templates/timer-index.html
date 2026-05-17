@@ -14,11 +14,9 @@
       </section>
 
       <div id="result" class="mb-4">
-        <div
-          th:if="${startTime != null}"
-          th:replace="~{start-timer :: result-card}"
-          th:remove="tag"
-        ></div>
+        <th:block th:if="${startTime != null}">
+          <div th:replace="~{start-timer :: result-card}" th:remove="tag"></div>
+        </th:block>
       </div>
 
       <div th:fragment="timer-form" id="timer-form-card" class="card shadow-sm">
