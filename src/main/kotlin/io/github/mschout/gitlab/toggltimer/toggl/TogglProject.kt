@@ -29,4 +29,5 @@ data class TogglProject(
     val id: Long? = null,
     val workspaceId: Long? = null,
     val name: String? = null,
+    val color: String? = null,
 )

@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.project.TogglSyncService
 import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateTogglProjectRequest
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
@@ -41,6 +42,7 @@ class TogglServiceTest {
   private lateinit var togglClient: TogglClient
   private lateinit var togglClientFactory: TogglClientFactory
   private lateinit var credentialsService: CurrentUserCredentialsService
+  private lateinit var togglSyncService: TogglSyncService
   private lateinit var service: TogglService
 
   @BeforeEach
@@ -48,9 +50,10 @@ class TogglServiceTest {
     togglClient = mockk()
     togglClientFactory = mockk()
     credentialsService = mockk()
+    togglSyncService = mockk(relaxUnitFun = true)
     every { credentialsService.requireTogglApiKey() } returns "test-api-key"
     every { togglClientFactory.forApiKey("test-api-key") } returns togglClient
-    service = TogglService(togglClientFactory, credentialsService)
+    service = TogglService(togglClientFactory, credentialsService, togglSyncService)
   }
 
   @Test
@@ -193,6 +196,77 @@ class TogglServiceTest {
     every { togglClient.getClients(7L) } throws RuntimeException("toggl down")
 
     shouldThrow<RuntimeException> { service.fetchClients(7L) }
+  }
+
+  @Test
+  fun `fetchClients shadow-writes clients to Postgres via the sync service`() {
+    val clients =
+        listOf(
+            TogglWorkspaceClient(id = 10L, name = "Globex"),
+            TogglWorkspaceClient(id = 11L, name = "Initech"),
+        )
+    every { togglClient.getClients(7L) } returns clients
+
+    service.fetchClients(7L) shouldBe clients
+
+    verify { togglSyncService.upsertClients(7L, clients) }
+  }
+
+  @Test
+  fun `fetchClients still returns Toggl clients when the sync service throws`() {
+    val clients = listOf(TogglWorkspaceClient(id = 10L, name = "Globex"))
+    every { togglClient.getClients(7L) } returns clients
+    every { togglSyncService.upsertClients(7L, clients) } throws RuntimeException("db down")
+
+    service.fetchClients(7L) shouldBe clients
+  }
+
+  @Test
+  fun `findOrCreateProject shadow-writes the existing project to Postgres`() {
+    val existing = TogglProject(id = 100L, name = "42 - Existing", clientId = 5L)
+    every { togglClient.getProjects(7L, "42") } returns listOf(existing)
+
+    service.findOrCreateProject(
+        workspaceId = 7L,
+        clientId = 5L,
+        issueNumber = 42L,
+        issueTitle = "Existing",
+    )
+
+    verify { togglSyncService.upsertProject(7L, existing) }
+  }
+
+  @Test
+  fun `findOrCreateProject shadow-writes the created project to Postgres`() {
+    every { togglClient.getProjects(7L, "42") } returns emptyList()
+    val created = TogglProject(id = 999L, name = "42 - New", clientId = 5L)
+    every { togglClient.createProject(7L, any()) } returns created
+
+    service.findOrCreateProject(
+        workspaceId = 7L,
+        clientId = 5L,
+        issueNumber = 42L,
+        issueTitle = "New",
+    )
+
+    verify { togglSyncService.upsertProject(7L, created) }
+  }
+
+  @Test
+  fun `findOrCreateProject still returns the project when the sync service throws`() {
+    val existing = TogglProject(id = 100L, name = "42 - Existing", clientId = 5L)
+    every { togglClient.getProjects(7L, "42") } returns listOf(existing)
+    every { togglSyncService.upsertProject(7L, existing) } throws RuntimeException("db down")
+
+    val result =
+        service.findOrCreateProject(
+            workspaceId = 7L,
+            clientId = 5L,
+            issueNumber = 42L,
+            issueTitle = "Existing",
+        )
+
+    result shouldBeSameInstanceAs existing
   }
 
   @Test

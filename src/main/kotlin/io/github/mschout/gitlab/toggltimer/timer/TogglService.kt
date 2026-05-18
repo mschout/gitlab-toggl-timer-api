@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.project.TogglSyncService
 import io.github.mschout.gitlab.toggltimer.toggl.CreateProjectRequest as CreateTogglProjectRequest
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
@@ -34,6 +35,7 @@ private val logger = KotlinLogging.logger {}
 class TogglService(
     private val togglClientFactory: TogglClientFactory,
     private val credentialsService: CurrentUserCredentialsService,
+    private val togglSyncService: TogglSyncService,
 ) {
 
   fun findOrCreateProject(
@@ -47,17 +49,26 @@ class TogglService(
 
     logger.info { "Found projects: $projects" }
 
-    return projects
-        .firstOrNull { it.name?.startsWith("$issueNumber -") == true }
-        ?.also { logger.info { "Found project: $it" } }
-        ?: run {
-          logger.info { "Project not found in Toggl, creating project" }
+    val project =
+        projects
+            .firstOrNull { it.name?.startsWith("$issueNumber -") == true }
+            ?.also { logger.info { "Found project: $it" } }
+            ?: run {
+              logger.info { "Project not found in Toggl, creating project" }
 
-          val createProjectRequest =
-              CreateTogglProjectRequest(name = "$issueNumber - $issueTitle", clientId = clientId)
+              val createProjectRequest =
+                  CreateTogglProjectRequest(
+                      name = "$issueNumber - $issueTitle",
+                      clientId = clientId,
+                  )
 
-          client.createProject(workspaceId, createProjectRequest)
-        }
+              client.createProject(workspaceId, createProjectRequest)
+            }
+
+    runCatching { togglSyncService.upsertProject(workspaceId, project) }
+        .onFailure { logger.warn(it) { "Failed to sync Toggl project to Postgres" } }
+
+    return project
   }
 
   fun startTimer(project: TogglProject, startTimerRequest: StartTimerRequest): StartTimerResult {
@@ -194,8 +205,12 @@ class TogglService(
 
   fun fetchWorkspaces(): List<TogglWorkspace> = togglClient().getWorkspaces()
 
-  fun fetchClients(workspaceId: Long): List<TogglWorkspaceClient> =
-      togglClient().getClients(workspaceId)
+  fun fetchClients(workspaceId: Long): List<TogglWorkspaceClient> {
+    val clients = togglClient().getClients(workspaceId)
+    runCatching { togglSyncService.upsertClients(workspaceId, clients) }
+        .onFailure { logger.warn(it) { "Failed to sync Toggl clients to Postgres" } }
+    return clients
+  }
 
   private fun togglClient(): TogglClient =
       togglClientFactory.forApiKey(credentialsService.requireTogglApiKey())
