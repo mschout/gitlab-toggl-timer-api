@@ -25,13 +25,12 @@
               Toggl is tracking time on this project.
             </p>
             <dl class="row mb-0 small">
-              <dt class="col-sm-3 text-body-secondary">Started at</dt>
+              <dt class="col-sm-3 text-body-secondary">Elapsed</dt>
               <dd class="col-sm-9 mb-1">
-                <time
-                  class="js-local-time"
-                  th:attr="datetime=${startTime}"
-                  th:text="${startTime}"
-                  >2026-05-09T12:00:00Z</time
+                <span
+                  class="js-elapsed-time font-monospace"
+                  th:attr="data-started-at=${startTime}"
+                  >--:--:--</span
                 >
               </dd>
               <dt class="col-sm-3 text-body-secondary" th:if="${projectName != null}">Project</dt>
@@ -69,17 +68,30 @@
             </div>
             <script>
               (function () {
-                var fmt = new Intl.DateTimeFormat(undefined, {
-                  dateStyle: 'medium',
-                  timeStyle: 'medium',
-                });
-                document.querySelectorAll('time.js-local-time').forEach(function (el) {
-                  var iso = el.getAttribute('datetime');
-                  if (!iso) return;
-                  var d = new Date(iso);
-                  if (isNaN(d.getTime())) return;
-                  el.textContent = fmt.format(d);
-                });
+                var el = document.querySelector('.js-elapsed-time');
+                if (!el) return;
+                var startedAt = new Date(el.getAttribute('data-started-at'));
+                if (isNaN(startedAt.getTime())) return;
+
+                function pad(n) { return n < 10 ? '0' + n : '' + n; }
+                function render() {
+                  if (!document.body.contains(el)) {
+                    clearInterval(window.__togglElapsedIntervalId);
+                    window.__togglElapsedIntervalId = null;
+                    return;
+                  }
+                  var secs = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+                  var h = Math.floor(secs / 3600);
+                  var m = Math.floor((secs % 3600) / 60);
+                  var s = secs % 60;
+                  el.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+                }
+
+                if (window.__togglElapsedIntervalId) {
+                  clearInterval(window.__togglElapsedIntervalId);
+                }
+                render();
+                window.__togglElapsedIntervalId = setInterval(render, 1000);
               })();
             </script>
           </div>
