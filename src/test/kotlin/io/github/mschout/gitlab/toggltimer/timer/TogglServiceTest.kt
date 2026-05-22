@@ -161,6 +161,7 @@ class TogglServiceTest {
 
     verify { togglClientFactory.forApiKey("brand-new-key") }
     verify(exactly = 0) { credentialsService.requireTogglApiKey() }
+    verify(exactly = 0) { togglSyncService.upsertWorkspaces(any()) }
   }
 
   @Test
@@ -173,6 +174,26 @@ class TogglServiceTest {
 
     verify { credentialsService.requireTogglApiKey() }
     verify { togglClientFactory.forApiKey("test-api-key") }
+  }
+
+  @Test
+  fun `fetchWorkspaces (no-arg) shadow-writes workspaces to Postgres via the sync service`() {
+    val workspaces =
+        listOf(TogglWorkspace(id = 1L, name = "Alpha"), TogglWorkspace(id = 2L, name = "Beta"))
+    every { togglClient.getWorkspaces() } returns workspaces
+
+    service.fetchWorkspaces() shouldBe workspaces
+
+    verify { togglSyncService.upsertWorkspaces(workspaces) }
+  }
+
+  @Test
+  fun `fetchWorkspaces (no-arg) still returns workspaces when the sync service throws`() {
+    val workspaces = listOf(TogglWorkspace(id = 1L, name = "Alpha"))
+    every { togglClient.getWorkspaces() } returns workspaces
+    every { togglSyncService.upsertWorkspaces(workspaces) } throws RuntimeException("db down")
+
+    service.fetchWorkspaces() shouldBe workspaces
   }
 
   @Test

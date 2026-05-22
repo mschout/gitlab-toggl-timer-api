@@ -203,7 +203,12 @@ class TogglService(
   fun fetchWorkspaces(apiKey: String): List<TogglWorkspace> =
       togglClientFactory.forApiKey(apiKey).getWorkspaces()
 
-  fun fetchWorkspaces(): List<TogglWorkspace> = togglClient().getWorkspaces()
+  fun fetchWorkspaces(): List<TogglWorkspace> {
+    val workspaces = togglClient().getWorkspaces()
+    runCatching { togglSyncService.upsertWorkspaces(workspaces) }
+        .onFailure { logger.warn(it) { "Failed to sync Toggl workspaces to Postgres" } }
+    return workspaces
+  }
 
   fun fetchClients(workspaceId: Long): List<TogglWorkspaceClient> {
     val clients = togglClient().getClients(workspaceId)

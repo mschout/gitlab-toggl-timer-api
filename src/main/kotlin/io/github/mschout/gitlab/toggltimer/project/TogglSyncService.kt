@@ -16,15 +16,36 @@
 package io.github.mschout.gitlab.toggltimer.project
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class TogglSyncService(
+    private val workspaceRepository: WorkspaceRepository,
     private val clientRepository: ClientRepository,
     private val projectRepository: ProjectRepository,
 ) {
+
+  @Transactional
+  fun upsertWorkspaces(workspaces: List<TogglWorkspace>) {
+    if (workspaces.isEmpty()) return
+
+    val togglIds = workspaces.map { it.id }
+    val existingByTogglId =
+        workspaceRepository.findAllByTogglIdIn(togglIds).associateBy { it.togglId }
+
+    workspaces.forEach { dto ->
+      val existing = existingByTogglId[dto.id]
+      if (existing == null) {
+        workspaceRepository.save(Workspace(togglId = dto.id, name = dto.name))
+      } else {
+        existing.name = dto.name
+        workspaceRepository.save(existing)
+      }
+    }
+  }
 
   @Transactional
   fun upsertClients(workspaceId: Long, clients: List<TogglWorkspaceClient>) {

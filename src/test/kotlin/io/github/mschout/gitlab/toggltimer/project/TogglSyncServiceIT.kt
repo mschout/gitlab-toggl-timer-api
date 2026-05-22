@@ -17,6 +17,7 @@ package io.github.mschout.gitlab.toggltimer.project
 
 import io.github.mschout.gitlab.toggltimer.support.PostgresContainerSupport
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -31,6 +32,7 @@ class TogglSyncServiceIT
 @Autowired
 constructor(
     private val syncService: TogglSyncService,
+    private val workspaceRepository: WorkspaceRepository,
     private val clientRepository: ClientRepository,
     private val projectRepository: ProjectRepository,
 ) : PostgresContainerSupport() {
@@ -39,6 +41,35 @@ constructor(
   fun cleanUp() {
     projectRepository.deleteAll()
     clientRepository.deleteAll()
+    workspaceRepository.deleteAll()
+  }
+
+  @Test
+  fun `upsertWorkspaces inserts new rows and is idempotent on re-sync`() {
+    syncService.upsertWorkspaces(
+        listOf(TogglWorkspace(id = 1L, name = "Alpha"), TogglWorkspace(id = 2L, name = "Beta"))
+    )
+
+    workspaceRepository.findAll() shouldHaveSize 2
+
+    val first = workspaceRepository.findByTogglId(1L)
+    first.shouldNotBeNull()
+    val initialCreatedAt = first.createdAt
+    val initialId = first.id
+
+    syncService.upsertWorkspaces(
+        listOf(
+            TogglWorkspace(id = 1L, name = "Alpha Renamed"),
+            TogglWorkspace(id = 2L, name = "Beta"),
+        )
+    )
+
+    workspaceRepository.findAll() shouldHaveSize 2
+    val reloaded = workspaceRepository.findByTogglId(1L)
+    reloaded.shouldNotBeNull()
+    reloaded.name shouldBe "Alpha Renamed"
+    reloaded.createdAt shouldBe initialCreatedAt
+    reloaded.id shouldBe initialId
   }
 
   @Test

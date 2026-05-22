@@ -16,6 +16,7 @@
 package io.github.mschout.gitlab.toggltimer.project
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
@@ -29,15 +30,73 @@ import org.junit.jupiter.api.Test
 
 class TogglSyncServiceTest {
 
+  private lateinit var workspaceRepository: WorkspaceRepository
   private lateinit var clientRepository: ClientRepository
   private lateinit var projectRepository: ProjectRepository
   private lateinit var service: TogglSyncService
 
   @BeforeEach
   fun setUp() {
+    workspaceRepository = mockk(relaxed = true)
     clientRepository = mockk(relaxed = true)
     projectRepository = mockk(relaxed = true)
-    service = TogglSyncService(clientRepository, projectRepository)
+    service = TogglSyncService(workspaceRepository, clientRepository, projectRepository)
+  }
+
+  @Test
+  fun `upsertWorkspaces is a no-op when the list is empty`() {
+    service.upsertWorkspaces(emptyList())
+
+    verify(exactly = 0) { workspaceRepository.findAllByTogglIdIn(any()) }
+    verify(exactly = 0) { workspaceRepository.save(any()) }
+  }
+
+  @Test
+  fun `upsertWorkspaces inserts new workspaces`() {
+    every { workspaceRepository.findAllByTogglIdIn(listOf(1L, 2L)) } returns emptyList()
+    val saved = mutableListOf<Workspace>()
+    every { workspaceRepository.save(capture(saved)) } answers { firstArg() }
+
+    service.upsertWorkspaces(
+        listOf(TogglWorkspace(id = 1L, name = "Alpha"), TogglWorkspace(id = 2L, name = "Beta"))
+    )
+
+    saved.size shouldBe 2
+    saved[0].togglId shouldBe 1L
+    saved[0].name shouldBe "Alpha"
+    saved[1].togglId shouldBe 2L
+    saved[1].name shouldBe "Beta"
+  }
+
+  @Test
+  fun `upsertWorkspaces updates existing workspaces in place`() {
+    val existing = Workspace(togglId = 1L, name = "Old Alpha")
+    every { workspaceRepository.findAllByTogglIdIn(listOf(1L)) } returns listOf(existing)
+    val saved = slot<Workspace>()
+    every { workspaceRepository.save(capture(saved)) } answers { firstArg() }
+
+    service.upsertWorkspaces(listOf(TogglWorkspace(id = 1L, name = "New Alpha")))
+
+    saved.captured shouldBeSameInstanceAs existing
+    existing.name shouldBe "New Alpha"
+  }
+
+  @Test
+  fun `upsertWorkspaces handles a mix of new and existing workspaces`() {
+    val existing = Workspace(togglId = 1L, name = "Old Alpha")
+    every { workspaceRepository.findAllByTogglIdIn(listOf(1L, 2L)) } returns listOf(existing)
+    val saved = mutableListOf<Workspace>()
+    every { workspaceRepository.save(capture(saved)) } answers { firstArg() }
+
+    service.upsertWorkspaces(
+        listOf(TogglWorkspace(id = 1L, name = "New Alpha"), TogglWorkspace(id = 2L, name = "Beta"))
+    )
+
+    saved.size shouldBe 2
+    saved[0] shouldBeSameInstanceAs existing
+    saved[0].name shouldBe "New Alpha"
+    saved[1].togglId shouldBe 2L
+    saved[1].name shouldBe "Beta"
   }
 
   @Test
