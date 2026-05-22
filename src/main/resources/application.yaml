@@ -41,6 +41,11 @@ spring:
           oidc:
             issuer-uri: ${OIDC_ISSUER_URI}
 
+springdoc:
+  swagger-ui:
+    csrf:
+      enabled: true
+
 app:
   encryption:
     password: ${APP_ENCRYPTION_PASSWORD}

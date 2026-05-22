@@ -17,6 +17,9 @@ package io.github.mschout.gitlab.toggltimer.security
 
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
 import io.github.mschout.gitlab.toggltimer.user.UserRepository
+import jakarta.servlet.FilterChain
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.ObjectPostProcessor
@@ -26,7 +29,11 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.intercept.AuthorizationFilter
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository
+import org.springframework.security.web.csrf.CsrfToken
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 import org.springframework.security.web.webauthn.authentication.WebAuthnAuthenticationFilter
+import org.springframework.web.filter.OncePerRequestFilter
 
 @Configuration
 @EnableWebSecurity
@@ -59,6 +66,15 @@ class SecurityConfig {
           .anyRequest()
           .authenticated()
     }
+
+    // Use a JS-readable XSRF-TOKEN cookie so Swagger UI's request interceptor can pick
+    // it up. The plain (non-XOR) request handler ensures the cookie value matches the
+    // value the server expects in the X-XSRF-TOKEN header.
+    http.csrf {
+      it.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+          .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
+    }
+    http.addFilterAfter(CsrfCookieFilter(), AuthorizationFilter::class.java)
 
     if (authProperties.passwordLoginEnabled) {
       http.formLogin {
@@ -106,4 +122,17 @@ class SecurityConfig {
   @Bean
   fun passwordEncoder(): PasswordEncoder =
       PasswordEncoderFactories.createDelegatingPasswordEncoder()
+}
+
+// Forces the deferred CSRF token to materialise so the XSRF-TOKEN cookie is written on
+// the first GET — without this, Swagger UI's request interceptor can't find the cookie.
+private class CsrfCookieFilter : OncePerRequestFilter() {
+  override fun doFilterInternal(
+      request: HttpServletRequest,
+      response: HttpServletResponse,
+      filterChain: FilterChain,
+  ) {
+    (request.getAttribute(CsrfToken::class.java.name) as? CsrfToken)?.token
+    filterChain.doFilter(request, response)
+  }
 }
