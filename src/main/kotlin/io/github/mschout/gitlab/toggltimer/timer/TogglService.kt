@@ -23,6 +23,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
+import io.github.mschout.gitlab.toggltimer.toggl.streamProjects
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
@@ -238,7 +239,7 @@ class TogglService(
 
     var total = 0
     workspaces.forEach { workspace ->
-      val projects = client.getProjects(workspace.id)
+      val projects = client.streamProjects(workspace.id).toList()
       runCatching { togglSyncService.upsertProjects(workspace.id, projects) }
           .onFailure {
             logger.warn(it) {

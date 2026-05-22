@@ -763,8 +763,10 @@ class TogglServiceTest {
         )
     val betaProjects = listOf(TogglProject(id = 200L, name = "B1", clientId = null))
     every { togglClient.getWorkspaces() } returns workspaces
-    every { togglClient.getProjects(7L, null) } returns alphaProjects
-    every { togglClient.getProjects(8L, null) } returns betaProjects
+    every { togglClient.getProjectsPaginated(7L, null) } returns alphaProjects
+    every { togglClient.getProjectsPaginated(7L, 101L) } returns emptyList()
+    every { togglClient.getProjectsPaginated(8L, null) } returns betaProjects
+    every { togglClient.getProjectsPaginated(8L, 200L) } returns emptyList()
 
     val result = service.backfillProjects()
 
@@ -782,8 +784,10 @@ class TogglServiceTest {
     val alphaProjects = listOf(TogglProject(id = 100L, name = "A1"))
     val betaProjects = listOf(TogglProject(id = 200L, name = "B1"))
     every { togglClient.getWorkspaces() } returns workspaces
-    every { togglClient.getProjects(7L, null) } returns alphaProjects
-    every { togglClient.getProjects(8L, null) } returns betaProjects
+    every { togglClient.getProjectsPaginated(7L, null) } returns alphaProjects
+    every { togglClient.getProjectsPaginated(7L, 100L) } returns emptyList()
+    every { togglClient.getProjectsPaginated(8L, null) } returns betaProjects
+    every { togglClient.getProjectsPaginated(8L, 200L) } returns emptyList()
     every { togglSyncService.upsertProjects(7L, alphaProjects) } throws RuntimeException("db down")
 
     val result = service.backfillProjects()
@@ -798,7 +802,8 @@ class TogglServiceTest {
     val workspaces = listOf(TogglWorkspace(id = 7L, name = "Alpha"))
     val projects = listOf(TogglProject(id = 100L, name = "A1"))
     every { togglClient.getWorkspaces() } returns workspaces
-    every { togglClient.getProjects(7L, null) } returns projects
+    every { togglClient.getProjectsPaginated(7L, null) } returns projects
+    every { togglClient.getProjectsPaginated(7L, 100L) } returns emptyList()
     every { togglSyncService.upsertWorkspaces(workspaces) } throws RuntimeException("db down")
 
     val result = service.backfillProjects()

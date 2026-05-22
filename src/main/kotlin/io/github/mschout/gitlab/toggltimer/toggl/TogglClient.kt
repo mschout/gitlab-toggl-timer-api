@@ -34,6 +34,12 @@ interface TogglClient {
       @RequestParam(required = false) name: String? = null,
   ): List<TogglProject>
 
+  @GetExchange("/workspaces/{workspaceId}/projects/paginated")
+  fun getProjectsPaginated(
+      @PathVariable workspaceId: Long,
+      @RequestParam(value = "start_project_id", required = false) startProjectId: Long? = null,
+  ): List<TogglProject>
+
   @GetExchange("/workspaces/{workspaceId}/projects/{projectId}")
   fun getProject(@PathVariable workspaceId: Long, @PathVariable projectId: Long): TogglProject
 
