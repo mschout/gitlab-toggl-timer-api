@@ -753,6 +753,62 @@ class TogglServiceTest {
   }
 
   @Test
+  fun `backfillProjects fetches projects across all workspaces and bulk-upserts them`() {
+    val workspaces =
+        listOf(TogglWorkspace(id = 7L, name = "Alpha"), TogglWorkspace(id = 8L, name = "Beta"))
+    val alphaProjects =
+        listOf(
+            TogglProject(id = 100L, name = "A1", clientId = 5L),
+            TogglProject(id = 101L, name = "A2", clientId = 5L),
+        )
+    val betaProjects = listOf(TogglProject(id = 200L, name = "B1", clientId = null))
+    every { togglClient.getWorkspaces() } returns workspaces
+    every { togglClient.getProjects(7L, null) } returns alphaProjects
+    every { togglClient.getProjects(8L, null) } returns betaProjects
+
+    val result = service.backfillProjects()
+
+    result.count shouldBe 3
+    result.workspaces shouldBe 2
+    verify { togglSyncService.upsertWorkspaces(workspaces) }
+    verify { togglSyncService.upsertProjects(7L, alphaProjects) }
+    verify { togglSyncService.upsertProjects(8L, betaProjects) }
+  }
+
+  @Test
+  fun `backfillProjects still returns the total when one workspace sync throws`() {
+    val workspaces =
+        listOf(TogglWorkspace(id = 7L, name = "Alpha"), TogglWorkspace(id = 8L, name = "Beta"))
+    val alphaProjects = listOf(TogglProject(id = 100L, name = "A1"))
+    val betaProjects = listOf(TogglProject(id = 200L, name = "B1"))
+    every { togglClient.getWorkspaces() } returns workspaces
+    every { togglClient.getProjects(7L, null) } returns alphaProjects
+    every { togglClient.getProjects(8L, null) } returns betaProjects
+    every { togglSyncService.upsertProjects(7L, alphaProjects) } throws RuntimeException("db down")
+
+    val result = service.backfillProjects()
+
+    result.count shouldBe 2
+    result.workspaces shouldBe 2
+    verify { togglSyncService.upsertProjects(8L, betaProjects) }
+  }
+
+  @Test
+  fun `backfillProjects still proceeds when the workspace sync throws`() {
+    val workspaces = listOf(TogglWorkspace(id = 7L, name = "Alpha"))
+    val projects = listOf(TogglProject(id = 100L, name = "A1"))
+    every { togglClient.getWorkspaces() } returns workspaces
+    every { togglClient.getProjects(7L, null) } returns projects
+    every { togglSyncService.upsertWorkspaces(workspaces) } throws RuntimeException("db down")
+
+    val result = service.backfillProjects()
+
+    result.count shouldBe 1
+    result.workspaces shouldBe 1
+    verify { togglSyncService.upsertProjects(7L, projects) }
+  }
+
+  @Test
   fun `backfillTimeEntries fetches by date range and bulk-upserts via the sync service`() {
     val start = LocalDate.parse("2026-04-22")
     val end = LocalDate.parse("2026-05-22")

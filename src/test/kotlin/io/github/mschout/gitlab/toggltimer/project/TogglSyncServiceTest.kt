@@ -270,6 +270,38 @@ class TogglSyncServiceTest {
   }
 
   @Test
+  fun `upsertProjects is a no-op when the list is empty`() {
+    service.upsertProjects(7L, emptyList())
+
+    verify(exactly = 0) { projectRepository.findByTogglId(any()) }
+    verify(exactly = 0) { projectRepository.save(any()) }
+  }
+
+  @Test
+  fun `upsertProjects upserts each project in the batch`() {
+    every { projectRepository.findByTogglId(any()) } returns null
+    val saved = mutableListOf<Project>()
+    every { projectRepository.save(capture(saved)) } answers { firstArg() }
+
+    service.upsertProjects(
+        7L,
+        listOf(
+            TogglProject(id = 1L, name = "Alpha", clientId = 5L),
+            TogglProject(id = 2L, name = "Beta", clientId = null),
+        ),
+    )
+
+    saved.size shouldBe 2
+    saved[0].togglId shouldBe 1L
+    saved[0].workspaceId shouldBe 7L
+    saved[0].name shouldBe "Alpha"
+    saved[0].togglClientId shouldBe 5L
+    saved[1].togglId shouldBe 2L
+    saved[1].name shouldBe "Beta"
+    saved[1].togglClientId shouldBe null
+  }
+
+  @Test
   fun `upsertTimeEntries is a no-op when the list is empty`() {
     service.upsertTimeEntries(42L, emptyList())
 

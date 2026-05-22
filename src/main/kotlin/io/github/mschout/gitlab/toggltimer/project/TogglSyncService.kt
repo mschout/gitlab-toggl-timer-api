@@ -96,6 +96,12 @@ class TogglSyncService(
   }
 
   @Transactional
+  fun upsertProjects(workspaceId: Long, projects: List<TogglProject>) {
+    if (projects.isEmpty()) return
+    projects.forEach { upsertProject(workspaceId, it) }
+  }
+
+  @Transactional
   fun upsertTimeEntry(userId: Long, entry: TogglTimeEntry): TimeEntry {
     val togglId = requireNotNull(entry.id) { "Toggl time entry is missing an id" }
     val start = requireNotNull(entry.start) { "Toggl time entry is missing a start" }

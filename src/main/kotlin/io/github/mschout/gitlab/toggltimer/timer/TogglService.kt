@@ -230,6 +230,26 @@ class TogglService(
     return entries.size
   }
 
+  fun backfillProjects(): SyncProjectsResult {
+    val client = togglClient()
+    val workspaces = client.getWorkspaces()
+    runCatching { togglSyncService.upsertWorkspaces(workspaces) }
+        .onFailure { logger.warn(it) { "Failed to sync Toggl workspaces to Postgres" } }
+
+    var total = 0
+    workspaces.forEach { workspace ->
+      val projects = client.getProjects(workspace.id)
+      runCatching { togglSyncService.upsertProjects(workspace.id, projects) }
+          .onFailure {
+            logger.warn(it) {
+              "Failed to backfill Toggl projects for workspace ${workspace.id} to Postgres"
+            }
+          }
+      total += projects.size
+    }
+    return SyncProjectsResult(count = total, workspaces = workspaces.size)
+  }
+
   private fun shadowWriteTimeEntry(entry: TogglTimeEntry) {
     val userId = credentialsService.currentUserId()
     runCatching { togglSyncService.upsertTimeEntry(userId, entry) }

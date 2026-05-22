@@ -50,6 +50,8 @@ class TimerService(
     return SyncHistoryResult(count = count, startDate = start, endDate = end)
   }
 
+  fun syncProjects(): SyncProjectsResult = togglService.backfillProjects()
+
   fun createProject(createProjectRequest: CreateProjectRequest): TogglProject {
     val issue = createProjectRequest.issue()
     val issueTitle = gitLabService.getGitlabIssueTitle(issue)

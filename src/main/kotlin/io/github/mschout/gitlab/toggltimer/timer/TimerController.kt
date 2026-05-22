@@ -50,4 +50,8 @@ class TimerController(private val timerService: TimerService) {
   @Operation(summary = "Backfill Toggl time entries from the past N days into Postgres")
   fun syncHistory(@RequestParam(defaultValue = "90") days: Int): SyncHistoryResult =
       timerService.syncHistory(days)
+
+  @PostMapping("/sync-projects")
+  @Operation(summary = "Backfill Toggl projects across all workspaces into Postgres")
+  fun syncProjects(): SyncProjectsResult = timerService.syncProjects()
 }
