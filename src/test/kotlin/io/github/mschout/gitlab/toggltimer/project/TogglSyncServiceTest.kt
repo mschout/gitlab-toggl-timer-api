@@ -16,6 +16,7 @@
 package io.github.mschout.gitlab.toggltimer.project
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.kotest.assertions.throwables.shouldThrow
@@ -25,6 +26,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.time.Instant
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -33,6 +35,7 @@ class TogglSyncServiceTest {
   private lateinit var workspaceRepository: WorkspaceRepository
   private lateinit var clientRepository: ClientRepository
   private lateinit var projectRepository: ProjectRepository
+  private lateinit var timeEntryRepository: TimeEntryRepository
   private lateinit var service: TogglSyncService
 
   @BeforeEach
@@ -40,7 +43,14 @@ class TogglSyncServiceTest {
     workspaceRepository = mockk(relaxed = true)
     clientRepository = mockk(relaxed = true)
     projectRepository = mockk(relaxed = true)
-    service = TogglSyncService(workspaceRepository, clientRepository, projectRepository)
+    timeEntryRepository = mockk(relaxed = true)
+    service =
+        TogglSyncService(
+            workspaceRepository,
+            clientRepository,
+            projectRepository,
+            timeEntryRepository,
+        )
   }
 
   @Test
@@ -256,6 +266,183 @@ class TogglSyncServiceTest {
   fun `upsertProject throws when Toggl name is missing`() {
     shouldThrow<IllegalArgumentException> {
       service.upsertProject(7L, TogglProject(id = 999L, name = null))
+    }
+  }
+
+  @Test
+  fun `upsertTimeEntries is a no-op when the list is empty`() {
+    service.upsertTimeEntries(42L, emptyList())
+
+    verify(exactly = 0) { timeEntryRepository.findByTogglId(any()) }
+    verify(exactly = 0) { timeEntryRepository.save(any()) }
+  }
+
+  @Test
+  fun `upsertTimeEntry inserts a new entry with all fields populated`() {
+    val start = Instant.parse("2026-05-22T12:00:00Z")
+    val stop = Instant.parse("2026-05-22T13:00:00Z")
+    val at = Instant.parse("2026-05-22T13:00:01Z")
+    every { timeEntryRepository.findByTogglId(999L) } returns null
+    val saved = slot<TimeEntry>()
+    every { timeEntryRepository.save(capture(saved)) } answers { firstArg() }
+
+    service.upsertTimeEntry(
+        userId = 42L,
+        entry =
+            TogglTimeEntry(
+                id = 999L,
+                workspaceId = 7L,
+                projectId = 100L,
+                taskId = 200L,
+                userId = 300L,
+                start = start,
+                stop = stop,
+                description = "hacking",
+                duration = 3600L,
+                billable = true,
+                tags = listOf("dev", "urgent"),
+                createdWith = "Gitlab Toggl Timer",
+                at = at,
+            ),
+    )
+
+    saved.captured.togglId shouldBe 999L
+    saved.captured.userId shouldBe 42L
+    saved.captured.togglUserId shouldBe 300L
+    saved.captured.workspaceId shouldBe 7L
+    saved.captured.projectId shouldBe 100L
+    saved.captured.taskId shouldBe 200L
+    saved.captured.description shouldBe "hacking"
+    saved.captured.start shouldBe start
+    saved.captured.stop shouldBe stop
+    saved.captured.duration shouldBe 3600L
+    saved.captured.billable shouldBe true
+    saved.captured.tags shouldBe listOf("dev", "urgent")
+    saved.captured.createdWith shouldBe "Gitlab Toggl Timer"
+    saved.captured.togglAt shouldBe at
+    saved.captured.serverDeletedAt shouldBe null
+  }
+
+  @Test
+  fun `upsertTimeEntry defaults billable to false and tags to empty when DTO has nulls`() {
+    every { timeEntryRepository.findByTogglId(999L) } returns null
+    val saved = slot<TimeEntry>()
+    every { timeEntryRepository.save(capture(saved)) } answers { firstArg() }
+
+    service.upsertTimeEntry(
+        userId = 42L,
+        entry =
+            TogglTimeEntry(
+                id = 999L,
+                workspaceId = 7L,
+                start = Instant.parse("2026-05-22T12:00:00Z"),
+                duration = -1L,
+                billable = null,
+                tags = null,
+            ),
+    )
+
+    saved.captured.billable shouldBe false
+    saved.captured.tags shouldBe emptyList()
+  }
+
+  @Test
+  fun `upsertTimeEntry updates an existing entry in place`() {
+    val existing =
+        TimeEntry(
+            togglId = 999L,
+            userId = 42L,
+            workspaceId = 7L,
+            start = Instant.parse("2026-05-22T12:00:00Z"),
+            duration = -1L,
+            description = "old",
+            tags = listOf("old-tag"),
+        )
+    every { timeEntryRepository.findByTogglId(999L) } returns existing
+    val saved = slot<TimeEntry>()
+    every { timeEntryRepository.save(capture(saved)) } answers { firstArg() }
+
+    val newStop = Instant.parse("2026-05-22T13:00:00Z")
+    service.upsertTimeEntry(
+        userId = 42L,
+        entry =
+            TogglTimeEntry(
+                id = 999L,
+                workspaceId = 7L,
+                start = Instant.parse("2026-05-22T12:00:00Z"),
+                stop = newStop,
+                description = "new",
+                duration = 3600L,
+                billable = true,
+                tags = listOf("new-tag"),
+            ),
+    )
+
+    saved.captured shouldBeSameInstanceAs existing
+    existing.stop shouldBe newStop
+    existing.description shouldBe "new"
+    existing.duration shouldBe 3600L
+    existing.billable shouldBe true
+    existing.tags shouldBe listOf("new-tag")
+  }
+
+  @Test
+  fun `upsertTimeEntries upserts each entry in the batch`() {
+    every { timeEntryRepository.findByTogglId(any()) } returns null
+    val saved = mutableListOf<TimeEntry>()
+    every { timeEntryRepository.save(capture(saved)) } answers { firstArg() }
+
+    service.upsertTimeEntries(
+        userId = 42L,
+        entries =
+            listOf(
+                TogglTimeEntry(
+                    id = 1L,
+                    workspaceId = 7L,
+                    start = Instant.parse("2026-05-22T12:00:00Z"),
+                    duration = 100L,
+                ),
+                TogglTimeEntry(
+                    id = 2L,
+                    workspaceId = 7L,
+                    start = Instant.parse("2026-05-22T13:00:00Z"),
+                    duration = 200L,
+                ),
+            ),
+    )
+
+    saved.size shouldBe 2
+    saved[0].togglId shouldBe 1L
+    saved[1].togglId shouldBe 2L
+  }
+
+  @Test
+  fun `upsertTimeEntry throws when Toggl id is missing`() {
+    shouldThrow<IllegalArgumentException> {
+      service.upsertTimeEntry(
+          userId = 42L,
+          entry = TogglTimeEntry(id = null, workspaceId = 7L, start = Instant.now()),
+      )
+    }
+  }
+
+  @Test
+  fun `upsertTimeEntry throws when start is missing`() {
+    shouldThrow<IllegalArgumentException> {
+      service.upsertTimeEntry(
+          userId = 42L,
+          entry = TogglTimeEntry(id = 999L, workspaceId = 7L, start = null),
+      )
+    }
+  }
+
+  @Test
+  fun `upsertTimeEntry throws when workspaceId is missing`() {
+    shouldThrow<IllegalArgumentException> {
+      service.upsertTimeEntry(
+          userId = 42L,
+          entry = TogglTimeEntry(id = 999L, workspaceId = null, start = Instant.now()),
+      )
     }
   }
 }

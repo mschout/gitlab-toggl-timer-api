@@ -17,6 +17,7 @@ package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import java.time.LocalDate
 import org.springframework.stereotype.Service
 
 @Service
@@ -41,6 +42,13 @@ class TimerService(
   }
 
   fun stopTimer(): StopTimerResult? = togglService.stopRunningTimer()
+
+  fun syncHistory(days: Int): SyncHistoryResult {
+    val end = LocalDate.now()
+    val start = end.minusDays(days.toLong())
+    val count = togglService.backfillTimeEntries(start, end)
+    return SyncHistoryResult(count = count, startDate = start, endDate = end)
+  }
 
   fun createProject(createProjectRequest: CreateProjectRequest): TogglProject {
     val issue = createProjectRequest.issue()

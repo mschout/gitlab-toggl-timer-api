@@ -34,6 +34,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import java.time.Instant
+import java.time.LocalDate
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -52,6 +53,7 @@ class TogglServiceTest {
     credentialsService = mockk()
     togglSyncService = mockk(relaxUnitFun = true)
     every { credentialsService.requireTogglApiKey() } returns "test-api-key"
+    every { credentialsService.currentUserId() } returns 42L
     every { togglClientFactory.forApiKey("test-api-key") } returns togglClient
     service = TogglService(togglClientFactory, credentialsService, togglSyncService)
   }
@@ -632,5 +634,153 @@ class TogglServiceTest {
     result.startTime shouldBe startInstant
     result.projectName.shouldBeNull()
     result.description shouldBe "going"
+  }
+
+  @Test
+  fun `startTimer shadow-writes the newly created time entry to Postgres`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+            start = Instant.parse("2026-05-22T12:00:00Z"),
+        )
+    every { togglClient.getCurrentTimeEntry() } returns null
+    val created =
+        TogglTimeEntry(
+            id = 555L,
+            workspaceId = 7L,
+            projectId = 99L,
+            start = request.start,
+            duration = -1L,
+        )
+    every { togglClient.createTimeEntry(7L, any()) } returns created
+
+    service.startTimer(project, request)
+
+    verify { togglSyncService.upsertTimeEntry(42L, created) }
+  }
+
+  @Test
+  fun `startTimer still returns when shadow-write of created entry throws`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+            start = Instant.parse("2026-05-22T12:00:00Z"),
+        )
+    every { togglClient.getCurrentTimeEntry() } returns null
+    val created =
+        TogglTimeEntry(
+            id = 555L,
+            workspaceId = 7L,
+            projectId = 99L,
+            start = request.start,
+            duration = -1L,
+        )
+    every { togglClient.createTimeEntry(7L, any()) } returns created
+    every { togglSyncService.upsertTimeEntry(42L, created) } throws RuntimeException("db down")
+
+    val result = service.startTimer(project, request)
+    result.shouldNotBeNull()
+  }
+
+  @Test
+  fun `startTimer shadow-writes the updated entry when assigning a project to a running entry`() {
+    val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = 5L,
+        )
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = null,
+            start = Instant.parse("2026-05-22T12:00:00Z"),
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val updated = running.copy(projectId = 99L)
+    every { togglClient.updateTimeEntry(7L, 1234L, any()) } returns updated
+
+    service.startTimer(project, request)
+
+    verify { togglSyncService.upsertTimeEntry(42L, updated) }
+  }
+
+  @Test
+  fun `stopRunningTimer shadow-writes the stopped entry to Postgres`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 99L,
+            start = Instant.parse("2026-05-22T12:00:00Z"),
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val stopped = running.copy(duration = 125L, stop = Instant.parse("2026-05-22T12:02:05Z"))
+    every { togglClient.stopTimeEntry(7L, 1234L) } returns stopped
+
+    service.stopRunningTimer()
+
+    verify { togglSyncService.upsertTimeEntry(42L, stopped) }
+  }
+
+  @Test
+  fun `stopRunningTimer still returns when shadow-write of stopped entry throws`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 99L,
+            start = Instant.parse("2026-05-22T12:00:00Z"),
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val stopped = running.copy(duration = 125L)
+    every { togglClient.stopTimeEntry(7L, 1234L) } returns stopped
+    every { togglSyncService.upsertTimeEntry(42L, stopped) } throws RuntimeException("db down")
+
+    val result = service.stopRunningTimer()
+    result.shouldNotBeNull()
+  }
+
+  @Test
+  fun `backfillTimeEntries fetches by date range and bulk-upserts via the sync service`() {
+    val start = LocalDate.parse("2026-04-22")
+    val end = LocalDate.parse("2026-05-22")
+    val entries =
+        listOf(
+            TogglTimeEntry(id = 1L, workspaceId = 7L, start = Instant.now(), duration = 100L),
+            TogglTimeEntry(id = 2L, workspaceId = 7L, start = Instant.now(), duration = 200L),
+        )
+    every {
+      togglClient.getTimeEntries(startDate = "2026-04-22", endDate = "2026-05-22", meta = true)
+    } returns entries
+
+    val count = service.backfillTimeEntries(start, end)
+
+    count shouldBe 2
+    verify { togglSyncService.upsertTimeEntries(42L, entries) }
+  }
+
+  @Test
+  fun `backfillTimeEntries still returns the count when the sync service throws`() {
+    val start = LocalDate.parse("2026-04-22")
+    val end = LocalDate.parse("2026-05-22")
+    val entries = listOf(TogglTimeEntry(id = 1L, workspaceId = 7L, start = Instant.now()))
+    every {
+      togglClient.getTimeEntries(startDate = "2026-04-22", endDate = "2026-05-22", meta = true)
+    } returns entries
+    every { togglSyncService.upsertTimeEntries(42L, entries) } throws RuntimeException("db down")
+
+    service.backfillTimeEntries(start, end) shouldBe 1
   }
 }

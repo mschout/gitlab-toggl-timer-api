@@ -48,6 +48,13 @@ interface TogglClient {
 
   @GetExchange("/me/time_entries/current") fun getCurrentTimeEntry(): TogglTimeEntry?
 
+  @GetExchange("/me/time_entries")
+  fun getTimeEntries(
+      @RequestParam("start_date") startDate: String,
+      @RequestParam("end_date") endDate: String,
+      @RequestParam("meta") meta: Boolean = true,
+  ): List<TogglTimeEntry>
+
   @PostExchange("/workspaces/{workspaceId}/time_entries")
   fun createTimeEntry(
       @PathVariable workspaceId: Long,

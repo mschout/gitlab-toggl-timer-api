@@ -27,6 +27,7 @@ import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import org.springframework.stereotype.Service
 
 private val logger = KotlinLogging.logger {}
@@ -89,7 +90,8 @@ class TogglService(
                 duration = -1L,
                 createdWith = "Gitlab Toggl Timer",
             )
-        client.createTimeEntry(startTimerRequest.workspaceId, newEntry)
+        val created = client.createTimeEntry(startTimerRequest.workspaceId, newEntry)
+        shadowWriteTimeEntry(created)
         StartTimerResult(startTime = start, projectName = project.name, description = description)
       }
 
@@ -110,7 +112,8 @@ class TogglService(
                 createdWith = current.createdWith ?: "Gitlab Toggl Timer",
                 id = entryId,
             )
-        client.updateTimeEntry(workspaceId, entryId, updated)
+        val result = client.updateTimeEntry(workspaceId, entryId, updated)
+        shadowWriteTimeEntry(result)
         StartTimerResult(
             startTime = start,
             projectName = project.name,
@@ -189,7 +192,8 @@ class TogglService(
 
     val start = current.start
 
-    client.stopTimeEntry(workspaceId, entryId)
+    val stopped = client.stopTimeEntry(workspaceId, entryId)
+    shadowWriteTimeEntry(stopped)
 
     val elapsed =
         if (start != null) Duration.between(start, Instant.now()).seconds.coerceAtLeast(0L) else 0L
@@ -215,6 +219,21 @@ class TogglService(
     runCatching { togglSyncService.upsertClients(workspaceId, clients) }
         .onFailure { logger.warn(it) { "Failed to sync Toggl clients to Postgres" } }
     return clients
+  }
+
+  fun backfillTimeEntries(startDate: LocalDate, endDate: LocalDate): Int {
+    val userId = credentialsService.currentUserId()
+    val entries =
+        togglClient().getTimeEntries(startDate = startDate.toString(), endDate = endDate.toString())
+    runCatching { togglSyncService.upsertTimeEntries(userId, entries) }
+        .onFailure { logger.warn(it) { "Failed to backfill Toggl time entries to Postgres" } }
+    return entries.size
+  }
+
+  private fun shadowWriteTimeEntry(entry: TogglTimeEntry) {
+    val userId = credentialsService.currentUserId()
+    runCatching { togglSyncService.upsertTimeEntry(userId, entry) }
+        .onFailure { logger.warn(it) { "Failed to sync Toggl time entry to Postgres" } }
   }
 
   private fun togglClient(): TogglClient =

@@ -17,11 +17,15 @@ package io.github.mschout.gitlab.toggltimer.project
 
 import io.github.mschout.gitlab.toggltimer.support.PostgresContainerSupport
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
+import io.github.mschout.gitlab.toggltimer.user.User
+import io.github.mschout.gitlab.toggltimer.user.UserRepository
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import java.time.Instant
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -35,13 +39,17 @@ constructor(
     private val workspaceRepository: WorkspaceRepository,
     private val clientRepository: ClientRepository,
     private val projectRepository: ProjectRepository,
+    private val timeEntryRepository: TimeEntryRepository,
+    private val userRepository: UserRepository,
 ) : PostgresContainerSupport() {
 
   @AfterEach
   fun cleanUp() {
+    timeEntryRepository.deleteAll()
     projectRepository.deleteAll()
     clientRepository.deleteAll()
     workspaceRepository.deleteAll()
+    userRepository.deleteAll()
   }
 
   @Test
@@ -144,5 +152,69 @@ constructor(
     reloaded.color shouldBe "#10b981"
     reloaded.active shouldBe false
     reloaded.createdAt shouldBe initialCreatedAt
+  }
+
+  @Test
+  fun `upsertTimeEntry inserts a row, updates it on re-sync, and round-trips JSONB tags`() {
+    val user = userRepository.save(User(email = "ts-${System.nanoTime()}@example.com"))
+
+    val start = Instant.parse("2026-05-22T12:00:00Z")
+    val stop = Instant.parse("2026-05-22T13:00:00Z")
+
+    syncService.upsertTimeEntry(
+        userId = user.id,
+        entry =
+            TogglTimeEntry(
+                id = 12345L,
+                workspaceId = 7L,
+                projectId = 100L,
+                start = start,
+                stop = stop,
+                description = "first pass",
+                duration = 3600L,
+                billable = true,
+                tags = listOf("dev", "urgent"),
+            ),
+    )
+
+    val first = timeEntryRepository.findByTogglId(12345L)
+    first.shouldNotBeNull()
+    first.userId shouldBe user.id
+    first.workspaceId shouldBe 7L
+    first.projectId shouldBe 100L
+    first.description shouldBe "first pass"
+    first.start shouldBe start
+    first.stop shouldBe stop
+    first.duration shouldBe 3600L
+    first.billable shouldBe true
+    first.tags shouldBe listOf("dev", "urgent")
+    val initialCreatedAt = first.createdAt
+    val initialId = first.id
+
+    syncService.upsertTimeEntry(
+        userId = user.id,
+        entry =
+            TogglTimeEntry(
+                id = 12345L,
+                workspaceId = 7L,
+                projectId = 100L,
+                start = start,
+                stop = stop.plusSeconds(60),
+                description = "second pass",
+                duration = 3660L,
+                billable = false,
+                tags = listOf("dev"),
+            ),
+    )
+
+    timeEntryRepository.findAll() shouldHaveSize 1
+    val reloaded = timeEntryRepository.findByTogglId(12345L)
+    reloaded.shouldNotBeNull()
+    reloaded.description shouldBe "second pass"
+    reloaded.duration shouldBe 3660L
+    reloaded.billable shouldBe false
+    reloaded.tags shouldBe listOf("dev")
+    reloaded.createdAt shouldBe initialCreatedAt
+    reloaded.id shouldBe initialId
   }
 }

@@ -23,6 +23,7 @@ import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -44,4 +45,9 @@ class TimerController(private val timerService: TimerService) {
   fun createProject(
       @Validated @RequestBody createProjectRequest: CreateProjectRequest
   ): TogglProject = timerService.createProject(createProjectRequest)
+
+  @PostMapping("/sync-history")
+  @Operation(summary = "Backfill Toggl time entries from the past N days into Postgres")
+  fun syncHistory(@RequestParam(defaultValue = "90") days: Int): SyncHistoryResult =
+      timerService.syncHistory(days)
 }

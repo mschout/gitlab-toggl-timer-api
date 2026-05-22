@@ -16,6 +16,7 @@
 package io.github.mschout.gitlab.toggltimer.project
 
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import org.springframework.stereotype.Service
@@ -26,6 +27,7 @@ class TogglSyncService(
     private val workspaceRepository: WorkspaceRepository,
     private val clientRepository: ClientRepository,
     private val projectRepository: ProjectRepository,
+    private val timeEntryRepository: TimeEntryRepository,
 ) {
 
   @Transactional
@@ -91,5 +93,57 @@ class TogglSyncService(
       existing.active = project.active ?: true
       projectRepository.save(existing)
     }
+  }
+
+  @Transactional
+  fun upsertTimeEntry(userId: Long, entry: TogglTimeEntry): TimeEntry {
+    val togglId = requireNotNull(entry.id) { "Toggl time entry is missing an id" }
+    val start = requireNotNull(entry.start) { "Toggl time entry is missing a start" }
+    val workspaceId =
+        requireNotNull(entry.workspaceId) { "Toggl time entry is missing a workspaceId" }
+
+    val existing = timeEntryRepository.findByTogglId(togglId)
+    return if (existing == null) {
+      timeEntryRepository.save(
+          TimeEntry(
+              togglId = togglId,
+              userId = userId,
+              togglUserId = entry.userId,
+              workspaceId = workspaceId,
+              projectId = entry.projectId,
+              taskId = entry.taskId,
+              description = entry.description,
+              start = start,
+              stop = entry.stop,
+              duration = entry.duration,
+              billable = entry.billable ?: false,
+              tags = entry.tags.orEmpty(),
+              createdWith = entry.createdWith,
+              togglAt = entry.at,
+              serverDeletedAt = entry.serverDeletedAt,
+          )
+      )
+    } else {
+      existing.togglUserId = entry.userId
+      existing.workspaceId = workspaceId
+      existing.projectId = entry.projectId
+      existing.taskId = entry.taskId
+      existing.description = entry.description
+      existing.start = start
+      existing.stop = entry.stop
+      existing.duration = entry.duration
+      existing.billable = entry.billable ?: false
+      existing.tags = entry.tags.orEmpty()
+      existing.createdWith = entry.createdWith
+      existing.togglAt = entry.at
+      existing.serverDeletedAt = entry.serverDeletedAt
+      timeEntryRepository.save(existing)
+    }
+  }
+
+  @Transactional
+  fun upsertTimeEntries(userId: Long, entries: List<TogglTimeEntry>) {
+    if (entries.isEmpty()) return
+    entries.forEach { upsertTimeEntry(userId, it) }
   }
 }
