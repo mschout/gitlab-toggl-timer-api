@@ -84,6 +84,19 @@ Whichever provider you use, register `http://<host>:8080/login/oauth2/code/oidc`
 
 To swap providers later, just change `OIDC_*` — no code changes needed.
 
+## GitLab Token Permissions
+
+You need the following permissions on the GitLab Personal Access Token:
+
+### Group Permissions
+- Global Search: Use
+- Group: Read
+- Project: Read
+- Work Item: Read
+
+### User Permissions
+- User: Read
+
 ## Authentication
 
 | Variable | Required | Default | Notes |
