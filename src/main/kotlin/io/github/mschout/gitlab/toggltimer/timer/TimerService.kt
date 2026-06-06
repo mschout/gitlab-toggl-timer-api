@@ -27,16 +27,20 @@ class TimerService(
 ) {
 
   fun startTimer(startTimerRequest: StartTimerRequest): StartTimerResult {
-    val issue = startTimerRequest.issue()
-    val issueTitle = gitLabService.getGitlabIssueTitle(issue)
-
     val project =
-        togglService.findOrCreateProject(
-            startTimerRequest.workspaceId,
-            startTimerRequest.clientId,
-            issue.issueNumber,
-            issueTitle,
-        )
+        startTimerRequest.issue()?.let { issue ->
+          val clientId =
+              requireNotNull(startTimerRequest.clientId) {
+                "A Toggl client is required to create a project for a GitLab issue"
+              }
+          val issueTitle = gitLabService.getGitlabIssueTitle(issue)
+          togglService.findOrCreateProject(
+              startTimerRequest.workspaceId,
+              clientId,
+              issue.issueNumber,
+              issueTitle,
+          )
+        }
 
     return togglService.startTimer(project, startTimerRequest)
   }

@@ -16,7 +16,6 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
-import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import tools.jackson.databind.PropertyNamingStrategies
@@ -24,11 +23,16 @@ import tools.jackson.databind.annotation.JsonNaming
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class StartTimerRequest(
-    @field:NotBlank val issueUrl: String,
+    val issueUrl: String? = null,
     @field:NotNull val workspaceId: Long,
-    @field:NotNull val clientId: Long,
+    val clientId: Long? = null,
     val start: Instant? = null,
     val description: String? = null,
 ) {
-  internal fun issue(): GitLabIssue = GitLabIssue.fromUrl(issueUrl)
+  /**
+   * Parses [issueUrl] into a [GitLabIssue], or returns null when no issue URL was provided. A null
+   * result means the timer should start without an associated Toggl project.
+   */
+  internal fun issue(): GitLabIssue? =
+      issueUrl?.takeIf { it.isNotBlank() }?.let { GitLabIssue.fromUrl(it) }
 }

@@ -73,9 +73,15 @@ class TogglService(
     return project
   }
 
-  fun startTimer(project: TogglProject, startTimerRequest: StartTimerRequest): StartTimerResult {
+  /**
+   * Starts (or adopts) a running Toggl timer. When [project] is null the timer is started without
+   * an associated Toggl project — this is the "workspace only" flow where no GitLab issue was
+   * provided. A non-null [project] is attached to the new (or an already-running, project-less)
+   * entry as before.
+   */
+  fun startTimer(project: TogglProject?, startTimerRequest: StartTimerRequest): StartTimerResult {
     val client = togglClient()
-    val projectId = requireNotNull(project.id) { "Toggl project is missing an id" }
+    val projectId = project?.id
     val current = client.getCurrentTimeEntry()
 
     return when {
@@ -93,10 +99,10 @@ class TogglService(
             )
         val created = client.createTimeEntry(startTimerRequest.workspaceId, newEntry)
         shadowWriteTimeEntry(created)
-        StartTimerResult(startTime = start, projectName = project.name, description = description)
+        StartTimerResult(startTime = start, projectName = project?.name, description = description)
       }
 
-      current.projectId == null -> {
+      current.projectId == null && projectId != null -> {
         val workspaceId =
             requireNotNull(current.workspaceId) { "Running entry missing workspaceId" }
         val entryId = requireNotNull(current.id) { "Running entry missing id" }
@@ -117,7 +123,7 @@ class TogglService(
         shadowWriteTimeEntry(result)
         StartTimerResult(
             startTime = start,
-            projectName = project.name,
+            projectName = project?.name,
             description = newDescription,
         )
       }
@@ -127,13 +133,15 @@ class TogglService(
         val workspaceId =
             requireNotNull(current.workspaceId) { "Running entry missing workspaceId" }
         val runningProject =
-            runCatching { client.getProject(workspaceId, current.projectId) }
-                .onFailure {
-                  logger.warn(it) {
-                    "Failed to fetch Toggl project ${current.projectId} for running entry"
+            current.projectId?.let { runningProjectId ->
+              runCatching { client.getProject(workspaceId, runningProjectId) }
+                  .onFailure {
+                    logger.warn(it) {
+                      "Failed to fetch Toggl project $runningProjectId for running entry"
+                    }
                   }
-                }
-                .getOrNull()
+                  .getOrNull()
+            }
         StartTimerResult(
             startTime = start,
             projectName = runningProject?.name,

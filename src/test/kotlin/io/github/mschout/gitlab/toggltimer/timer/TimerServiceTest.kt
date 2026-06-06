@@ -75,6 +75,38 @@ class TimerServiceTest {
   }
 
   @Test
+  fun `startTimer should start without a project when no issue url is provided`() {
+    val request = StartTimerRequest(workspaceId = 7L, description = "just tracking")
+    val timerResult =
+        StartTimerResult(
+            startTime = Instant.parse("2026-05-08T15:00:00Z"),
+            projectName = null,
+            description = "just tracking",
+        )
+
+    every { togglService.startTimer(null, request) } returns timerResult
+
+    val result = service.startTimer(request)
+
+    result shouldBe timerResult
+    verify { togglService.startTimer(null, request) }
+    verify { gitLabService wasNot Called }
+    verify(exactly = 0) { togglService.findOrCreateProject(any(), any(), any(), any()) }
+  }
+
+  @Test
+  fun `startTimer should fail when an issue url is provided without a client`() {
+    val request =
+        StartTimerRequest(
+            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            workspaceId = 7L,
+            clientId = null,
+        )
+
+    shouldThrow<IllegalArgumentException> { service.startTimer(request) }
+  }
+
+  @Test
   fun `createProject should resolve issue title and delegate to toggl find or create`() {
     val request =
         CreateProjectRequest(

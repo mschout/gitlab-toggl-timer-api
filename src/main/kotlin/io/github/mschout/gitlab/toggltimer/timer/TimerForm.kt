@@ -15,13 +15,12 @@
  */
 package io.github.mschout.gitlab.toggltimer.timer
 
-import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 
 data class TimerForm(
-    @field:NotBlank val issueUrl: String = "",
+    val issueUrl: String = "",
     @field:NotNull val workspaceId: Long? = null,
-    @field:NotNull val clientId: Long? = null,
+    val clientId: Long? = null,
     val description: String? = null,
 ) {
   fun toCreateProjectRequest(): CreateProjectRequest =
@@ -33,9 +32,9 @@ data class TimerForm(
 
   fun toStartTimerRequest(): StartTimerRequest =
       StartTimerRequest(
-          issueUrl = issueUrl,
+          issueUrl = issueUrl.takeIf { it.isNotBlank() },
           workspaceId = requireNotNull(workspaceId),
-          clientId = requireNotNull(clientId),
+          clientId = clientId,
           description = description?.takeIf { it.isNotBlank() },
       )
 }

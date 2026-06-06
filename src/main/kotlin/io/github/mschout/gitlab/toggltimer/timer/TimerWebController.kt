@@ -82,6 +82,12 @@ class TimerWebController(
       model: Model,
       response: HttpServletResponse,
   ): String {
+    if (form.issueUrl.isBlank()) {
+      bindingResult.rejectValue("issueUrl", "NotBlank", "A GitLab issue URL is required.")
+    }
+    if (form.clientId == null) {
+      bindingResult.rejectValue("clientId", "NotNull", "A Toggl client is required.")
+    }
     if (bindingResult.hasErrors()) {
       return formErrorView(form, model, hxRequest, response)
     }
@@ -114,6 +120,15 @@ class TimerWebController(
       model: Model,
       response: HttpServletResponse,
   ): String {
+    // The issue URL is optional for Start Timer (a bare timer just tracks the workspace), but if
+    // one is supplied we need a client to find or create its Toggl project.
+    if (form.issueUrl.isNotBlank() && form.clientId == null) {
+      bindingResult.rejectValue(
+          "clientId",
+          "NotNull",
+          "A Toggl client is required when tracking a GitLab issue.",
+      )
+    }
     if (bindingResult.hasErrors()) {
       return formErrorView(form, model, hxRequest, response)
     }

@@ -494,6 +494,56 @@ class TogglServiceTest {
   }
 
   @Test
+  fun `startTimer creates a project-less entry but keeps the description when project is null`() {
+    val explicitStart = Instant.parse("2026-05-15T12:00:00Z")
+    val request =
+        StartTimerRequest(workspaceId = 7L, start = explicitStart, description = "just tracking")
+    every { togglClient.getCurrentTimeEntry() } returns null
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.createTimeEntry(7L, capture(captured)) } answers
+        {
+          captured.captured.copy(id = 555L)
+        }
+
+    val result = service.startTimer(null, request)
+
+    result.startTime shouldBe explicitStart
+    result.projectName shouldBe null
+    result.description shouldBe "just tracking"
+    captured.captured.workspaceId shouldBe 7L
+    captured.captured.projectId shouldBe null
+    captured.captured.description shouldBe "just tracking"
+    captured.captured.duration shouldBe -1L
+    verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+  }
+
+  @Test
+  fun `startTimer leaves a running project-less entry untouched when no project is resolved`() {
+    val request = StartTimerRequest(workspaceId = 7L)
+    val existingStart = Instant.parse("2026-05-15T09:30:00Z")
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = null,
+            start = existingStart,
+            description = "in progress",
+            duration = -1L,
+            createdWith = "Toggl Web",
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+
+    val result = service.startTimer(null, request)
+
+    result.startTime shouldBe existingStart
+    result.projectName shouldBe null
+    result.description shouldBe "in progress"
+    verify(exactly = 0) { togglClient.getProject(any(), any()) }
+    verify(exactly = 0) { togglClient.createTimeEntry(any(), any()) }
+    verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+  }
+
+  @Test
   fun `stopRunningTimer returns null when no timer is running`() {
     every { togglClient.getCurrentTimeEntry() } returns null
 
