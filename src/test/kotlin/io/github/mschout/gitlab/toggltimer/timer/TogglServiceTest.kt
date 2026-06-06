@@ -527,6 +527,99 @@ class TogglServiceTest {
   }
 
   @Test
+  fun `stopRunningTimer updates the edited description in Toggl and shadow-writes it`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = Instant.now().minusSeconds(125),
+            description = "old description",
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val stopped = running.copy(duration = 125L)
+    every { togglClient.stopTimeEntry(7L, 1234L) } returns stopped
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.updateTimeEntry(7L, 1234L, capture(captured)) } answers
+        {
+          captured.captured
+        }
+
+    service.stopRunningTimer("new description")
+
+    captured.captured.description shouldBe "new description"
+    verify { togglClient.updateTimeEntry(7L, 1234L, any()) }
+    verify { togglSyncService.upsertTimeEntry(42L, captured.captured) }
+  }
+
+  @Test
+  fun `stopRunningTimer leaves description untouched when none is provided`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = Instant.now().minusSeconds(125),
+            description = "keep me",
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val stopped = running.copy(duration = 125L)
+    every { togglClient.stopTimeEntry(7L, 1234L) } returns stopped
+
+    service.stopRunningTimer(null)
+
+    verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+    verify { togglSyncService.upsertTimeEntry(42L, stopped) }
+  }
+
+  @Test
+  fun `stopRunningTimer clears the description in Toggl when a blank value is provided`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = Instant.now().minusSeconds(125),
+            description = "remove me",
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    val stopped = running.copy(duration = 125L)
+    every { togglClient.stopTimeEntry(7L, 1234L) } returns stopped
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.updateTimeEntry(7L, 1234L, capture(captured)) } answers
+        {
+          captured.captured
+        }
+
+    service.stopRunningTimer("   ")
+
+    captured.captured.description.shouldBeNull()
+    verify { togglClient.updateTimeEntry(7L, 1234L, any()) }
+  }
+
+  @Test
+  fun `stopRunningTimer does not call Toggl update when description is unchanged`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            start = Instant.now().minusSeconds(125),
+            description = "same",
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    every { togglClient.stopTimeEntry(7L, 1234L) } returns running.copy(duration = 125L)
+
+    service.stopRunningTimer("same")
+
+    verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+  }
+
+  @Test
   fun `formatHms zero-pads hours minutes and seconds`() {
     StopTimerResult.formatHms(0L) shouldBe "00:00:00"
     StopTimerResult.formatHms(59L) shouldBe "00:00:59"

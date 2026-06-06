@@ -41,7 +41,8 @@ class TimerService(
     return togglService.startTimer(project, startTimerRequest)
   }
 
-  fun stopTimer(): StopTimerResult? = togglService.stopRunningTimer()
+  fun stopTimer(description: String? = null): StopTimerResult? =
+      togglService.stopRunningTimer(description)
 
   fun syncHistory(days: Int): SyncHistoryResult {
     val end = LocalDate.now()

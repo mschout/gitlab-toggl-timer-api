@@ -35,31 +35,31 @@
               </dd>
               <dt class="col-sm-3 text-body-secondary" th:if="${projectName != null}">Project</dt>
               <dd
-                class="col-sm-9 mb-1"
+                class="col-sm-9 mb-0"
                 th:if="${projectName != null}"
                 th:text="${projectName}"
               >
                 Project name
               </dd>
-              <dt
-                class="col-sm-3 text-body-secondary"
-                th:if="${description != null and !#strings.isEmpty(description)}"
-              >
-                Description
-              </dt>
-              <dd
-                class="col-sm-9 mb-0"
-                th:if="${description != null and !#strings.isEmpty(description)}"
-                th:text="${description}"
-              >
-                Description
-              </dd>
             </dl>
+            <div class="mt-3">
+              <label for="running-description" class="form-label small mb-1">Description</label>
+              <input
+                type="text"
+                id="running-description"
+                name="description"
+                class="form-control form-control-sm"
+                th:value="${description}"
+                placeholder="What are you working on?"
+              />
+              <div class="form-text">Saved to Toggl when you stop the timer.</div>
+            </div>
             <div class="mt-3">
               <button
                 type="button"
                 class="btn btn-outline-danger btn-sm"
                 hx-post="/timer/stop"
+                hx-include="#running-description"
                 hx-target="#result"
                 hx-swap="innerHTML"
               >

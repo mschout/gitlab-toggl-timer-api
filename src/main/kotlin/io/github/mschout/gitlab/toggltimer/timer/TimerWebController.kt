@@ -126,10 +126,11 @@ class TimerWebController(
 
   @PostMapping("/stop")
   fun stopTimerSubmit(
+      @RequestParam(required = false) description: String? = null,
       @RequestHeader(name = "HX-Request", required = false) hxRequest: Boolean = false,
       model: Model,
   ): String {
-    val result = timerService.stopTimer()
+    val result = timerService.stopTimer(description)
     if (result != null) {
       model.addAttribute("durationFormatted", result.durationFormatted)
       model.addAttribute("stopped", true)

@@ -173,7 +173,14 @@ class TogglService(
     )
   }
 
-  fun stopRunningTimer(): StopTimerResult? {
+  /**
+   * Stops the currently running Toggl timer.
+   *
+   * When [description] is non-null it replaces the entry's description in Toggl (a blank value
+   * clears it); a null value leaves the existing description untouched. The final entry — including
+   * any description change — is shadow-written to Postgres.
+   */
+  fun stopRunningTimer(description: String? = null): StopTimerResult? {
     val client = togglClient()
     val current = client.getCurrentTimeEntry() ?: return null
 
@@ -193,7 +200,26 @@ class TogglService(
 
     val start = current.start
 
-    val stopped = client.stopTimeEntry(workspaceId, entryId)
+    var stopped = client.stopTimeEntry(workspaceId, entryId)
+
+    if (description != null) {
+      val newDescription = description.takeIf { it.isNotBlank() }
+      if (newDescription != stopped.description) {
+        stopped =
+            runCatching {
+                  client.updateTimeEntry(
+                      workspaceId,
+                      entryId,
+                      stopped.copy(description = newDescription),
+                  )
+                }
+                .onFailure {
+                  logger.warn(it) { "Failed to update description on stopped Toggl entry $entryId" }
+                }
+                .getOrDefault(stopped.copy(description = newDescription))
+      }
+    }
+
     shadowWriteTimeEntry(stopped)
 
     val elapsed =
