@@ -5,21 +5,20 @@ caffeine = "3.2.4"
 gitlab4jApi = "6.3.0"
 htmx = "2.0.10"
 kotest = "6.1.11"
-kotlin = "2.3.21"
-kotlinLogging = "8.0.02"
-mockk = "1.14.9"
-spotless = "8.4.0"
+kotlin = "2.4.0"
+kotlinLogging = "8.0.4"
+mockk = "1.14.11"
+spotless = "8.6.0"
 springBoot = "4.0.6"
 springDependencyManagement = "1.1.7"
 springSecurityWebauthn = "7.0.5"
 springdoc = "3.0.3"
-testcontainers = "1.21.3"
+testcontainers = "1.21.4"
 totp = "1.7.1"
 
 [libraries]
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
-spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway", version.ref = "springBoot" }
 gitlab4j-api = { module = "org.gitlab4j:gitlab4j-api", version.ref = "gitlab4jApi" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
@@ -28,20 +27,21 @@ kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = 
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 postgresql = { module = "org.postgresql:postgresql" }
+samstevens-totp = { module = "dev.samstevens.totp:totp", version.ref = "totp" }
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway", version.ref = "springBoot" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "springBoot" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc", version.ref = "springBoot" }
 spring-boot-starter-oauth2-client = { module = "org.springframework.boot:spring-boot-starter-oauth2-client", version.ref = "springBoot" }
 spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient", version.ref = "springBoot" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security", version.ref = "springBoot" }
-spring-security-webauthn = { module = "org.springframework.security:spring-security-webauthn", version.ref = "springSecurityWebauthn" }
-spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc", version.ref = "springBoot" }
-samstevens-totp = { module = "dev.samstevens.totp:totp", version.ref = "totp" }
-spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test", version.ref = "springBoot" }
 spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf", version.ref = "springBoot" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation", version.ref = "springBoot" }
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBoot" }
+spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test", version.ref = "springBoot" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers", version.ref = "springBoot" }
 spring-security-test = { module = "org.springframework.security:spring-security-test" }
+spring-security-webauthn = { module = "org.springframework.security:spring-security-webauthn", version.ref = "springSecurityWebauthn" }
 spring-tx = { module = "org.springframework:spring-tx" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
@@ -69,10 +69,10 @@ spring = [
     "spring-boot-starter-oauth2-client",
     "spring-boot-starter-restclient",
     "spring-boot-starter-security",
-    "spring-security-webauthn",
     "spring-boot-starter-thymeleaf",
     "spring-boot-starter-validation",
     "spring-boot-starter-web",
+    "spring-security-webauthn",
     "spring-tx",
 ]
 testcontainers = [
