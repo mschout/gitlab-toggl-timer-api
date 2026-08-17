@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # git-version derives the project version from tags, so it needs
+          # the full history rather than a shallow clone.
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # setup-gradle only caches downloaded wrapper *zips*, but the wrapper
+      # deletes the zip after unpacking it, so the distribution gets
+      # re-downloaded on every run. Cache the extracted distribution instead.
+      - name: Cache Gradle distribution
+        uses: actions/cache@v6
+        with:
+          path: ~/.gradle/wrapper/dists
+          key: gradle-dists-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Build
+        run: ./gradlew build --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: build/reports/tests/
+          retention-days: 7
