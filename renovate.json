@@ -1,0 +1,49 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group Kotlin compiler plugins and libraries (shared 'kotlin' version ref)",
+      "groupName": "Kotlin",
+      "matchPackageNames": ["/^org\\.jetbrains\\.kotlin\\b/"]
+    },
+    {
+      "description": "Group Spring Boot, Framework, and Security so their versions move together",
+      "groupName": "Spring",
+      "matchPackageNames": [
+        "/^org\\.springframework\\b/",
+        "io.spring.dependency-management"
+      ]
+    },
+    {
+      "description": "Group Testcontainers artifacts",
+      "groupName": "Testcontainers",
+      "matchPackageNames": ["/^org\\.testcontainers\\b/"]
+    },
+    {
+      "description": "Group Kotest artifacts",
+      "groupName": "Kotest",
+      "matchPackageNames": ["/^io\\.kotest\\b/"]
+    },
+    {
+      "description": "Group frontend webjars (bootstrap, htmx)",
+      "groupName": "webjars",
+      "matchPackageNames": ["/^org\\.webjars\\b/"]
+    },
+    {
+      "description": "Group all GitHub Actions updates into a single PR",
+      "groupName": "GitHub Actions",
+      "matchManagers": ["github-actions"]
+    },
+    {
+      "description": "Require manual review for postgres major upgrades (needs data migration)",
+      "matchDepNames": ["postgres"],
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}
