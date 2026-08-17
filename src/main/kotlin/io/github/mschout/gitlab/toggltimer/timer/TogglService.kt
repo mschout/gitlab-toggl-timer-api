@@ -123,7 +123,7 @@ class TogglService(
         shadowWriteTimeEntry(result)
         StartTimerResult(
             startTime = start,
-            projectName = project?.name,
+            projectName = project.name,
             description = newDescription,
         )
       }

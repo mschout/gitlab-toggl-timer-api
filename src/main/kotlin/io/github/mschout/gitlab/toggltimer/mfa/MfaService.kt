@@ -55,7 +55,7 @@ class MfaService(
     return userCredentialRepository.findByUserId(entity.id).map {
       PasskeyView(
           credentialId = it.credentialId.toBase64UrlString(),
-          label = it.label.orEmpty(),
+          label = it.label,
           created = it.created,
           lastUsed = it.lastUsed,
       )

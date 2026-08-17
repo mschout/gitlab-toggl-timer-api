@@ -14,6 +14,8 @@ version = "0.9.0"
 
 description = "Personal Toggl Timer Integrations for Gitlab"
 
+kotlin { compilerOptions { extraWarnings = true } }
+
 repositories {
   mavenCentral()
   maven { url = uri("https://repo.spring.io/snapshot") }
