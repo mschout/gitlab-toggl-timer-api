@@ -42,7 +42,10 @@ class CustomOidcUserService(
   override fun loadUser(userRequest: OidcUserRequest): OidcUser {
     val oidcUser = super.loadUser(userRequest)
     val provider = userRequest.clientRegistration.registrationId
-    val subject = oidcUser.subject
+    val subject =
+        requireNotNull(oidcUser.subject) {
+          "OIDC userinfo missing 'sub' claim — provider $provider returned no subject identifier"
+        }
     val email =
         requireNotNull(oidcUser.email) {
           "OIDC userinfo missing 'email' claim — ensure the provider is configured to release the email scope"
