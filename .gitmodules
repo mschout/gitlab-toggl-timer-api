@@ -1,3 +1,0 @@
-[submodule "convention-plugins"]
-	path = convention-plugins
-	url = https://github.com/mschout/mschout-gradle-convention-plugins

@@ -1,7 +1,7 @@
 import org.springframework.boot.gradle.tasks.bundling.BootBuildImage
 
 plugins {
-  id("mschout.all-conventions")
+  alias(libs.plugins.mschout.conventions)
   alias(libs.plugins.kotlin.jpa)
   alias(libs.plugins.kotlin.spring)
   alias(libs.plugins.spring.boot)
