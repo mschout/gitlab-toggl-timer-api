@@ -52,6 +52,7 @@ data class RecentTimeEntryView(
 )
 
 @Service
+@Transactional(readOnly = true)
 class TimeEntryHistoryService(
     private val timeEntryRepository: TimeEntryRepository,
     private val projectRepository: ProjectRepository,
@@ -60,7 +61,6 @@ class TimeEntryHistoryService(
     private val clock: Clock,
 ) {
 
-  @Transactional(readOnly = true)
   fun initialPage(): TimeEntryHistoryPage {
     val zone = credentialsService.currentTimeZone()
     val today = LocalDate.now(clock.withZone(zone))
@@ -73,7 +73,6 @@ class TimeEntryHistoryService(
     )
   }
 
-  @Transactional(readOnly = true)
   fun pageBefore(before: LocalDate): TimeEntryHistoryPage {
     val zone = credentialsService.currentTimeZone()
     val today = LocalDate.now(clock.withZone(zone))
