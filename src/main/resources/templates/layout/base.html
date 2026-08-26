@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" th:fragment="layout(title, content)" lang="en">
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+  th:fragment="layout(title, content)"
+  lang="en"
+>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -19,6 +24,15 @@
     </main>
 
     <footer th:replace="~{fragments/footer :: footer}"></footer>
+
+    <div
+      sec:authorize="isAuthenticated() and !hasAuthority('ROLE_PRE_MFA')"
+      class="d-none"
+      th:attr="hx-post=@{/auth/keep-alive}"
+      hx-trigger="every 5m"
+      hx-swap="none"
+      aria-hidden="true"
+    ></div>
 
     <script th:src="@{/webjars/bootstrap/5.3.8/dist/js/bootstrap.bundle.min.js}"></script>
     <script th:src="@{/webjars/htmx.org/2.0.10/dist/htmx.min.js}"></script>

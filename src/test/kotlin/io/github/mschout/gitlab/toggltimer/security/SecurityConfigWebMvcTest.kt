@@ -28,6 +28,8 @@ import io.github.mschout.gitlab.toggltimer.user.UserSettingsRepository
 import io.mockk.every
 import io.mockk.mockk
 import java.util.Optional
+import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.restclient.RestTemplateBuilder
@@ -35,13 +37,16 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
-@WebMvcTest(controllers = [TimerWebController::class])
+@WebMvcTest(controllers = [TimerWebController::class, SessionKeepAliveController::class])
 @Import(SecurityConfig::class, AuthConfiguration::class, SecurityConfigWebMvcTest.MockBeans::class)
 class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
 
@@ -107,10 +112,26 @@ class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
   fun `authenticated GET timer is allowed when user has settings`() {
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
+        .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
   }
 
   @Test
   fun `unauthenticated GET root is permitted`() {
-    mvc.perform(get("/")).andExpect(status().isOk)
+    mvc.perform(get("/"))
+        .andExpect(status().isOk)
+        .andExpect(content().string(not(containsString("hx-post=\"/auth/keep-alive\""))))
+  }
+
+  @Test
+  fun `authenticated POST keep-alive refreshes the session`() {
+    mvc.perform(post("/auth/keep-alive").with(user("alice@example.com").roles("USER")).with(csrf()))
+        .andExpect(status().isNoContent)
+  }
+
+  @Test
+  fun `unauthenticated POST keep-alive redirects to login`() {
+    mvc.perform(post("/auth/keep-alive").with(csrf()))
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/login"))
   }
 }

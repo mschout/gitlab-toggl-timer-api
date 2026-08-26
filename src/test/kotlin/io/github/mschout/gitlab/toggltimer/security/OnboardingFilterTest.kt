@@ -175,6 +175,18 @@ class OnboardingFilterTest {
   }
 
   @Test
+  fun `skips filter for session keep-alive without credentials`() {
+    authenticateAs("alice@example.com")
+    val req = request("/auth/keep-alive")
+    val res = MockHttpServletResponse()
+
+    filter.doFilter(req, res, chain)
+
+    verify { chain.doFilter(req, res) }
+    verify(exactly = 0) { userRepo.findByEmail(any()) }
+  }
+
+  @Test
   fun `skips filter for static webjars`() {
     authenticateAs("alice@example.com")
     val req = request("/webjars/bootstrap/css/x.css")

@@ -69,6 +69,7 @@ class OnboardingFilter(
     private val WHITELIST =
         listOf(
             "/settings",
+            "/auth/keep-alive",
             "/logout",
             "/login",
             "/oauth2",
