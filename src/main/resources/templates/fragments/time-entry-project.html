@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <body>
+    <div
+      th:fragment="project-picker"
+      class="time-entry-project-picker"
+      th:id="|time-entry-project-${projectPicker.togglId}|"
+      th:attr="data-project-color=${projectPicker.projectColor},
+               data-open=${projectPicker.open}"
+    >
+      <button
+        type="button"
+        class="time-entry-project-trigger"
+        th:attr="aria-controls=|time-entry-project-dialog-${projectPicker.togglId}|,
+                 aria-label=|Change project for time entry ${projectPicker.togglId}|"
+        aria-haspopup="dialog"
+      >
+        <span class="time-entry-separator" aria-hidden="true">•</span>
+        <span th:if="${projectPicker.projectName != null}" th:text="${projectPicker.projectName}">
+          Project
+        </span>
+        <span th:if="${projectPicker.projectName == null}" class="fst-italic">Add project</span>
+        <th:block th:if="${projectPicker.clientName != null}">
+          <span class="time-entry-separator" aria-hidden="true">•</span>
+          <span th:text="${projectPicker.clientName}">Client</span>
+        </th:block>
+      </button>
+
+      <dialog
+        class="time-entry-project-dialog"
+        th:id="|time-entry-project-dialog-${projectPicker.togglId}|"
+        th:attr="aria-labelledby=|time-entry-project-title-${projectPicker.togglId}|"
+      >
+        <div class="time-entry-project-dialog-header">
+          <div>
+            <h4
+              class="time-entry-project-dialog-title"
+              th:id="|time-entry-project-title-${projectPicker.togglId}|"
+            >Choose a project</h4>
+            <div class="small text-body-secondary">Search projects in this workspace</div>
+          </div>
+          <button
+            type="button"
+            class="btn-close time-entry-project-close"
+            aria-label="Close project picker"
+          ></button>
+        </div>
+
+        <div
+          th:if="${projectPicker.error != null}"
+          class="time-entry-project-alert"
+          role="status"
+          th:text="${projectPicker.error}"
+        >Could not save the project.</div>
+
+        <div class="time-entry-project-search-wrap">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input
+            type="search"
+            name="query"
+            class="form-control time-entry-project-search"
+            th:id="|time-entry-project-search-${projectPicker.togglId}|"
+            th:attr="hx-get=@{/timer/entries/{togglId}/projects(togglId=${projectPicker.togglId})},
+                     hx-target=|#time-entry-project-results-${projectPicker.togglId}|,
+                     hx-indicator=|#time-entry-project-searching-${projectPicker.togglId}|"
+            hx-trigger="input changed delay:200ms, project-search"
+            placeholder="Search projects…"
+            autocomplete="off"
+          />
+          <span
+            th:id="|time-entry-project-searching-${projectPicker.togglId}|"
+            class="time-entry-project-searching htmx-indicator"
+            aria-label="Searching projects"
+          >
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          </span>
+        </div>
+
+        <div
+          th:id="|time-entry-project-results-${projectPicker.togglId}|"
+          class="time-entry-project-results"
+          aria-live="polite"
+        >
+          <div class="time-entry-project-results-empty">Loading projects…</div>
+        </div>
+      </dialog>
+    </div>
+
+    <div
+      th:fragment="project-results"
+      th:id="|time-entry-project-results-${projectSearch.togglId}|"
+      class="time-entry-project-results"
+      aria-live="polite"
+    >
+      <div
+        th:if="${projectSearch.error != null}"
+        class="time-entry-project-results-empty text-danger-emphasis"
+        role="status"
+        th:text="${projectSearch.error}"
+      >Could not search projects.</div>
+
+      <div
+        th:if="${projectSearch.error == null and #lists.isEmpty(projectSearch.projects)}"
+        class="time-entry-project-results-empty"
+        th:text="${#strings.isEmpty(projectSearch.query)} ? 'No active projects in this workspace.' : 'No matching projects.'"
+      >No matching projects.</div>
+
+      <button
+        th:each="project : ${projectSearch.projects}"
+        type="button"
+        class="time-entry-project-option"
+        th:classappend="${project.selected} ? ' is-selected'"
+        th:disabled="${project.selected}"
+        th:attr="hx-post=@{/timer/entries/{togglId}/project(togglId=${projectSearch.togglId},projectId=${project.togglId})},
+                 hx-target=|#time-entry-project-${projectSearch.togglId}|"
+        hx-swap="outerHTML"
+      >
+        <span
+          class="time-entry-project-option-color"
+          th:style="${project.color != null} ? |--option-color: ${project.color}| : null"
+          aria-hidden="true"
+        ></span>
+        <span class="time-entry-project-option-copy">
+          <span class="time-entry-project-option-name" th:text="${project.name}">Project</span>
+          <span
+            th:if="${project.clientName != null}"
+            class="time-entry-project-option-client"
+            th:text="${project.clientName}"
+          >Client</span>
+        </span>
+        <span th:if="${project.selected}" class="time-entry-project-current">
+          <i class="bi bi-check-lg" aria-hidden="true"></i>
+          <span class="visually-hidden">Current project</span>
+        </span>
+      </button>
+    </div>
+  </body>
+</html>

@@ -45,6 +45,7 @@ class TimerWebController(
     private val togglService: TogglService,
     private val timeEntryHistoryService: TimeEntryHistoryService,
     private val timeEntryDescriptionService: TimeEntryDescriptionService,
+    private val timeEntryProjectService: TimeEntryProjectService,
 ) {
 
   @GetMapping
@@ -206,6 +207,58 @@ class TimerWebController(
         }
     model.addAttribute("descriptionEditor", descriptionEditor)
     return "fragments/time-entry-description :: description-editor"
+  }
+
+  @GetMapping("/entries/{togglId}/projects")
+  fun searchEntryProjects(
+      @PathVariable togglId: Long,
+      @RequestParam(defaultValue = "") query: String,
+      model: Model,
+  ): String {
+    val projectSearch =
+        try {
+          timeEntryProjectService.searchProjects(togglId = togglId, query = query)
+        } catch (ex: TimeEntryProjectNotFoundException) {
+          throw ex
+        } catch (ex: Exception) {
+          logger.warn(ex) { "Failed to search Postgres projects for time entry $togglId" }
+          TimeEntryProjectSearchView(
+              togglId = togglId,
+              query = query,
+              projects = emptyList(),
+              error = "Could not search projects. Try again.",
+          )
+        }
+    model.addAttribute("projectSearch", projectSearch)
+    return "fragments/time-entry-project :: project-results"
+  }
+
+  @PostMapping("/entries/{togglId}/project")
+  fun updateEntryProject(
+      @PathVariable togglId: Long,
+      @RequestParam projectId: Long,
+      model: Model,
+  ): String {
+    val projectPicker =
+        try {
+          timeEntryProjectService.updateProject(togglId = togglId, projectId = projectId)
+        } catch (ex: TogglProjectUpdateException) {
+          logger.warn(ex) { "Failed to update Toggl time entry $togglId project" }
+          timeEntryProjectService
+              .currentPicker(togglId)
+              .copy(error = "Could not save to Toggl. Choose a project to retry.", open = true)
+        } catch (ex: TimeEntryProjectHistoryUpdateException) {
+          logger.warn(ex) { "Failed to sync Toggl time entry $togglId project to Postgres" }
+          timeEntryProjectService
+              .currentPicker(togglId)
+              .copy(
+                  error =
+                      "Saved to Toggl, but local history is out of sync. Choose a project to retry.",
+                  open = true,
+              )
+        }
+    model.addAttribute("projectPicker", projectPicker)
+    return "fragments/time-entry-project :: project-picker"
   }
 
   @GetMapping("/clients")

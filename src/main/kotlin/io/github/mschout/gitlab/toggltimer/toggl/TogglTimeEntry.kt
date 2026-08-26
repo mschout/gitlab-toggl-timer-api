@@ -43,3 +43,6 @@ data class TogglTimeEntry(
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class UpdateTimeEntryDescriptionRequest(val workspaceId: Long, val description: String)
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
+data class UpdateTimeEntryProjectRequest(val workspaceId: Long, val projectId: Long)

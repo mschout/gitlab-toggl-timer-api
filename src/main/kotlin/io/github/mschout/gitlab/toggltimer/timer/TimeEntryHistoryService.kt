@@ -44,9 +44,7 @@ data class TimeEntryDayGroup(
 
 data class RecentTimeEntryView(
     val descriptionEditor: TimeEntryDescriptionEditorView,
-    val projectName: String?,
-    val clientName: String?,
-    val projectColor: String?,
+    val projectPicker: TimeEntryProjectPickerView,
     val timeRange: String,
     val durationFormatted: String,
 )
@@ -158,9 +156,13 @@ class TimeEntryHistoryService(
                 togglId = togglId,
                 description = description?.takeIf { it.isNotBlank() },
             ),
-        projectName = project?.name,
-        clientName = clientName,
-        projectColor = project?.color?.takeIf(PROJECT_COLOR_PATTERN::matches),
+        projectPicker =
+            TimeEntryProjectPickerView(
+                togglId = togglId,
+                projectName = project?.name,
+                clientName = clientName,
+                projectColor = sanitizeProjectColor(project?.color),
+            ),
         timeRange = "${TIME_FORMATTER.format(localStart)} – ${TIME_FORMATTER.format(localStop)}",
         durationFormatted = formatDuration(duration),
     )
@@ -190,7 +192,6 @@ class TimeEntryHistoryService(
 
   companion object {
     private const val DAYS_PER_PAGE = 7L
-    private val PROJECT_COLOR_PATTERN = Regex("^#[0-9A-Fa-f]{6}$")
     private val TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
     private val DAY_FORMATTER = DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH)
     private val DAY_WITH_YEAR_FORMATTER =

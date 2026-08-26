@@ -129,9 +129,13 @@ class TimeEntryHistoryServiceTest {
                       togglId = 1L,
                       description = "Review merge request",
                   ),
-              projectName = "74393 - Handle multi-doc emails in Indiana",
-              clientName = "Inforuptcy",
-              projectColor = "#4C6EF5",
+              projectPicker =
+                  TimeEntryProjectPickerView(
+                      togglId = 1L,
+                      projectName = "74393 - Handle multi-doc emails in Indiana",
+                      clientName = "Inforuptcy",
+                      projectColor = "#4C6EF5",
+                  ),
               timeRange = "12:36 PM – 1:24 PM",
               durationFormatted = "0:48:02",
           )
@@ -192,7 +196,7 @@ class TimeEntryHistoryServiceTest {
     assertSoftly(page.groups.single()) {
       label shouldBe "Yesterday"
       entries.single().timeRange shouldBe "11:30 PM – 12:30 AM"
-      entries.single().projectColor.shouldBeNull()
+      entries.single().projectPicker.projectColor.shouldBeNull()
     }
     verify(exactly = 0) { clientRepository.findAllByTogglIdIn(any()) }
   }

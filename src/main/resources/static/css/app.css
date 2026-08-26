@@ -143,15 +143,189 @@ dl.row dt {
   white-space: nowrap;
 }
 
-.time-entry-context {
-  color: var(--bs-secondary-color);
-  font-size: 0.875rem;
-}
-
 .time-entry-separator {
   margin-inline: 0.35rem;
   color: var(--project-color);
   font-weight: 700;
+}
+
+.time-entry-project-picker {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.time-entry-project-trigger {
+  max-width: 100%;
+  padding: 0;
+  color: var(--bs-secondary-color);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: inherit;
+  text-align: start;
+}
+
+.time-entry-project-trigger:hover {
+  color: var(--bs-body-color);
+}
+
+.time-entry-project-trigger:focus-visible {
+  color: var(--bs-body-color);
+  border-radius: 0.15rem;
+  outline: 2px solid color-mix(in srgb, var(--bs-primary) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.time-entry-project-dialog {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: min(36rem, calc(100vh - 2rem));
+  padding: 0;
+  color: var(--bs-body-color);
+  background: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: calc(var(--bs-border-radius) * 1.5);
+  box-shadow: var(--bs-box-shadow-lg);
+}
+
+.time-entry-project-dialog::backdrop {
+  background: rgb(15 23 42 / 42%);
+  backdrop-filter: blur(1px);
+}
+
+.time-entry-project-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.85rem;
+  border-bottom: var(--bs-border-width) solid var(--bs-border-color-translucent);
+}
+
+.time-entry-project-dialog-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.time-entry-project-alert {
+  margin: 0.75rem 1rem 0;
+  padding: 0.55rem 0.7rem;
+  color: var(--bs-danger-text-emphasis);
+  background: var(--bs-danger-bg-subtle);
+  border: var(--bs-border-width) solid var(--bs-danger-border-subtle);
+  border-radius: var(--bs-border-radius-sm);
+  font-size: 0.8125rem;
+}
+
+.time-entry-project-search-wrap {
+  position: relative;
+  margin: 0.85rem 1rem;
+}
+
+.time-entry-project-search-wrap > .bi-search {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  inset-inline-start: 0.75rem;
+  color: var(--bs-secondary-color);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.time-entry-project-search {
+  padding-inline-start: 2.25rem;
+  padding-inline-end: 2.25rem;
+}
+
+.time-entry-project-searching {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  inset-inline-end: 0.75rem;
+  color: var(--bs-primary);
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.time-entry-project-searching .spinner-border {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-width: 0.1rem;
+}
+
+.time-entry-project-results {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 0 0.5rem 0.5rem;
+  overscroll-behavior: contain;
+}
+
+.time-entry-project-results-empty {
+  padding: 1.5rem 1rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.time-entry-project-option {
+  display: grid;
+  grid-template-columns: 0.65rem minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  gap: 0.7rem;
+  padding: 0.65rem 0.75rem;
+  color: var(--bs-body-color);
+  background: transparent;
+  border: 0;
+  border-radius: var(--bs-border-radius-sm);
+  text-align: start;
+}
+
+.time-entry-project-option:hover:not(:disabled),
+.time-entry-project-option:focus-visible {
+  background: var(--bs-tertiary-bg);
+  outline: 0;
+}
+
+.time-entry-project-option.is-selected {
+  background: color-mix(in srgb, var(--bs-primary-bg-subtle) 55%, transparent);
+  opacity: 1;
+}
+
+.time-entry-project-option-color {
+  --option-color: var(--bs-border-color);
+  width: 0.55rem;
+  height: 0.55rem;
+  background: var(--option-color);
+  border-radius: 50%;
+}
+
+.time-entry-project-option-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.time-entry-project-option-name {
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-entry-project-option-client {
+  overflow: hidden;
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-entry-project-current {
+  color: var(--bs-primary);
 }
 
 .time-entry-range {

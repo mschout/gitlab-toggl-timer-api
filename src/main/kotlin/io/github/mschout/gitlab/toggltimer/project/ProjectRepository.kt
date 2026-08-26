@@ -20,5 +20,14 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface ProjectRepository : JpaRepository<Project, Long> {
   fun findByTogglId(togglId: Long): Project?
 
+  fun findByTogglIdAndWorkspaceIdAndActiveTrue(togglId: Long, workspaceId: Long): Project?
+
   fun findAllByTogglIdIn(togglIds: Collection<Long>): List<Project>
+
+  fun findTop20ByWorkspaceIdAndActiveTrueOrderByNameAsc(workspaceId: Long): List<Project>
+
+  fun findTop20ByWorkspaceIdAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+      workspaceId: Long,
+      name: String,
+  ): List<Project>
 }

@@ -246,7 +246,7 @@
               <article
                 class="time-entry-row"
                 th:each="entry : ${group.entries}"
-                th:style="${entry.projectColor != null} ? |--project-color: ${entry.projectColor}| : null"
+                th:style="${entry.projectPicker.projectColor != null} ? |--project-color: ${entry.projectPicker.projectColor}| : null"
               >
                 <div class="time-entry-summary">
                   <th:block th:with="descriptionEditor=${entry.descriptionEditor}">
@@ -254,14 +254,9 @@
                       th:replace="~{fragments/time-entry-description :: description-editor}"
                     ></span>
                   </th:block>
-                  <span class="time-entry-context" th:if="${entry.projectName != null}">
-                    <span class="time-entry-separator" aria-hidden="true">•</span>
-                    <span th:text="${entry.projectName}">Project</span>
-                  </span>
-                  <span class="time-entry-context" th:if="${entry.clientName != null}">
-                    <span class="time-entry-separator" aria-hidden="true">•</span>
-                    <span th:text="${entry.clientName}">Client</span>
-                  </span>
+                  <th:block th:with="projectPicker=${entry.projectPicker}">
+                    <div th:replace="~{fragments/time-entry-project :: project-picker}"></div>
+                  </th:block>
                 </div>
                 <time class="time-entry-range" th:text="${entry.timeRange}">12:36 PM – 1:24 PM</time>
                 <span class="time-entry-duration" th:text="${entry.durationFormatted}">0:48:02</span>
@@ -389,6 +384,35 @@
           });
 
           document.addEventListener('click', function (evt) {
+            var projectTrigger =
+              evt.target.closest && evt.target.closest('.time-entry-project-trigger');
+            if (projectTrigger) {
+              openProjectPicker(projectTrigger);
+              return;
+            }
+
+            var projectClose =
+              evt.target.closest && evt.target.closest('.time-entry-project-close');
+            if (projectClose) {
+              var closeDialog = projectClose.closest('.time-entry-project-dialog');
+              if (closeDialog) closeDialog.close();
+              return;
+            }
+
+            if (
+              evt.target.matches &&
+              evt.target.matches('.time-entry-project-dialog')
+            ) {
+              var dialogRect = evt.target.getBoundingClientRect();
+              var outsideDialog =
+                evt.clientX < dialogRect.left ||
+                evt.clientX > dialogRect.right ||
+                evt.clientY < dialogRect.top ||
+                evt.clientY > dialogRect.bottom;
+              if (outsideDialog) evt.target.close();
+              return;
+            }
+
             var descriptionInput =
               evt.target.closest && evt.target.closest('.time-entry-description-editor');
             if (descriptionInput) {
@@ -406,6 +430,18 @@
             } catch (e) {}
             input.focus();
           });
+
+          function openProjectPicker(trigger) {
+            if (!trigger) return;
+            var dialogId = trigger.getAttribute('aria-controls');
+            var dialog = dialogId && document.getElementById(dialogId);
+            if (!dialog) return;
+            if (!dialog.open) dialog.showModal();
+            var search = dialog.querySelector('.time-entry-project-search');
+            if (!search) return;
+            search.focus();
+            htmx.trigger(search, 'project-search');
+          }
 
           function beginDescriptionEdit(input) {
             if (!input || input.dataset.submitting === 'true') return;
@@ -443,7 +479,39 @@
 
           document.addEventListener('keydown', function (evt) {
             var input = evt.target;
-            if (!input.matches || !input.matches('.time-entry-description-editor')) return;
+            if (!input.matches) return;
+
+            if (input.matches('.time-entry-project-search') && evt.key === 'ArrowDown') {
+              var firstProject = input
+                .closest('.time-entry-project-dialog')
+                .querySelector('.time-entry-project-option:not(:disabled)');
+              if (firstProject) {
+                evt.preventDefault();
+                firstProject.focus();
+              }
+              return;
+            }
+
+            if (
+              input.matches('.time-entry-project-option') &&
+              (evt.key === 'ArrowDown' || evt.key === 'ArrowUp')
+            ) {
+              var projectDialog = input.closest('.time-entry-project-dialog');
+              var projectOptions = Array.from(
+                projectDialog.querySelectorAll('.time-entry-project-option:not(:disabled)')
+              );
+              var projectIndex = projectOptions.indexOf(input);
+              var nextProjectIndex = projectIndex + (evt.key === 'ArrowDown' ? 1 : -1);
+              evt.preventDefault();
+              if (nextProjectIndex >= 0 && nextProjectIndex < projectOptions.length) {
+                projectOptions[nextProjectIndex].focus();
+              } else if (nextProjectIndex < 0) {
+                projectDialog.querySelector('.time-entry-project-search').focus();
+              }
+              return;
+            }
+
+            if (!input.matches('.time-entry-description-editor')) return;
 
             if (evt.key === 'Escape') {
               evt.preventDefault();
@@ -485,7 +553,25 @@
 
           document.body.addEventListener('htmx:afterRequest', function (evt) {
             var input = evt.detail && evt.detail.elt;
-            if (!input || !input.matches('.time-entry-description-editor')) return;
+            if (!input || !input.matches) return;
+            if (
+              !evt.detail.successful &&
+              input.matches('.time-entry-project-option')
+            ) {
+              var projectDialog = input.closest('.time-entry-project-dialog');
+              var projectAlert = projectDialog.querySelector('.time-entry-project-alert');
+              if (!projectAlert) {
+                projectAlert = document.createElement('div');
+                projectAlert.className = 'time-entry-project-alert';
+                projectAlert.setAttribute('role', 'status');
+                projectDialog
+                  .querySelector('.time-entry-project-dialog-header')
+                  .insertAdjacentElement('afterend', projectAlert);
+              }
+              projectAlert.textContent = 'Could not save the project. Choose a project to retry.';
+              return;
+            }
+            if (!input.matches('.time-entry-description-editor')) return;
             if (evt.detail.successful) return;
             input.dataset.submitting = 'false';
             input.readOnly = false;
@@ -516,6 +602,26 @@
               descriptionInput.getAttribute('data-editing') === 'true'
             ) {
               beginDescriptionEdit(descriptionInput);
+            }
+            var projectPicker =
+              tgt && tgt.matches && tgt.matches('.time-entry-project-picker')
+                ? tgt
+                : tgt &&
+                  tgt.querySelector &&
+                  tgt.querySelector('.time-entry-project-picker');
+            if (projectPicker) {
+              var projectRow = projectPicker.closest('.time-entry-row');
+              var projectColor = projectPicker.getAttribute('data-project-color');
+              if (projectRow) {
+                if (projectColor) {
+                  projectRow.style.setProperty('--project-color', projectColor);
+                } else {
+                  projectRow.style.removeProperty('--project-color');
+                }
+              }
+              if (projectPicker.getAttribute('data-open') === 'true') {
+                openProjectPicker(projectPicker.querySelector('.time-entry-project-trigger'));
+              }
             }
           });
         })();

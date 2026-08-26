@@ -23,6 +23,10 @@ import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionService
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryHistoryPage
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryHistoryService
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryNotFoundException
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectPickerView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchResultView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectService
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
 import io.github.mschout.gitlab.toggltimer.timer.TogglDescriptionUpdateException
@@ -61,6 +65,7 @@ class SecurityConfigWebMvcTest(
     @Autowired val mvc: MockMvc,
     @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
     @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
+    @Autowired val timeEntryProjectService: TimeEntryProjectService,
 ) {
 
   @TestConfiguration
@@ -97,9 +102,13 @@ class SecurityConfigWebMvcTest(
                                                   togglId = 123L,
                                                   description = "Rendered history entry",
                                               ),
-                                          projectName = "74393 - Indiana",
-                                          clientName = "Inforuptcy",
-                                          projectColor = "#4C6EF5",
+                                          projectPicker =
+                                              TimeEntryProjectPickerView(
+                                                  togglId = 123L,
+                                                  projectName = "74393 - Indiana",
+                                                  clientName = "Inforuptcy",
+                                                  projectColor = "#4C6EF5",
+                                              ),
                                           timeRange = "12:36 PM – 1:24 PM",
                                           durationFormatted = "0:48:02",
                                       )
@@ -113,6 +122,8 @@ class SecurityConfigWebMvcTest(
         }
 
     @Bean fun timeEntryDescriptionService(): TimeEntryDescriptionService = mockk(relaxed = true)
+
+    @Bean fun timeEntryProjectService(): TimeEntryProjectService = mockk(relaxed = true)
 
     @Bean fun currentUserCredentialsService(): CurrentUserCredentialsService = mockk(relaxed = true)
 
@@ -166,6 +177,10 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("placeholder=\"No description\"")))
         .andExpect(content().string(containsString("time-entry-description-saving-123")))
         .andExpect(content().string(containsString("74393 - Indiana")))
+        .andExpect(
+            content().string(containsString("aria-controls=\"time-entry-project-dialog-123\""))
+        )
+        .andExpect(content().string(containsString("hx-get=\"/timer/entries/123/projects\"")))
         .andExpect(content().string(containsString("0:48:02")))
   }
 
@@ -223,6 +238,76 @@ class SecurityConfigWebMvcTest(
         )
         .andExpect(status().is3xxRedirection)
         .andExpect(redirectedUrl("/login"))
+  }
+
+  @Test
+  fun `authenticated GET project search renders Postgres results`() {
+    every { timeEntryProjectService.searchProjects(123L, "Indiana") } returns
+        TimeEntryProjectSearchView(
+            togglId = 123L,
+            query = "Indiana",
+            projects =
+                listOf(
+                    TimeEntryProjectSearchResultView(
+                        togglId = 200L,
+                        name = "74393 - Indiana",
+                        clientName = "Inforuptcy",
+                        color = "#4C6EF5",
+                        selected = false,
+                    )
+                ),
+        )
+
+    mvc.perform(
+            get("/timer/entries/123/projects")
+                .with(user("alice@example.com").roles("USER"))
+                .param("query", "Indiana")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("74393 - Indiana")))
+        .andExpect(content().string(containsString("Inforuptcy")))
+        .andExpect(
+            content().string(containsString("hx-post=\"/timer/entries/123/project?projectId=200\""))
+        )
+  }
+
+  @Test
+  fun `authenticated POST project returns the updated picker`() {
+    every { timeEntryProjectService.updateProject(123L, 200L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 123L,
+            projectName = "74393 - Indiana",
+            clientName = "Inforuptcy",
+            projectColor = "#4C6EF5",
+        )
+
+    mvc.perform(
+            post("/timer/entries/123/project")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("projectId", "200")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("74393 - Indiana")))
+        .andExpect(content().string(containsString("Inforuptcy")))
+        .andExpect(content().string(containsString("data-project-color=\"#4C6EF5\"")))
+  }
+
+  @Test
+  fun `unauthenticated project search redirects to login`() {
+    mvc.perform(get("/timer/entries/123/projects").param("query", "Indiana"))
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/login"))
+  }
+
+  @Test
+  fun `project update requires CSRF`() {
+    mvc.perform(
+            post("/timer/entries/123/project")
+                .with(user("alice@example.com").roles("USER"))
+                .param("projectId", "200")
+        )
+        .andExpect(status().isForbidden)
   }
 
   @Test

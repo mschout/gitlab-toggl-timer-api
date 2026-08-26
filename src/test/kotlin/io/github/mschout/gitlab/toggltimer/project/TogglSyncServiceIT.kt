@@ -155,6 +155,30 @@ constructor(
   }
 
   @Test
+  fun `project search is case insensitive and limited to active projects in one workspace`() {
+    projectRepository.saveAll(
+        listOf(
+            Project(togglId = 101L, workspaceId = 7L, name = "Alpha Indiana"),
+            Project(togglId = 102L, workspaceId = 7L, name = "Zulu INDIANA"),
+            Project(togglId = 103L, workspaceId = 7L, name = "Inactive Indiana", active = false),
+            Project(togglId = 104L, workspaceId = 8L, name = "Other Indiana"),
+            Project(togglId = 105L, workspaceId = 7L, name = "Beta Colorado"),
+        )
+    )
+
+    val matches =
+        projectRepository
+            .findTop20ByWorkspaceIdAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+                workspaceId = 7L,
+                name = "indiana",
+            )
+    val initial = projectRepository.findTop20ByWorkspaceIdAndActiveTrueOrderByNameAsc(7L)
+
+    matches.map { it.togglId } shouldBe listOf(101L, 102L)
+    initial.map { it.togglId } shouldBe listOf(101L, 105L, 102L)
+  }
+
+  @Test
   fun `upsertTimeEntry inserts a row, updates it on re-sync, and round-trips JSONB tags`() {
     val user = userRepository.save(User(email = "ts-${System.nanoTime()}@example.com"))
 

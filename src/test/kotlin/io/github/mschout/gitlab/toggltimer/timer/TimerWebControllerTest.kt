@@ -43,6 +43,7 @@ class TimerWebControllerTest {
   private lateinit var togglService: TogglService
   private lateinit var timeEntryHistoryService: TimeEntryHistoryService
   private lateinit var timeEntryDescriptionService: TimeEntryDescriptionService
+  private lateinit var timeEntryProjectService: TimeEntryProjectService
   private lateinit var controller: TimerWebController
 
   @BeforeEach
@@ -52,6 +53,7 @@ class TimerWebControllerTest {
     togglService = mockk()
     timeEntryHistoryService = mockk()
     timeEntryDescriptionService = mockk()
+    timeEntryProjectService = mockk()
     every { credentialsService.currentTogglWorkspaceId() } returns null
     every { togglService.fetchWorkspaces() } returns emptyList()
     every { togglService.fetchClients(any()) } returns emptyList()
@@ -64,6 +66,7 @@ class TimerWebControllerTest {
             togglService,
             timeEntryHistoryService,
             timeEntryDescriptionService,
+            timeEntryProjectService,
         )
   }
 
@@ -171,6 +174,120 @@ class TimerWebControllerTest {
           model = ExtendedModelMap(),
       )
     }
+  }
+
+  @Test
+  fun `project search returns the reusable results fragment`() {
+    val search =
+        TimeEntryProjectSearchView(
+            togglId = 123L,
+            query = "Indiana",
+            projects =
+                listOf(
+                    TimeEntryProjectSearchResultView(
+                        togglId = 200L,
+                        name = "74393 - Indiana",
+                        clientName = "Inforuptcy",
+                        color = "#4C6EF5",
+                        selected = false,
+                    )
+                ),
+        )
+    every { timeEntryProjectService.searchProjects(123L, "Indiana") } returns search
+    val model = ExtendedModelMap()
+
+    val view = controller.searchEntryProjects(togglId = 123L, query = "Indiana", model = model)
+
+    view shouldBe "fragments/time-entry-project :: project-results"
+    model["projectSearch"] shouldBeSameInstanceAs search
+  }
+
+  @Test
+  fun `project search returns an inline error when Postgres search fails`() {
+    every { timeEntryProjectService.searchProjects(123L, "Indiana") } throws
+        RuntimeException("database down")
+    val model = ExtendedModelMap()
+
+    controller.searchEntryProjects(togglId = 123L, query = "Indiana", model = model)
+
+    model["projectSearch"] shouldBe
+        TimeEntryProjectSearchView(
+            togglId = 123L,
+            query = "Indiana",
+            projects = emptyList(),
+            error = "Could not search projects. Try again.",
+        )
+  }
+
+  @Test
+  fun `project search leaves inaccessible entries as not found`() {
+    every { timeEntryProjectService.searchProjects(999L, any()) } throws
+        TimeEntryProjectNotFoundException()
+
+    shouldThrow<TimeEntryProjectNotFoundException> {
+      controller.searchEntryProjects(togglId = 999L, query = "Indiana", model = ExtendedModelMap())
+    }
+  }
+
+  @Test
+  fun `project update returns the reusable picker fragment`() {
+    val picker =
+        TimeEntryProjectPickerView(
+            togglId = 123L,
+            projectName = "74393 - Indiana",
+            clientName = "Inforuptcy",
+            projectColor = "#4C6EF5",
+        )
+    every { timeEntryProjectService.updateProject(123L, 200L) } returns picker
+    val model = ExtendedModelMap()
+
+    val view = controller.updateEntryProject(togglId = 123L, projectId = 200L, model = model)
+
+    view shouldBe "fragments/time-entry-project :: project-picker"
+    model["projectPicker"] shouldBeSameInstanceAs picker
+  }
+
+  @Test
+  fun `project update reopens picker when Toggl fails`() {
+    val current =
+        TimeEntryProjectPickerView(
+            togglId = 123L,
+            projectName = "Old project",
+            clientName = "Inforuptcy",
+            projectColor = "#4C6EF5",
+        )
+    every { timeEntryProjectService.updateProject(123L, 200L) } throws
+        TogglProjectUpdateException(RuntimeException("down"))
+    every { timeEntryProjectService.currentPicker(123L) } returns current
+    val model = ExtendedModelMap()
+
+    controller.updateEntryProject(togglId = 123L, projectId = 200L, model = model)
+
+    model["projectPicker"] shouldBe
+        current.copy(error = "Could not save to Toggl. Choose a project to retry.", open = true)
+  }
+
+  @Test
+  fun `project update reports when only local history fails`() {
+    val current =
+        TimeEntryProjectPickerView(
+            togglId = 123L,
+            projectName = "Old project",
+            clientName = "Inforuptcy",
+            projectColor = "#4C6EF5",
+        )
+    every { timeEntryProjectService.updateProject(123L, 200L) } throws
+        TimeEntryProjectHistoryUpdateException(RuntimeException("database down"))
+    every { timeEntryProjectService.currentPicker(123L) } returns current
+    val model = ExtendedModelMap()
+
+    controller.updateEntryProject(togglId = 123L, projectId = 200L, model = model)
+
+    model["projectPicker"] shouldBe
+        current.copy(
+            error = "Saved to Toggl, but local history is out of sync. Choose a project to retry.",
+            open = true,
+        )
   }
 
   @Test
