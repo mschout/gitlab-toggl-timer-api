@@ -47,6 +47,7 @@ class UserSettingsControllerTest {
     model["hasGitlabToken"] shouldBe false
     model["hasTogglApiKey"] shouldBe false
     model["currentWorkspaceId"] shouldBe null
+    (model["timeZones"] as List<*>).contains(DEFAULT_TIME_ZONE_ID) shouldBe true
   }
 
   @Test
@@ -193,11 +194,30 @@ class UserSettingsControllerTest {
     every { settingsRepository.findById(1L) } returns Optional.of(existing)
     every { settingsRepository.save(existing) } returns existing
 
-    val view = controller.save(SettingsForm(togglWorkspaceId = 7L), RedirectAttributesModelMap())
+    val view =
+        controller.save(
+            SettingsForm(togglWorkspaceId = 7L, timeZone = "America/Denver"),
+            RedirectAttributesModelMap(),
+        )
 
     view shouldBe "redirect:/timer"
     existing.togglWorkspaceId shouldBe 7L
+    existing.timeZone shouldBe "America/Denver"
     verify(exactly = 0) { togglService.fetchWorkspaces(any()) }
+  }
+
+  @Test
+  fun `save rejects an invalid time zone before changing settings`() {
+    val redirectAttrs = RedirectAttributesModelMap()
+    val form = SettingsForm(timeZone = "Central-ish")
+
+    val view = controller.save(form, redirectAttrs)
+
+    view shouldBe "redirect:/settings"
+    redirectAttrs.flashAttributes["form"] shouldBe form
+    redirectAttrs.flashAttributes["timeZoneError"] shouldBe "Choose a valid time zone."
+    verify(exactly = 0) { credentialsService.currentUser() }
+    verify(exactly = 0) { settingsRepository.save(any()) }
   }
 
   @Test

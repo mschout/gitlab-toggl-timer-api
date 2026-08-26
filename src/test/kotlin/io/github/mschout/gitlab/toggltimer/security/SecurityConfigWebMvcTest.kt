@@ -16,8 +16,16 @@
 package io.github.mschout.gitlab.toggltimer.security
 
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
+import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDayGroup
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionEditorView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryHistoryPage
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryHistoryService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryNotFoundException
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
+import io.github.mschout.gitlab.toggltimer.timer.TogglDescriptionUpdateException
 import io.github.mschout.gitlab.toggltimer.timer.TogglService
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.mschout.gitlab.toggltimer.user.User
@@ -27,6 +35,7 @@ import io.github.mschout.gitlab.toggltimer.user.UserSettings
 import io.github.mschout.gitlab.toggltimer.user.UserSettingsRepository
 import io.mockk.every
 import io.mockk.mockk
+import java.time.LocalDate
 import java.util.Optional
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
@@ -48,7 +57,11 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @WebMvcTest(controllers = [TimerWebController::class, SessionKeepAliveController::class])
 @Import(SecurityConfig::class, AuthConfiguration::class, SecurityConfigWebMvcTest.MockBeans::class)
-class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
+class SecurityConfigWebMvcTest(
+    @Autowired val mvc: MockMvc,
+    @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
+    @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
+) {
 
   @TestConfiguration
   class MockBeans {
@@ -65,6 +78,41 @@ class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
     @Bean fun timerService(): TimerService = mockk(relaxed = true)
 
     @Bean fun togglService(): TogglService = mockk(relaxed = true)
+
+    @Bean
+    fun timeEntryHistoryService(): TimeEntryHistoryService =
+        mockk<TimeEntryHistoryService>(relaxed = true).also {
+          every { it.initialPage() } returns
+              TimeEntryHistoryPage(
+                  groups =
+                      listOf(
+                          TimeEntryDayGroup(
+                              label = "Today",
+                              totalFormatted = "0:48:02",
+                              entries =
+                                  listOf(
+                                      RecentTimeEntryView(
+                                          descriptionEditor =
+                                              TimeEntryDescriptionEditorView(
+                                                  togglId = 123L,
+                                                  description = "Rendered history entry",
+                                              ),
+                                          projectName = "74393 - Indiana",
+                                          clientName = "Inforuptcy",
+                                          projectColor = "#4C6EF5",
+                                          timeRange = "12:36 PM – 1:24 PM",
+                                          durationFormatted = "0:48:02",
+                                      )
+                                  ),
+                          )
+                      ),
+                  rangeLabel = "Aug 20–Aug 26, 2026",
+                  nextBefore = LocalDate.parse("2026-08-20"),
+                  initial = true,
+              )
+        }
+
+    @Bean fun timeEntryDescriptionService(): TimeEntryDescriptionService = mockk(relaxed = true)
 
     @Bean fun currentUserCredentialsService(): CurrentUserCredentialsService = mockk(relaxed = true)
 
@@ -113,6 +161,81 @@ class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
+        .andExpect(content().string(containsString("Rendered history entry")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/description\"")))
+        .andExpect(content().string(containsString("placeholder=\"No description\"")))
+        .andExpect(content().string(containsString("time-entry-description-saving-123")))
+        .andExpect(content().string(containsString("74393 - Indiana")))
+        .andExpect(content().string(containsString("0:48:02")))
+  }
+
+  @Test
+  fun `authenticated POST description returns a successful editor fragment`() {
+    every { timeEntryDescriptionService.updateDescription(123L, "Updated") } returns
+        TimeEntryDescriptionEditorView(togglId = 123L, description = "Updated")
+
+    mvc.perform(
+            post("/timer/entries/123/description")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("description", "Updated")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("value=\"Updated\"")))
+        .andExpect(content().string(not(containsString("time-entry-description-error"))))
+  }
+
+  @Test
+  fun `authenticated POST description renders retry state on failure`() {
+    every { timeEntryDescriptionService.updateDescription(123L, "Still typed") } throws
+        TogglDescriptionUpdateException(RuntimeException("down"))
+
+    mvc.perform(
+            post("/timer/entries/123/description")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("description", "Still typed")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("value=\"Still typed\"")))
+        .andExpect(content().string(containsString("data-editing=\"true\"")))
+        .andExpect(content().string(containsString("Could not save to Toggl")))
+  }
+
+  @Test
+  fun `authenticated POST description returns not found for inaccessible entry`() {
+    every { timeEntryDescriptionService.updateDescription(999L, any()) } throws
+        TimeEntryNotFoundException(999L)
+
+    mvc.perform(
+            post("/timer/entries/999/description")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("description", "No access")
+        )
+        .andExpect(status().isNotFound)
+  }
+
+  @Test
+  fun `unauthenticated POST description redirects to login`() {
+    mvc.perform(
+            post("/timer/entries/123/description").with(csrf()).param("description", "No session")
+        )
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/login"))
+  }
+
+  @Test
+  fun `load more rows render the same description editor`() {
+    every { timeEntryHistoryService.pageBefore(LocalDate.parse("2026-08-20")) } returns
+        timeEntryHistoryService.initialPage().copy(initial = false)
+    mvc.perform(
+            get("/timer/entries/page")
+                .with(user("alice@example.com").roles("USER"))
+                .param("before", "2026-08-20")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/description\"")))
   }
 
   @Test

@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mschout.gitlab.toggltimer.user
+package io.github.mschout.gitlab.toggltimer.configuration
 
-data class SettingsForm(
-    val gitlabAccessToken: String? = null,
-    val togglApiKey: String? = null,
-    val togglWorkspaceId: Long? = null,
-    val timeZone: String = DEFAULT_TIME_ZONE_ID,
-)
+import java.time.Clock
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+
+@Configuration
+class TimeConfiguration {
+  @Bean fun clock(): Clock = Clock.systemUTC()
+}

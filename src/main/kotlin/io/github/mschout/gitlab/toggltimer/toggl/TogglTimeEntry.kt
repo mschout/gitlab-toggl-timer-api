@@ -40,3 +40,6 @@ data class TogglTimeEntry(
     val serverDeletedAt: Instant? = null,
     val id: Long? = null,
 )
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
+data class UpdateTimeEntryDescriptionRequest(val workspaceId: Long, val description: String)

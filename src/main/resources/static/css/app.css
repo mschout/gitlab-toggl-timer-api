@@ -19,3 +19,199 @@ main {
 dl.row dt {
   font-weight: 500;
 }
+
+.time-entry-ledger {
+  overflow: hidden;
+  background: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+}
+
+.time-entry-group + .time-entry-group {
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+}
+
+.time-entry-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  background: var(--bs-tertiary-bg);
+  border-bottom: var(--bs-border-width) solid var(--bs-border-color);
+}
+
+.time-entry-day-label {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.time-entry-day-total,
+.time-entry-duration {
+  font-family: var(--bs-font-monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.time-entry-day-total {
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.time-entry-row {
+  --project-color: var(--bs-border-color);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 5.5rem;
+  align-items: baseline;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1rem 0.85rem 0.85rem;
+  border-inline-start: 0.25rem solid var(--project-color);
+}
+
+.time-entry-row + .time-entry-row {
+  border-top: var(--bs-border-width) solid var(--bs-border-color-translucent);
+}
+
+.time-entry-summary {
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.time-entry-description-wrapper {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 0.4rem;
+  vertical-align: baseline;
+}
+
+.time-entry-description-editor {
+  field-sizing: content;
+  min-width: 8ch;
+  max-width: 100%;
+  padding: 0 0.15rem;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0.15rem;
+  outline: 0;
+  font: inherit;
+  font-weight: 500;
+  line-height: inherit;
+  text-overflow: ellipsis;
+}
+
+.time-entry-description-editor::placeholder {
+  color: var(--bs-secondary-color);
+  font-style: italic;
+  opacity: 1;
+}
+
+.time-entry-description-wrapper.is-editing .time-entry-description-editor {
+  background: var(--bs-tertiary-bg);
+  border-bottom-color: var(--bs-primary);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bs-primary) 25%, transparent);
+}
+
+.time-entry-description-wrapper.is-saving .time-entry-description-editor {
+  color: var(--bs-secondary-color);
+}
+
+.time-entry-description-saving {
+  position: absolute;
+  inset-inline-end: 0.25rem;
+  top: 50%;
+  color: var(--bs-primary);
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.time-entry-description-saving .spinner-border {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-width: 0.1rem;
+}
+
+.time-entry-description-error {
+  color: var(--bs-danger-text-emphasis);
+  font-size: 0.75rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.time-entry-context {
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+.time-entry-separator {
+  margin-inline: 0.35rem;
+  color: var(--project-color);
+  font-weight: 700;
+}
+
+.time-entry-range {
+  color: var(--bs-secondary-color);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.time-entry-duration {
+  justify-self: end;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.time-entry-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem 1.25rem;
+}
+
+.time-entry-empty-state > i {
+  color: var(--bs-secondary-color);
+  font-size: 1.5rem;
+}
+
+.time-entry-empty-range {
+  padding: 0.75rem 1rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.8125rem;
+  text-align: center;
+  border-top: var(--bs-border-width) solid var(--bs-border-color-translucent);
+}
+
+.time-entry-load-more {
+  padding: 0.75rem 1rem;
+  text-align: center;
+  border-top: var(--bs-border-width) solid var(--bs-border-color-translucent);
+}
+
+.time-entry-load-more:empty {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .time-entry-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .time-entry-summary {
+    grid-column: 1 / -1;
+  }
+
+  .time-entry-range {
+    grid-column: 1;
+  }
+
+  .time-entry-duration {
+    grid-column: 2;
+  }
+}

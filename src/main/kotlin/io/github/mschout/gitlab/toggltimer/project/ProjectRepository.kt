@@ -19,4 +19,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface ProjectRepository : JpaRepository<Project, Long> {
   fun findByTogglId(togglId: Long): Project?
+
+  fun findAllByTogglIdIn(togglIds: Collection<Long>): List<Project>
 }

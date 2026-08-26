@@ -20,6 +20,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.assertSoftly
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -28,6 +29,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import java.time.Instant
+import java.time.LocalDate
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.mock.web.MockHttpServletResponse
@@ -39,6 +41,8 @@ class TimerWebControllerTest {
   private lateinit var timerService: TimerService
   private lateinit var credentialsService: CurrentUserCredentialsService
   private lateinit var togglService: TogglService
+  private lateinit var timeEntryHistoryService: TimeEntryHistoryService
+  private lateinit var timeEntryDescriptionService: TimeEntryDescriptionService
   private lateinit var controller: TimerWebController
 
   @BeforeEach
@@ -46,11 +50,21 @@ class TimerWebControllerTest {
     timerService = mockk()
     credentialsService = mockk()
     togglService = mockk()
+    timeEntryHistoryService = mockk()
+    timeEntryDescriptionService = mockk()
     every { credentialsService.currentTogglWorkspaceId() } returns null
     every { togglService.fetchWorkspaces() } returns emptyList()
     every { togglService.fetchClients(any()) } returns emptyList()
     every { togglService.getCurrentRunningTimer() } returns null
-    controller = TimerWebController(timerService, credentialsService, togglService)
+    every { timeEntryHistoryService.initialPage() } returns emptyHistoryPage()
+    controller =
+        TimerWebController(
+            timerService,
+            credentialsService,
+            togglService,
+            timeEntryHistoryService,
+            timeEntryDescriptionService,
+        )
   }
 
   @Test
@@ -63,6 +77,99 @@ class TimerWebControllerTest {
       view shouldBe "timer-index"
       model["message"] shouldBe "Welcome to the Timer Page!"
       model["form"] shouldBe TimerForm()
+      model["historyPage"] shouldBe emptyHistoryPage()
+    }
+  }
+
+  @Test
+  fun `recent entries returns the refreshed history section`() {
+    val historyPage = emptyHistoryPage()
+    every { timeEntryHistoryService.initialPage() } returns historyPage
+    val model = ExtendedModelMap()
+
+    val view = controller.recentEntries(model)
+
+    view shouldBe "timer-index :: recent-entries"
+    model["historyPage"] shouldBeSameInstanceAs historyPage
+  }
+
+  @Test
+  fun `older entries returns the preceding history page`() {
+    val before = LocalDate.parse("2026-08-20")
+    val historyPage = emptyHistoryPage().copy(initial = false)
+    every { timeEntryHistoryService.pageBefore(before) } returns historyPage
+    val model = ExtendedModelMap()
+
+    val view = controller.olderEntries(before = before, model = model)
+
+    view shouldBe "timer-index :: history-page"
+    model["historyPage"] shouldBeSameInstanceAs historyPage
+  }
+
+  @Test
+  fun `description update returns the reusable editor fragment`() {
+    val editor = TimeEntryDescriptionEditorView(togglId = 123L, description = "Updated")
+    every { timeEntryDescriptionService.updateDescription(123L, "Updated") } returns editor
+    val model = ExtendedModelMap()
+
+    val view =
+        controller.updateEntryDescription(togglId = 123L, description = "Updated", model = model)
+
+    view shouldBe "fragments/time-entry-description :: description-editor"
+    model["descriptionEditor"] shouldBeSameInstanceAs editor
+  }
+
+  @Test
+  fun `description update preserves typed text when Toggl fails`() {
+    every { timeEntryDescriptionService.updateDescription(123L, "Still typed") } throws
+        TogglDescriptionUpdateException(RuntimeException("down"))
+    val model = ExtendedModelMap()
+
+    val view =
+        controller.updateEntryDescription(
+            togglId = 123L,
+            description = "Still typed",
+            model = model,
+        )
+
+    view shouldBe "fragments/time-entry-description :: description-editor"
+    model["descriptionEditor"] shouldBe
+        TimeEntryDescriptionEditorView(
+            togglId = 123L,
+            description = "Still typed",
+            error = "Could not save to Toggl. Press Enter to retry.",
+            editing = true,
+        )
+  }
+
+  @Test
+  fun `description update reports when only local history fails`() {
+    every { timeEntryDescriptionService.updateDescription(123L, "Saved remotely") } throws
+        TimeEntryHistoryUpdateException(RuntimeException("database down"))
+    val model = ExtendedModelMap()
+
+    controller.updateEntryDescription(togglId = 123L, description = "Saved remotely", model = model)
+
+    model["descriptionEditor"] shouldBe
+        TimeEntryDescriptionEditorView(
+            togglId = 123L,
+            description = "Saved remotely",
+            error = "Saved to Toggl, but local history is out of sync. Press Enter to retry.",
+            editing = true,
+        )
+  }
+
+  @Test
+  fun `description update leaves inaccessible entries as not found`() {
+    every { timeEntryDescriptionService.updateDescription(999L, any()) } throws
+        TimeEntryNotFoundException(999L)
+
+    shouldThrow<TimeEntryNotFoundException> {
+      controller.updateEntryDescription(
+          togglId = 999L,
+          description = "No access",
+          model = ExtendedModelMap(),
+      )
     }
   }
 
@@ -483,13 +590,15 @@ class TimerWebControllerTest {
     every { timerService.stopTimer() } returns
         StopTimerResult(durationSeconds = 125L, durationFormatted = "00:02:05")
     val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
 
-    val view = controller.stopTimerSubmit(hxRequest = false, model = model)
+    val view = controller.stopTimerSubmit(hxRequest = false, model = model, response = response)
 
     assertSoftly {
       view shouldBe "stop-timer"
       model["durationFormatted"] shouldBe "00:02:05"
       model["stopped"] shouldBe true
+      response.getHeader("HX-Trigger").shouldBeNull()
     }
   }
 
@@ -498,13 +607,15 @@ class TimerWebControllerTest {
     every { timerService.stopTimer() } returns
         StopTimerResult(durationSeconds = 3661L, durationFormatted = "01:01:01")
     val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
 
-    val view = controller.stopTimerSubmit(hxRequest = true, model = model)
+    val view = controller.stopTimerSubmit(hxRequest = true, model = model, response = response)
 
     assertSoftly {
       view shouldBe "stop-timer :: result-card"
       model["durationFormatted"] shouldBe "01:01:01"
       model["stopped"] shouldBe true
+      response.getHeader("HX-Trigger") shouldBe "timeEntriesChanged"
     }
   }
 
@@ -512,13 +623,23 @@ class TimerWebControllerTest {
   fun `stopTimer POST sets stopped=false when no timer was running`() {
     every { timerService.stopTimer() } returns null
     val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
 
-    val view = controller.stopTimerSubmit(hxRequest = true, model = model)
+    val view = controller.stopTimerSubmit(hxRequest = true, model = model, response = response)
 
     view shouldBe "stop-timer :: result-card"
     model["stopped"] shouldBe false
     model.containsAttribute("durationFormatted") shouldBe false
+    response.getHeader("HX-Trigger").shouldBeNull()
   }
+
+  private fun emptyHistoryPage() =
+      TimeEntryHistoryPage(
+          groups = emptyList(),
+          rangeLabel = "Aug 20–Aug 26, 2026",
+          nextBefore = null,
+          initial = true,
+      )
 
   private fun validForm(description: String? = null) =
       TimerForm(

@@ -74,6 +74,13 @@ interface TogglClient {
       @RequestBody entry: TogglTimeEntry,
   ): TogglTimeEntry
 
+  @PutExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}")
+  fun updateTimeEntryDescription(
+      @PathVariable workspaceId: Long,
+      @PathVariable timeEntryId: Long,
+      @RequestBody request: UpdateTimeEntryDescriptionRequest,
+  ): TogglTimeEntry
+
   @PatchExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}/stop")
   fun stopTimeEntry(
       @PathVariable workspaceId: Long,

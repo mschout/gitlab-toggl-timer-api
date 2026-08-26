@@ -207,6 +207,95 @@
         </div>
       </div>
 
+      <section
+        th:fragment="recent-entries"
+        id="recent-time-entries"
+        class="mt-4"
+        hx-get="/timer/entries"
+        hx-trigger="timeEntriesChanged from:body"
+        hx-target="this"
+        hx-swap="outerHTML"
+        aria-live="polite"
+      >
+        <div class="d-flex align-items-baseline justify-content-between gap-3 mb-2 px-1">
+          <h2 class="h5 mb-0">Recent time entries</h2>
+          <span class="small text-body-secondary">Completed timers</span>
+        </div>
+
+        <div class="time-entry-ledger shadow-sm">
+          <div
+            th:if="${historyPage.initial and #lists.isEmpty(historyPage.groups)}"
+            class="time-entry-empty-state"
+          >
+            <i class="bi bi-clock-history" aria-hidden="true"></i>
+            <div>
+              <div class="fw-medium">No completed entries in the last seven days</div>
+              <div class="small text-body-secondary">
+                Completed timers will appear here automatically.
+              </div>
+            </div>
+          </div>
+
+          <th:block th:fragment="history-page">
+            <section class="time-entry-group" th:each="group : ${historyPage.groups}">
+              <header class="time-entry-day-header">
+                <h3 class="time-entry-day-label" th:text="${group.label}">Today</h3>
+                <span class="time-entry-day-total" th:text="${group.totalFormatted}">0:00:00</span>
+              </header>
+
+              <article
+                class="time-entry-row"
+                th:each="entry : ${group.entries}"
+                th:style="${entry.projectColor != null} ? |--project-color: ${entry.projectColor}| : null"
+              >
+                <div class="time-entry-summary">
+                  <th:block th:with="descriptionEditor=${entry.descriptionEditor}">
+                    <span
+                      th:replace="~{fragments/time-entry-description :: description-editor}"
+                    ></span>
+                  </th:block>
+                  <span class="time-entry-context" th:if="${entry.projectName != null}">
+                    <span class="time-entry-separator" aria-hidden="true">•</span>
+                    <span th:text="${entry.projectName}">Project</span>
+                  </span>
+                  <span class="time-entry-context" th:if="${entry.clientName != null}">
+                    <span class="time-entry-separator" aria-hidden="true">•</span>
+                    <span th:text="${entry.clientName}">Client</span>
+                  </span>
+                </div>
+                <time class="time-entry-range" th:text="${entry.timeRange}">12:36 PM – 1:24 PM</time>
+                <span class="time-entry-duration" th:text="${entry.durationFormatted}">0:48:02</span>
+              </article>
+            </section>
+
+            <div
+              th:if="${!historyPage.initial and #lists.isEmpty(historyPage.groups)}"
+              class="time-entry-empty-range"
+              th:text="|No completed entries from ${historyPage.rangeLabel}.|"
+            >
+              No completed entries in this period.
+            </div>
+
+            <div id="time-entry-load-more" class="time-entry-load-more">
+              <button
+                th:if="${historyPage.nextBefore != null}"
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                th:attr="hx-get=@{/timer/entries/page(before=${historyPage.nextBefore})}"
+                hx-target="#time-entry-load-more"
+                hx-swap="outerHTML"
+              >
+                <span
+                  class="htmx-indicator spinner-border spinner-border-sm me-1"
+                  aria-hidden="true"
+                ></span>
+                Load more
+              </button>
+            </div>
+          </th:block>
+        </div>
+      </section>
+
       <script>
         (function () {
           var STORAGE_KEY = 'gitlabTogglTimer.timer.selectedClient';
@@ -300,6 +389,13 @@
           });
 
           document.addEventListener('click', function (evt) {
+            var descriptionInput =
+              evt.target.closest && evt.target.closest('.time-entry-description-editor');
+            if (descriptionInput) {
+              beginDescriptionEdit(descriptionInput);
+              return;
+            }
+
             var btn = evt.target.closest && evt.target.closest('#issueUrlClear');
             if (!btn) return;
             var input = document.getElementById('issueUrl');
@@ -311,10 +407,115 @@
             input.focus();
           });
 
+          function beginDescriptionEdit(input) {
+            if (!input || input.dataset.submitting === 'true') return;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (input.readOnly) {
+              input.dataset.originalValue = input.value;
+              input.readOnly = false;
+            }
+            if (wrapper) wrapper.classList.add('is-editing');
+            input.focus();
+            window.requestAnimationFrame(function () {
+              input.setSelectionRange(input.value.length, input.value.length);
+            });
+          }
+
+          function cancelDescriptionEdit(input) {
+            if (!input || input.dataset.submitting === 'true') return;
+            if (input.dataset.originalValue !== undefined) {
+              input.value = input.dataset.originalValue;
+            }
+            input.readOnly = true;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (wrapper) wrapper.classList.remove('is-editing');
+          }
+
+          document.addEventListener(
+            'focus',
+            function (evt) {
+              if (evt.target.matches && evt.target.matches('.time-entry-description-editor')) {
+                beginDescriptionEdit(evt.target);
+              }
+            },
+            true
+          );
+
+          document.addEventListener('keydown', function (evt) {
+            var input = evt.target;
+            if (!input.matches || !input.matches('.time-entry-description-editor')) return;
+
+            if (evt.key === 'Escape') {
+              evt.preventDefault();
+              cancelDescriptionEdit(input);
+              input.blur();
+              return;
+            }
+
+            if ((evt.key === 'Enter' || evt.key === 'F2') && input.readOnly) {
+              evt.preventDefault();
+              beginDescriptionEdit(input);
+              return;
+            }
+
+            if (evt.key === 'Enter') {
+              evt.preventDefault();
+              input.dataset.submitting = 'true';
+              htmx.trigger(input, 'description-save');
+            }
+          });
+
+          document.addEventListener(
+            'blur',
+            function (evt) {
+              if (evt.target.matches && evt.target.matches('.time-entry-description-editor')) {
+                cancelDescriptionEdit(evt.target);
+              }
+            },
+            true
+          );
+
+          document.body.addEventListener('htmx:beforeRequest', function (evt) {
+            var input = evt.detail && evt.detail.elt;
+            if (!input || !input.matches('.time-entry-description-editor')) return;
+            input.readOnly = true;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (wrapper) wrapper.classList.add('is-saving');
+          });
+
+          document.body.addEventListener('htmx:afterRequest', function (evt) {
+            var input = evt.detail && evt.detail.elt;
+            if (!input || !input.matches('.time-entry-description-editor')) return;
+            if (evt.detail.successful) return;
+            input.dataset.submitting = 'false';
+            input.readOnly = false;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (wrapper) {
+              wrapper.classList.remove('is-saving');
+              var error = wrapper.querySelector('.time-entry-description-error');
+              if (!error) {
+                error = document.createElement('span');
+                error.className = 'time-entry-description-error';
+                error.setAttribute('role', 'status');
+                wrapper.appendChild(error);
+              }
+              error.textContent = 'Could not save. Press Enter to retry.';
+            }
+            input.focus();
+          });
+
           document.body.addEventListener('htmx:afterSwap', function (evt) {
             var tgt = evt.detail && evt.detail.target;
             if (tgt && tgt.id === 'client-select-wrapper') {
               restoreClientSelection();
+            }
+            var descriptionInput =
+              tgt && tgt.querySelector && tgt.querySelector('.time-entry-description-editor');
+            if (
+              descriptionInput &&
+              descriptionInput.getAttribute('data-editing') === 'true'
+            ) {
+              beginDescriptionEdit(descriptionInput);
             }
           });
         })();

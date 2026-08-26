@@ -21,11 +21,14 @@ import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
+import java.time.LocalDate
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.validation.BindingResult
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
@@ -40,6 +43,8 @@ class TimerWebController(
     private val timerService: TimerService,
     private val credentialsService: CurrentUserCredentialsService,
     private val togglService: TogglService,
+    private val timeEntryHistoryService: TimeEntryHistoryService,
+    private val timeEntryDescriptionService: TimeEntryDescriptionService,
 ) {
 
   @GetMapping
@@ -51,6 +56,7 @@ class TimerWebController(
             }
     model.addAttribute("message", "Welcome to the Timer Page!")
     loadDropdownData(form, model)
+    loadHistoryData(model)
 
     val running =
         runCatching { togglService.getCurrentRunningTimer() }
@@ -144,15 +150,62 @@ class TimerWebController(
       @RequestParam(required = false) description: String? = null,
       @RequestHeader(name = "HX-Request", required = false) hxRequest: Boolean = false,
       model: Model,
+      response: HttpServletResponse,
   ): String {
     val result = timerService.stopTimer(description)
     if (result != null) {
       model.addAttribute("durationFormatted", result.durationFormatted)
       model.addAttribute("stopped", true)
+      if (hxRequest) response.setHeader("HX-Trigger", "timeEntriesChanged")
     } else {
       model.addAttribute("stopped", false)
     }
     return if (hxRequest) "stop-timer :: result-card" else "stop-timer"
+  }
+
+  @GetMapping("/entries")
+  fun recentEntries(model: Model): String {
+    loadHistoryData(model)
+    return "timer-index :: recent-entries"
+  }
+
+  @GetMapping("/entries/page")
+  fun olderEntries(
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) before: LocalDate,
+      model: Model,
+  ): String {
+    model.addAttribute("historyPage", timeEntryHistoryService.pageBefore(before))
+    return "timer-index :: history-page"
+  }
+
+  @PostMapping("/entries/{togglId}/description")
+  fun updateEntryDescription(
+      @PathVariable togglId: Long,
+      @RequestParam description: String,
+      model: Model,
+  ): String {
+    val descriptionEditor =
+        try {
+          timeEntryDescriptionService.updateDescription(togglId, description)
+        } catch (ex: TogglDescriptionUpdateException) {
+          logger.warn(ex) { "Failed to update Toggl time entry $togglId description" }
+          TimeEntryDescriptionEditorView(
+              togglId = togglId,
+              description = description,
+              error = "Could not save to Toggl. Press Enter to retry.",
+              editing = true,
+          )
+        } catch (ex: TimeEntryHistoryUpdateException) {
+          logger.warn(ex) { "Failed to sync Toggl time entry $togglId description to Postgres" }
+          TimeEntryDescriptionEditorView(
+              togglId = togglId,
+              description = description,
+              error = "Saved to Toggl, but local history is out of sync. Press Enter to retry.",
+              editing = true,
+          )
+        }
+    model.addAttribute("descriptionEditor", descriptionEditor)
+    return "fragments/time-entry-description :: description-editor"
   }
 
   @GetMapping("/clients")
@@ -178,6 +231,7 @@ class TimerWebController(
   ): String {
     model.addAttribute("message", "Welcome to the Timer Page!")
     loadDropdownData(form, model)
+    loadHistoryData(model)
     if (hxRequest) {
       response.setHeader("HX-Retarget", "#timer-form-card")
       response.setHeader("HX-Reswap", "outerHTML")
@@ -214,5 +268,9 @@ class TimerWebController(
     model.addAttribute("clients", clients)
     model.addAttribute("togglFetchError", togglFetchError)
     model.addAttribute("clientsFetchError", clientsFetchError)
+  }
+
+  private fun loadHistoryData(model: Model) {
+    model.addAttribute("historyPage", timeEntryHistoryService.initialPage())
   }
 }

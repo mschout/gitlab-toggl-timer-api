@@ -29,6 +29,8 @@ import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import java.time.Instant
 
+const val DEFAULT_TIME_ZONE_ID = "America/Chicago"
+
 @Entity
 @Table(name = "user_settings")
 class UserSettings(
@@ -43,6 +45,7 @@ class UserSettings(
     @Column(name = "toggl_api_key_encrypted")
     var togglApiKey: String? = null,
     @Column(name = "toggl_workspace_id") var togglWorkspaceId: Long? = null,
+    @Column(name = "time_zone", nullable = false) var timeZone: String = DEFAULT_TIME_ZONE_ID,
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false) var updatedAt: Instant = Instant.now(),
