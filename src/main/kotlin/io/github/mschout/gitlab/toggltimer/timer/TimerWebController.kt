@@ -56,6 +56,7 @@ class TimerWebController(
               model.addAttribute("form", it)
             }
     model.addAttribute("message", "Welcome to the Timer Page!")
+    model.addAttribute("formExpanded", false)
     loadDropdownData(form, model)
     loadHistoryData(model)
 
@@ -275,6 +276,7 @@ class TimerWebController(
       response: HttpServletResponse,
   ): String {
     model.addAttribute("message", "Welcome to the Timer Page!")
+    model.addAttribute("formExpanded", true)
     loadDropdownData(form, model)
     loadHistoryData(model)
     if (hxRequest) {

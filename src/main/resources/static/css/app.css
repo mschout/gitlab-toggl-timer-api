@@ -25,6 +25,14 @@ dl.row dt {
   font-weight: 500;
 }
 
+.timer-form-toggle-icon {
+  transition: transform 200ms ease;
+}
+
+.timer-form-toggle[aria-expanded='true'] .timer-form-toggle-icon {
+  transform: rotate(180deg);
+}
+
 .running-timer-toolbar {
   --project-color: var(--bs-border-color);
   display: grid;

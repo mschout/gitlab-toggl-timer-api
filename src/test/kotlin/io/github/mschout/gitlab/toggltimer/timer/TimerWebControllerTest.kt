@@ -87,6 +87,7 @@ class TimerWebControllerTest {
       view shouldBe "timer-index"
       model["message"] shouldBe "Welcome to the Timer Page!"
       model["form"] shouldBe TimerForm()
+      model["formExpanded"] shouldBe false
       model["historyPage"] shouldBe emptyHistoryPage()
     }
   }
@@ -621,6 +622,7 @@ class TimerWebControllerTest {
       response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
       response.getHeader("HX-Reswap") shouldBe "outerHTML"
       model["message"] shouldBe "Welcome to the Timer Page!"
+      model["formExpanded"] shouldBe true
       model["workspaces"] shouldBe emptyList<TogglWorkspace>()
       model["clients"] shouldBe emptyList<TogglWorkspaceClient>()
     }
@@ -742,6 +744,7 @@ class TimerWebControllerTest {
       view shouldBe "timer-index :: timer-form"
       response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
       response.getHeader("HX-Reswap") shouldBe "outerHTML"
+      model["formExpanded"] shouldBe true
       model["workspaces"] shouldBe emptyList<TogglWorkspace>()
     }
     verify(exactly = 0) { timerService.startTimer(any()) }
