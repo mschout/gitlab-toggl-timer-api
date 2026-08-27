@@ -15,11 +15,51 @@
  */
 package io.github.mschout.gitlab.toggltimer.project
 
+import java.time.Instant
 import java.util.UUID
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 
 interface TimeEntryRepository : JpaRepository<TimeEntry, UUID> {
   fun findByTogglId(togglId: Long): TimeEntry?
 
+  fun findByTogglIdAndUserId(togglId: Long, userId: Long): TimeEntry?
+
   fun findAllByTogglIdIn(togglIds: Collection<Long>): List<TimeEntry>
+
+  @Query(
+      """
+      SELECT entry
+      FROM TimeEntry entry
+      WHERE entry.userId = :userId
+        AND entry.start >= :startInclusive
+        AND entry.start < :endExclusive
+        AND entry.stop IS NOT NULL
+        AND entry.duration >= 0
+        AND entry.serverDeletedAt IS NULL
+      ORDER BY entry.start DESC
+      """
+  )
+  fun findCompletedInRange(
+      @Param("userId") userId: Long,
+      @Param("startInclusive") startInclusive: Instant,
+      @Param("endExclusive") endExclusive: Instant,
+  ): List<TimeEntry>
+
+  @Query(
+      """
+      SELECT CASE WHEN COUNT(entry) > 0 THEN true ELSE false END
+      FROM TimeEntry entry
+      WHERE entry.userId = :userId
+        AND entry.start < :before
+        AND entry.stop IS NOT NULL
+        AND entry.duration >= 0
+        AND entry.serverDeletedAt IS NULL
+      """
+  )
+  fun existsCompletedBefore(
+      @Param("userId") userId: Long,
+      @Param("before") before: Instant,
+  ): Boolean
 }

@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.user
 
+import java.time.ZoneId
 import org.springframework.security.authentication.AnonymousAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
@@ -43,6 +44,10 @@ class CurrentUserCredentialsService(
       currentUserOrNull()?.let { userSettingsRepository.findById(it.id).orElse(null) }
 
   fun currentTogglWorkspaceId(): Long? = currentSettings()?.togglWorkspaceId
+
+  fun currentTimeZone(): ZoneId =
+      currentSettings()?.timeZone?.let { runCatching { ZoneId.of(it) }.getOrNull() }
+          ?: ZoneId.of(DEFAULT_TIME_ZONE_ID)
 
   fun requireGitlabToken(): String =
       currentSettings()?.gitlabAccessToken?.takeIf { it.isNotBlank() }

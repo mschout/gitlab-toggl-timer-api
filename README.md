@@ -105,6 +105,19 @@ You need the following permissions on the GitLab Personal Access Token:
 | `APP_AUTH_RP_ID` | yes (for passkeys, unless serving from `localhost`) | `localhost` | WebAuthn Relying Party ID — the bare domain you serve the app from, e.g. `timer.example.com`. Must be a registrable suffix of the browser's origin host, otherwise passkey registration fails with `'rp.id' cannot be used with the current origin`. Do not include a scheme or port. |
 | `APP_AUTH_ORIGINS` | yes (for passkeys, unless serving from `http://localhost:8080`) | `http://localhost:8080` | Comma-separated list of full origins (scheme + host + port) the browser will use when registering or asserting passkeys, e.g. `https://timer.example.com`. Must match what the browser sees, including `https` when behind a TLS-terminating proxy. |
 
+## Toggl time-entry synchronization
+
+The application periodically imports time entries for each enabled user who has saved a Toggl API key. The first run
+imports the preceding seven days; later runs request entries modified since the last successful sync. An open timer
+page refreshes its recent-entry list every minute.
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `APP_TOGGL_SYNC_ENABLED` | no | `true` | Set to `false` to disable background synchronization. |
+| `APP_TOGGL_SYNC_INTERVAL` | no | `PT15M` | Fixed delay between completed sync runs, expressed as an ISO-8601 duration. |
+| `APP_TOGGL_SYNC_INITIAL_DELAY` | no | `PT30S` | Delay after application startup before the first sync. |
+| `APP_TOGGL_SYNC_INITIAL_LOOKBACK` | no | `P7D` | History window used when a user has no successful sync cursor yet. |
+
 ## Reverse proxy / SSL termination
 
 If you run the app behind an SSL-terminating reverse proxy (e.g. Traefik, Nginx, Caddy), set:

@@ -21,11 +21,14 @@ import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
+import java.time.LocalDate
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.validation.BindingResult
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
@@ -40,6 +43,9 @@ class TimerWebController(
     private val timerService: TimerService,
     private val credentialsService: CurrentUserCredentialsService,
     private val togglService: TogglService,
+    private val timeEntryHistoryService: TimeEntryHistoryService,
+    private val timeEntryDescriptionService: TimeEntryDescriptionService,
+    private val timeEntryProjectService: TimeEntryProjectService,
 ) {
 
   @GetMapping
@@ -50,16 +56,18 @@ class TimerWebController(
               model.addAttribute("form", it)
             }
     model.addAttribute("message", "Welcome to the Timer Page!")
+    model.addAttribute("formExpanded", false)
     loadDropdownData(form, model)
+    loadHistoryData(model)
 
     val running =
         runCatching { togglService.getCurrentRunningTimer() }
             .onFailure { logger.warn(it) { "Failed to fetch current Toggl timer" } }
             .getOrNull()
     if (running != null) {
-      model.addAttribute("startTime", running.startTime)
-      model.addAttribute("projectName", running.projectName)
-      model.addAttribute("description", running.description)
+      addRunningTimer(running, model)
+    } else {
+      addStoppedTimer(model)
     }
     return "timer-index"
   }
@@ -105,11 +113,7 @@ class TimerWebController(
     val request =
         StartTimerRequest(issueUrl = issueUrl, workspaceId = workspaceId, clientId = clientId)
     val result = timerService.startTimer(request)
-    return ModelAndView("start-timer").apply {
-      addObject("startTime", result.startTime)
-      addObject("projectName", result.projectName)
-      addObject("description", result.description)
-    }
+    return ModelAndView("start-timer").apply { addObject("runningTimer", runningTimerView(result)) }
   }
 
   @PostMapping("/start")
@@ -133,9 +137,7 @@ class TimerWebController(
       return formErrorView(form, model, hxRequest, response)
     }
     val result = timerService.startTimer(form.toStartTimerRequest())
-    model.addAttribute("startTime", result.startTime)
-    model.addAttribute("projectName", result.projectName)
-    model.addAttribute("description", result.description)
+    addRunningTimer(result, model)
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 
@@ -144,15 +146,115 @@ class TimerWebController(
       @RequestParam(required = false) description: String? = null,
       @RequestHeader(name = "HX-Request", required = false) hxRequest: Boolean = false,
       model: Model,
+      response: HttpServletResponse,
   ): String {
     val result = timerService.stopTimer(description)
     if (result != null) {
       model.addAttribute("durationFormatted", result.durationFormatted)
       model.addAttribute("stopped", true)
+      if (hxRequest) response.setHeader("HX-Trigger", "timeEntriesChanged")
     } else {
       model.addAttribute("stopped", false)
     }
+    addStoppedTimer(model)
     return if (hxRequest) "stop-timer :: result-card" else "stop-timer"
+  }
+
+  @GetMapping("/entries")
+  fun recentEntries(model: Model): String {
+    loadHistoryData(model)
+    return "timer-index :: recent-entries"
+  }
+
+  @GetMapping("/entries/page")
+  fun olderEntries(
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) before: LocalDate,
+      model: Model,
+  ): String {
+    model.addAttribute("historyPage", timeEntryHistoryService.pageBefore(before))
+    return "timer-index :: history-page"
+  }
+
+  @PostMapping("/entries/{togglId}/description")
+  fun updateEntryDescription(
+      @PathVariable togglId: Long,
+      @RequestParam description: String,
+      model: Model,
+  ): String {
+    val descriptionEditor =
+        try {
+          timeEntryDescriptionService.updateDescription(togglId, description)
+        } catch (ex: TogglDescriptionUpdateException) {
+          logger.warn(ex) { "Failed to update Toggl time entry $togglId description" }
+          TimeEntryDescriptionEditorView(
+              togglId = togglId,
+              description = description,
+              error = "Could not save to Toggl. Press Enter to retry.",
+              editing = true,
+          )
+        } catch (ex: TimeEntryHistoryUpdateException) {
+          logger.warn(ex) { "Failed to sync Toggl time entry $togglId description to Postgres" }
+          TimeEntryDescriptionEditorView(
+              togglId = togglId,
+              description = description,
+              error = "Saved to Toggl, but local history is out of sync. Press Enter to retry.",
+              editing = true,
+          )
+        }
+    model.addAttribute("descriptionEditor", descriptionEditor)
+    return "fragments/time-entry-description :: description-editor"
+  }
+
+  @GetMapping("/entries/{togglId}/projects")
+  fun searchEntryProjects(
+      @PathVariable togglId: Long,
+      @RequestParam(defaultValue = "") query: String,
+      model: Model,
+  ): String {
+    val projectSearch =
+        try {
+          timeEntryProjectService.searchProjects(togglId = togglId, query = query)
+        } catch (ex: TimeEntryProjectNotFoundException) {
+          throw ex
+        } catch (ex: Exception) {
+          logger.warn(ex) { "Failed to search Postgres projects for time entry $togglId" }
+          TimeEntryProjectSearchView(
+              togglId = togglId,
+              query = query,
+              projects = emptyList(),
+              error = "Could not search projects. Try again.",
+          )
+        }
+    model.addAttribute("projectSearch", projectSearch)
+    return "fragments/time-entry-project :: project-results"
+  }
+
+  @PostMapping("/entries/{togglId}/project")
+  fun updateEntryProject(
+      @PathVariable togglId: Long,
+      @RequestParam projectId: Long,
+      model: Model,
+  ): String {
+    val projectPicker =
+        try {
+          timeEntryProjectService.updateProject(togglId = togglId, projectId = projectId)
+        } catch (ex: TogglProjectUpdateException) {
+          logger.warn(ex) { "Failed to update Toggl time entry $togglId project" }
+          timeEntryProjectService
+              .currentPicker(togglId)
+              .copy(error = "Could not save to Toggl. Choose a project to retry.", open = true)
+        } catch (ex: TimeEntryProjectHistoryUpdateException) {
+          logger.warn(ex) { "Failed to sync Toggl time entry $togglId project to Postgres" }
+          timeEntryProjectService
+              .currentPicker(togglId)
+              .copy(
+                  error =
+                      "Saved to Toggl, but local history is out of sync. Choose a project to retry.",
+                  open = true,
+              )
+        }
+    model.addAttribute("projectPicker", projectPicker)
+    return "fragments/time-entry-project :: project-picker"
   }
 
   @GetMapping("/clients")
@@ -177,7 +279,10 @@ class TimerWebController(
       response: HttpServletResponse,
   ): String {
     model.addAttribute("message", "Welcome to the Timer Page!")
+    model.addAttribute("formExpanded", true)
     loadDropdownData(form, model)
+    loadHistoryData(model)
+    addStoppedTimer(model)
     if (hxRequest) {
       response.setHeader("HX-Retarget", "#timer-form-card")
       response.setHeader("HX-Reswap", "outerHTML")
@@ -214,5 +319,62 @@ class TimerWebController(
     model.addAttribute("clients", clients)
     model.addAttribute("togglFetchError", togglFetchError)
     model.addAttribute("clientsFetchError", clientsFetchError)
+  }
+
+  private fun loadHistoryData(model: Model) {
+    model.addAttribute("historyPage", timeEntryHistoryService.initialPage())
+  }
+
+  private fun addRunningTimer(result: StartTimerResult, model: Model) {
+    model.addAttribute("runningTimer", runningTimerView(result))
+  }
+
+  private fun addStoppedTimer(model: Model) {
+    val workspaceId = credentialsService.currentTogglWorkspaceId()
+    val projects =
+        workspaceId?.let { id ->
+          runCatching { timeEntryProjectService.projectsForWorkspace(id) }
+              .onFailure { logger.warn(it) { "Failed to load projects for stopped timer" } }
+              .getOrDefault(emptyList())
+        } ?: emptyList()
+    model.addAttribute(
+        "stoppedTimer",
+        StoppedTimerView(workspaceId = workspaceId, projects = projects),
+    )
+  }
+
+  private fun runningTimerView(result: StartTimerResult): RunningTimerView {
+    val fallbackPicker =
+        TimeEntryProjectPickerView(
+            togglId = result.togglId,
+            projectName = result.projectName,
+            clientName = result.clientName,
+            projectColor = result.projectColor,
+        )
+    val projectPicker =
+        runCatching { timeEntryProjectService.currentPicker(result.togglId) }
+            .onFailure {
+              logger.warn(it) {
+                "Failed to load project picker for running entry ${result.togglId}"
+              }
+            }
+            .getOrNull()
+            ?.let { picker ->
+              picker.copy(
+                  projectName = picker.projectName ?: fallbackPicker.projectName,
+                  clientName = picker.clientName ?: fallbackPicker.clientName,
+                  projectColor = picker.projectColor ?: fallbackPicker.projectColor,
+              )
+            } ?: fallbackPicker
+
+    return RunningTimerView(
+        startTime = result.startTime,
+        descriptionEditor =
+            TimeEntryDescriptionEditorView(
+                togglId = result.togglId,
+                description = result.description?.takeIf { it.isNotBlank() },
+            ),
+        projectPicker = projectPicker,
+    )
   }
 }

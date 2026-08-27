@@ -14,16 +14,42 @@
       </section>
 
       <div id="result" class="mb-4">
-        <th:block th:if="${startTime != null}">
+        <th:block th:if="${runningTimer != null}">
           <div th:replace="~{start-timer :: result-card}" th:remove="tag"></div>
+        </th:block>
+        <th:block th:unless="${runningTimer != null}">
+          <div th:replace="~{stop-timer :: result-card}" th:remove="tag"></div>
         </th:block>
       </div>
 
-      <div th:fragment="timer-form" id="timer-form-card" class="card shadow-sm">
-        <div class="card-body p-4">
-          <h2 class="h5 card-title mb-3">
-            <i class="bi bi-bullseye me-2"></i>Track time on a GitLab issue
-          </h2>
+      <div
+        th:fragment="timer-form"
+        id="timer-form-card"
+        class="card shadow-sm"
+      >
+        <h2 class="card-header p-0">
+          <button
+            type="button"
+            class="timer-form-toggle btn w-100 d-flex align-items-center gap-2 p-4 text-start"
+            data-bs-toggle="collapse"
+            data-bs-target="#timer-form-body"
+            th:attr="aria-expanded=${formExpanded}"
+            aria-controls="timer-form-body"
+          >
+            <i class="bi bi-bullseye" aria-hidden="true"></i>
+            <span class="h5 mb-0">Track time on a GitLab issue</span>
+            <i
+              class="timer-form-toggle-icon bi bi-chevron-down ms-auto"
+              aria-hidden="true"
+            ></i>
+          </button>
+        </h2>
+
+        <div
+          id="timer-form-body"
+          class="card-body collapse p-4"
+          th:classappend="${formExpanded} ? 'show'"
+        >
           <p class="text-body-secondary small mb-4">
             Choose your Toggl workspace and click <strong>Start Timer</strong> to begin tracking
             time immediately. Add a GitLab issue URL (and a Toggl client) to associate the timer
@@ -207,7 +233,91 @@
         </div>
       </div>
 
-      <script>
+      <section
+        th:fragment="recent-entries"
+        id="recent-time-entries"
+        class="mt-4"
+        hx-get="/timer/entries"
+        hx-trigger="timeEntriesChanged from:body, every 1m"
+        hx-target="this"
+        hx-swap="outerHTML"
+        aria-live="polite"
+      >
+        <div class="d-flex align-items-baseline justify-content-between gap-3 mb-2 px-1">
+          <h2 class="h5 mb-0">Recent time entries</h2>
+          <span class="small text-body-secondary">Completed timers</span>
+        </div>
+
+        <div class="time-entry-ledger shadow-sm">
+          <div
+            th:if="${historyPage.initial and #lists.isEmpty(historyPage.groups)}"
+            class="time-entry-empty-state"
+          >
+            <i class="bi bi-clock-history" aria-hidden="true"></i>
+            <div>
+              <div class="fw-medium">No completed entries in the last seven days</div>
+              <div class="small text-body-secondary">
+                Completed timers will appear here automatically.
+              </div>
+            </div>
+          </div>
+
+          <th:block th:fragment="history-page">
+            <section class="time-entry-group" th:each="group : ${historyPage.groups}">
+              <header class="time-entry-day-header">
+                <h3 class="time-entry-day-label" th:text="${group.label}">Today</h3>
+                <span class="time-entry-day-total" th:text="${group.totalFormatted}">0:00:00</span>
+              </header>
+
+              <article
+                class="time-entry-row"
+                th:each="entry : ${group.entries}"
+                th:style="${entry.projectPicker.projectColor != null} ? |--project-color: ${entry.projectPicker.projectColor}| : null"
+              >
+                <div class="time-entry-summary">
+                  <th:block th:with="descriptionEditor=${entry.descriptionEditor}">
+                    <span
+                      th:replace="~{fragments/time-entry-description :: description-editor}"
+                    ></span>
+                  </th:block>
+                  <th:block th:with="projectPicker=${entry.projectPicker}">
+                    <div th:replace="~{fragments/time-entry-project :: project-picker}"></div>
+                  </th:block>
+                </div>
+                <time class="time-entry-range" th:text="${entry.timeRange}">12:36 PM – 1:24 PM</time>
+                <span class="time-entry-duration" th:text="${entry.durationFormatted}">0:48:02</span>
+              </article>
+            </section>
+
+            <div
+              th:if="${!historyPage.initial and #lists.isEmpty(historyPage.groups)}"
+              class="time-entry-empty-range"
+              th:text="|No completed entries from ${historyPage.rangeLabel}.|"
+            >
+              No completed entries in this period.
+            </div>
+
+            <div id="time-entry-load-more" class="time-entry-load-more">
+              <button
+                th:if="${historyPage.nextBefore != null}"
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                th:attr="hx-get=@{/timer/entries/page(before=${historyPage.nextBefore})}"
+                hx-target="#time-entry-load-more"
+                hx-swap="outerHTML"
+              >
+                <span
+                  class="htmx-indicator spinner-border spinner-border-sm me-1"
+                  aria-hidden="true"
+                ></span>
+                Load more
+              </button>
+            </div>
+          </th:block>
+        </div>
+      </section>
+
+      <script th:fragment="timer-script">
         (function () {
           var STORAGE_KEY = 'gitlabTogglTimer.timer.selectedClient';
           var ISSUE_URL_KEY = 'gitlabTogglTimer.timer.issueUrl';
@@ -271,14 +381,65 @@
             } catch (e) {}
           }
 
+          function padElapsedPart(value) {
+            return value < 10 ? '0' + value : '' + value;
+          }
+
+          function renderElapsedTime(el) {
+            var startedAt = new Date(el.getAttribute('data-started-at'));
+            if (isNaN(startedAt.getTime())) return;
+            var seconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+            var hours = Math.floor(seconds / 3600);
+            var minutes = Math.floor((seconds % 3600) / 60);
+            var remainingSeconds = seconds % 60;
+            el.textContent =
+              padElapsedPart(hours) +
+              ':' +
+              padElapsedPart(minutes) +
+              ':' +
+              padElapsedPart(remainingSeconds);
+          }
+
+          function startElapsedTimers() {
+            if (window.__togglElapsedIntervalId) {
+              clearInterval(window.__togglElapsedIntervalId);
+              window.__togglElapsedIntervalId = null;
+            }
+            var timers = document.querySelectorAll('.js-elapsed-time');
+            timers.forEach(renderElapsedTime);
+            if (!timers.length) return;
+            window.__togglElapsedIntervalId = setInterval(function () {
+              var currentTimers = document.querySelectorAll('.js-elapsed-time');
+              if (!currentTimers.length) {
+                clearInterval(window.__togglElapsedIntervalId);
+                window.__togglElapsedIntervalId = null;
+                return;
+              }
+              currentTimers.forEach(renderElapsedTime);
+            }, 1000);
+          }
+
           document.addEventListener('DOMContentLoaded', function () {
             restoreClientSelection();
             restoreIssueUrl();
+            startElapsedTimers();
           });
 
           document.addEventListener('change', function (evt) {
             var target = evt.target;
-            if (!target || !target.id) return;
+            if (!target) return;
+            if (target.matches && target.matches('.js-stopped-project')) {
+              var toolbar = target.closest('.running-timer-toolbar');
+              var selected = target.options[target.selectedIndex];
+              var projectColor = selected && selected.getAttribute('data-project-color');
+              if (toolbar && projectColor) {
+                toolbar.style.setProperty('--project-color', projectColor);
+              } else if (toolbar) {
+                toolbar.style.removeProperty('--project-color');
+              }
+              return;
+            }
+            if (!target.id) return;
             if (target.id === 'clientId') {
               var workspaceId = getWorkspaceId();
               if (workspaceId && target.value) {
@@ -300,6 +461,42 @@
           });
 
           document.addEventListener('click', function (evt) {
+            var projectTrigger =
+              evt.target.closest && evt.target.closest('.time-entry-project-trigger');
+            if (projectTrigger) {
+              openProjectPicker(projectTrigger);
+              return;
+            }
+
+            var projectClose =
+              evt.target.closest && evt.target.closest('.time-entry-project-close');
+            if (projectClose) {
+              var closeDialog = projectClose.closest('.time-entry-project-dialog');
+              if (closeDialog) closeDialog.close();
+              return;
+            }
+
+            if (
+              evt.target.matches &&
+              evt.target.matches('.time-entry-project-dialog')
+            ) {
+              var dialogRect = evt.target.getBoundingClientRect();
+              var outsideDialog =
+                evt.clientX < dialogRect.left ||
+                evt.clientX > dialogRect.right ||
+                evt.clientY < dialogRect.top ||
+                evt.clientY > dialogRect.bottom;
+              if (outsideDialog) evt.target.close();
+              return;
+            }
+
+            var descriptionInput =
+              evt.target.closest && evt.target.closest('.time-entry-description-editor');
+            if (descriptionInput) {
+              beginDescriptionEdit(descriptionInput);
+              return;
+            }
+
             var btn = evt.target.closest && evt.target.closest('#issueUrlClear');
             if (!btn) return;
             var input = document.getElementById('issueUrl');
@@ -311,10 +508,198 @@
             input.focus();
           });
 
+          function openProjectPicker(trigger) {
+            if (!trigger) return;
+            var dialogId = trigger.getAttribute('aria-controls');
+            var dialog = dialogId && document.getElementById(dialogId);
+            if (!dialog) return;
+            if (!dialog.open) dialog.showModal();
+            var search = dialog.querySelector('.time-entry-project-search');
+            if (!search) return;
+            search.focus();
+            htmx.trigger(search, 'project-search');
+          }
+
+          function beginDescriptionEdit(input) {
+            if (!input || input.dataset.submitting === 'true') return;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (input.readOnly) {
+              input.dataset.originalValue = input.value;
+              input.readOnly = false;
+            }
+            if (wrapper) wrapper.classList.add('is-editing');
+            input.focus();
+            window.requestAnimationFrame(function () {
+              input.setSelectionRange(input.value.length, input.value.length);
+            });
+          }
+
+          function cancelDescriptionEdit(input) {
+            if (!input || input.dataset.submitting === 'true') return;
+            if (input.dataset.originalValue !== undefined) {
+              input.value = input.dataset.originalValue;
+            }
+            input.readOnly = true;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (wrapper) wrapper.classList.remove('is-editing');
+          }
+
+          document.addEventListener(
+            'focus',
+            function (evt) {
+              if (evt.target.matches && evt.target.matches('.time-entry-description-editor')) {
+                beginDescriptionEdit(evt.target);
+              }
+            },
+            true
+          );
+
+          document.addEventListener('keydown', function (evt) {
+            var input = evt.target;
+            if (!input.matches) return;
+
+            if (input.matches('.time-entry-project-search') && evt.key === 'ArrowDown') {
+              var firstProject = input
+                .closest('.time-entry-project-dialog')
+                .querySelector('.time-entry-project-option:not(:disabled)');
+              if (firstProject) {
+                evt.preventDefault();
+                firstProject.focus();
+              }
+              return;
+            }
+
+            if (
+              input.matches('.time-entry-project-option') &&
+              (evt.key === 'ArrowDown' || evt.key === 'ArrowUp')
+            ) {
+              var projectDialog = input.closest('.time-entry-project-dialog');
+              var projectOptions = Array.from(
+                projectDialog.querySelectorAll('.time-entry-project-option:not(:disabled)')
+              );
+              var projectIndex = projectOptions.indexOf(input);
+              var nextProjectIndex = projectIndex + (evt.key === 'ArrowDown' ? 1 : -1);
+              evt.preventDefault();
+              if (nextProjectIndex >= 0 && nextProjectIndex < projectOptions.length) {
+                projectOptions[nextProjectIndex].focus();
+              } else if (nextProjectIndex < 0) {
+                projectDialog.querySelector('.time-entry-project-search').focus();
+              }
+              return;
+            }
+
+            if (!input.matches('.time-entry-description-editor')) return;
+
+            if (evt.key === 'Escape') {
+              evt.preventDefault();
+              cancelDescriptionEdit(input);
+              input.blur();
+              return;
+            }
+
+            if ((evt.key === 'Enter' || evt.key === 'F2') && input.readOnly) {
+              evt.preventDefault();
+              beginDescriptionEdit(input);
+              return;
+            }
+
+            if (evt.key === 'Enter') {
+              evt.preventDefault();
+              input.dataset.submitting = 'true';
+              htmx.trigger(input, 'description-save');
+            }
+          });
+
+          document.addEventListener(
+            'blur',
+            function (evt) {
+              if (evt.target.matches && evt.target.matches('.time-entry-description-editor')) {
+                cancelDescriptionEdit(evt.target);
+              }
+            },
+            true
+          );
+
+          document.body.addEventListener('htmx:beforeRequest', function (evt) {
+            var input = evt.detail && evt.detail.elt;
+            if (!input || !input.matches('.time-entry-description-editor')) return;
+            input.readOnly = true;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (wrapper) wrapper.classList.add('is-saving');
+          });
+
+          document.body.addEventListener('htmx:afterRequest', function (evt) {
+            var input = evt.detail && evt.detail.elt;
+            if (!input || !input.matches) return;
+            if (
+              !evt.detail.successful &&
+              input.matches('.time-entry-project-option')
+            ) {
+              var projectDialog = input.closest('.time-entry-project-dialog');
+              var projectAlert = projectDialog.querySelector('.time-entry-project-alert');
+              if (!projectAlert) {
+                projectAlert = document.createElement('div');
+                projectAlert.className = 'time-entry-project-alert';
+                projectAlert.setAttribute('role', 'status');
+                projectDialog
+                  .querySelector('.time-entry-project-dialog-header')
+                  .insertAdjacentElement('afterend', projectAlert);
+              }
+              projectAlert.textContent = 'Could not save the project. Choose a project to retry.';
+              return;
+            }
+            if (!input.matches('.time-entry-description-editor')) return;
+            if (evt.detail.successful) return;
+            input.dataset.submitting = 'false';
+            input.readOnly = false;
+            var wrapper = input.closest('.time-entry-description-wrapper');
+            if (wrapper) {
+              wrapper.classList.remove('is-saving');
+              var error = wrapper.querySelector('.time-entry-description-error');
+              if (!error) {
+                error = document.createElement('span');
+                error.className = 'time-entry-description-error';
+                error.setAttribute('role', 'status');
+                wrapper.appendChild(error);
+              }
+              error.textContent = 'Could not save. Press Enter to retry.';
+            }
+            input.focus();
+          });
+
           document.body.addEventListener('htmx:afterSwap', function (evt) {
             var tgt = evt.detail && evt.detail.target;
+            startElapsedTimers();
             if (tgt && tgt.id === 'client-select-wrapper') {
               restoreClientSelection();
+            }
+            var descriptionInput =
+              tgt && tgt.querySelector && tgt.querySelector('.time-entry-description-editor');
+            if (
+              descriptionInput &&
+              descriptionInput.getAttribute('data-editing') === 'true'
+            ) {
+              beginDescriptionEdit(descriptionInput);
+            }
+            var projectPicker =
+              tgt && tgt.matches && tgt.matches('.time-entry-project-picker')
+                ? tgt
+                : tgt &&
+                  tgt.querySelector &&
+                  tgt.querySelector('.time-entry-project-picker');
+            if (projectPicker) {
+              var projectRow = projectPicker.closest('.time-entry-row, .running-timer-toolbar');
+              var projectColor = projectPicker.getAttribute('data-project-color');
+              if (projectRow) {
+                if (projectColor) {
+                  projectRow.style.setProperty('--project-color', projectColor);
+                } else {
+                  projectRow.style.removeProperty('--project-color');
+                }
+              }
+              if (projectPicker.getAttribute('data-open') === 'true') {
+                openProjectPicker(projectPicker.querySelector('.time-entry-project-trigger'));
+              }
             }
           });
         })();

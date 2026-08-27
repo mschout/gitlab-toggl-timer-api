@@ -21,6 +21,7 @@ data class TimerForm(
     val issueUrl: String = "",
     @field:NotNull val workspaceId: Long? = null,
     val clientId: Long? = null,
+    val projectId: Long? = null,
     val description: String? = null,
 ) {
   fun toCreateProjectRequest(): CreateProjectRequest =
@@ -35,6 +36,7 @@ data class TimerForm(
           issueUrl = issueUrl.takeIf { it.isNotBlank() },
           workspaceId = requireNotNull(workspaceId),
           clientId = clientId,
+          projectId = projectId,
           description = description?.takeIf { it.isNotBlank() },
       )
 }

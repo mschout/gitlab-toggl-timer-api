@@ -61,6 +61,12 @@ interface TogglClient {
       @RequestParam("meta") meta: Boolean = true,
   ): List<TogglTimeEntry>
 
+  @GetExchange("/me/time_entries")
+  fun getModifiedTimeEntries(
+      @RequestParam("since") since: Long,
+      @RequestParam("meta") meta: Boolean = true,
+  ): List<TogglTimeEntry>
+
   @PostExchange("/workspaces/{workspaceId}/time_entries")
   fun createTimeEntry(
       @PathVariable workspaceId: Long,
@@ -72,6 +78,20 @@ interface TogglClient {
       @PathVariable workspaceId: Long,
       @PathVariable timeEntryId: Long,
       @RequestBody entry: TogglTimeEntry,
+  ): TogglTimeEntry
+
+  @PutExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}")
+  fun updateTimeEntryDescription(
+      @PathVariable workspaceId: Long,
+      @PathVariable timeEntryId: Long,
+      @RequestBody request: UpdateTimeEntryDescriptionRequest,
+  ): TogglTimeEntry
+
+  @PutExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}")
+  fun updateTimeEntryProject(
+      @PathVariable workspaceId: Long,
+      @PathVariable timeEntryId: Long,
+      @RequestBody request: UpdateTimeEntryProjectRequest,
   ): TogglTimeEntry
 
   @PatchExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}/stop")

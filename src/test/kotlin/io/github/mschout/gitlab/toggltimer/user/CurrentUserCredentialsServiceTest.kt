@@ -98,4 +98,26 @@ class CurrentUserCredentialsServiceTest {
 
     shouldThrow<MissingCredentialsException> { service.requireTogglApiKey() }
   }
+
+  @Test
+  fun `currentTimeZone returns the saved zone`() {
+    val user = User(email = "alice@example.com", id = 1L)
+    authenticateAs("alice@example.com")
+    every { userRepo.findByEmail("alice@example.com") } returns user
+    every { settingsRepo.findById(1L) } returns
+        Optional.of(UserSettings(user = user, timeZone = "America/Denver", userId = 1L))
+
+    service.currentTimeZone().id shouldBe "America/Denver"
+  }
+
+  @Test
+  fun `currentTimeZone falls back when settings contain an invalid zone`() {
+    val user = User(email = "alice@example.com", id = 1L)
+    authenticateAs("alice@example.com")
+    every { userRepo.findByEmail("alice@example.com") } returns user
+    every { settingsRepo.findById(1L) } returns
+        Optional.of(UserSettings(user = user, timeZone = "Central-ish", userId = 1L))
+
+    service.currentTimeZone().id shouldBe DEFAULT_TIME_ZONE_ID
+  }
 }

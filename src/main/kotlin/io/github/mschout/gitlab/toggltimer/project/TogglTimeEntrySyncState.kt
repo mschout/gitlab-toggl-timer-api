@@ -13,23 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mschout.gitlab.toggltimer.timer
+package io.github.mschout.gitlab.toggltimer.project
 
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
 import java.time.Instant
 
-data class StartTimerResult(
-    val togglId: Long,
-    val startTime: Instant,
-    val projectName: String?,
-    val description: String?,
-    val clientName: String? = null,
-    val projectColor: String? = null,
+@Entity
+@Table(name = "toggl_time_entry_sync_state")
+class TogglTimeEntrySyncState(
+    @Id @Column(name = "user_id") val userId: Long,
+    @Column(name = "last_successful_sync_at", nullable = false) var lastSuccessfulSyncAt: Instant,
 )
-
-data class RunningTimerView(
-    val startTime: Instant,
-    val descriptionEditor: TimeEntryDescriptionEditorView,
-    val projectPicker: TimeEntryProjectPickerView,
-)
-
-data class StoppedTimerView(val workspaceId: Long?, val projects: List<StoppedTimerProjectView>)

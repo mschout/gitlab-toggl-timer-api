@@ -395,6 +395,7 @@ class TogglSyncServiceTest {
     every { timeEntryRepository.save(capture(saved)) } answers { firstArg() }
 
     val newStop = Instant.parse("2026-05-22T13:00:00Z")
+    val deletedAt = Instant.parse("2026-05-22T13:05:00Z")
     service.upsertTimeEntry(
         userId = 42L,
         entry =
@@ -407,6 +408,7 @@ class TogglSyncServiceTest {
                 duration = 3600L,
                 billable = true,
                 tags = listOf("new-tag"),
+                serverDeletedAt = deletedAt,
             ),
     )
 
@@ -416,6 +418,7 @@ class TogglSyncServiceTest {
     existing.duration shouldBe 3600L
     existing.billable shouldBe true
     existing.tags shouldBe listOf("new-tag")
+    existing.serverDeletedAt shouldBe deletedAt
   }
 
   @Test

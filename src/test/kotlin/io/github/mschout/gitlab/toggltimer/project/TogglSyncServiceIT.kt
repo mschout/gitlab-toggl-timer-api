@@ -155,6 +155,30 @@ constructor(
   }
 
   @Test
+  fun `project search is case insensitive and limited to active projects in one workspace`() {
+    projectRepository.saveAll(
+        listOf(
+            Project(togglId = 101L, workspaceId = 7L, name = "Alpha Indiana"),
+            Project(togglId = 102L, workspaceId = 7L, name = "Zulu INDIANA"),
+            Project(togglId = 103L, workspaceId = 7L, name = "Inactive Indiana", active = false),
+            Project(togglId = 104L, workspaceId = 8L, name = "Other Indiana"),
+            Project(togglId = 105L, workspaceId = 7L, name = "Beta Colorado"),
+        )
+    )
+
+    val matches =
+        projectRepository
+            .findTop20ByWorkspaceIdAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+                workspaceId = 7L,
+                name = "indiana",
+            )
+    val initial = projectRepository.findTop20ByWorkspaceIdAndActiveTrueOrderByNameAsc(7L)
+
+    matches.map { it.togglId } shouldBe listOf(101L, 102L)
+    initial.map { it.togglId } shouldBe listOf(101L, 105L, 102L)
+  }
+
+  @Test
   fun `upsertTimeEntry inserts a row, updates it on re-sync, and round-trips JSONB tags`() {
     val user = userRepository.save(User(email = "ts-${System.nanoTime()}@example.com"))
 
@@ -216,5 +240,54 @@ constructor(
     reloaded.tags shouldBe listOf("dev")
     reloaded.createdAt shouldBe initialCreatedAt
     reloaded.id shouldBe initialId
+  }
+
+  @Test
+  fun `completed history query isolates users and excludes running deleted and out of range rows`() {
+    val user = userRepository.save(User(email = "history-${System.nanoTime()}@example.com"))
+    val otherUser = userRepository.save(User(email = "other-${System.nanoTime()}@example.com"))
+    val rangeStart = Instant.parse("2026-08-20T05:00:00Z")
+    val rangeEnd = Instant.parse("2026-08-27T05:00:00Z")
+
+    timeEntryRepository.saveAll(
+        listOf(
+            historyEntry(1L, user.id, "2026-08-25T16:00:00Z"),
+            historyEntry(2L, user.id, "2026-08-26T16:00:00Z"),
+            historyEntry(3L, otherUser.id, "2026-08-26T17:00:00Z"),
+            historyEntry(4L, user.id, "2026-08-26T18:00:00Z", running = true),
+            historyEntry(5L, user.id, "2026-08-26T19:00:00Z", deleted = true),
+            historyEntry(6L, user.id, "2026-08-19T16:00:00Z"),
+        )
+    )
+
+    val entries =
+        timeEntryRepository.findCompletedInRange(
+            userId = user.id,
+            startInclusive = rangeStart,
+            endExclusive = rangeEnd,
+        )
+
+    entries.map { it.togglId } shouldBe listOf(2L, 1L)
+    timeEntryRepository.existsCompletedBefore(user.id, rangeStart) shouldBe true
+    timeEntryRepository.existsCompletedBefore(otherUser.id, rangeStart) shouldBe false
+  }
+
+  private fun historyEntry(
+      togglId: Long,
+      userId: Long,
+      start: String,
+      running: Boolean = false,
+      deleted: Boolean = false,
+  ): TimeEntry {
+    val startInstant = Instant.parse(start)
+    return TimeEntry(
+        togglId = togglId,
+        userId = userId,
+        workspaceId = 7L,
+        start = startInstant,
+        stop = if (running) null else startInstant.plusSeconds(60),
+        duration = if (running) -1L else 60L,
+        serverDeletedAt = if (deleted) startInstant.plusSeconds(120) else null,
+    )
   }
 }

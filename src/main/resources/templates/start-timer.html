@@ -13,90 +13,45 @@
           <i class="bi bi-arrow-left me-1"></i>Back
         </a>
       </div>
+
+      <script th:replace="~{timer-index :: timer-script}"></script>
     </main>
 
-    <div th:fragment="result-card" class="card border-success shadow-sm">
-      <div class="card-body">
-        <div class="d-flex align-items-start gap-3">
-          <i class="bi bi-play-circle-fill text-success display-6"></i>
-          <div class="flex-grow-1">
-            <h2 class="h5 card-title mb-1">Timer running</h2>
-            <p class="text-body-secondary small mb-3">
-              Toggl is tracking time on this project.
-            </p>
-            <dl class="row mb-0 small">
-              <dt class="col-sm-3 text-body-secondary">Elapsed</dt>
-              <dd class="col-sm-9 mb-1">
-                <span
-                  class="js-elapsed-time font-monospace"
-                  th:attr="data-started-at=${startTime}"
-                  >--:--:--</span
-                >
-              </dd>
-              <dt class="col-sm-3 text-body-secondary" th:if="${projectName != null}">Project</dt>
-              <dd
-                class="col-sm-9 mb-0"
-                th:if="${projectName != null}"
-                th:text="${projectName}"
-              >
-                Project name
-              </dd>
-            </dl>
-            <div class="mt-3">
-              <label for="running-description" class="form-label small mb-1">Description</label>
-              <input
-                type="text"
-                id="running-description"
-                name="description"
-                class="form-control form-control-sm"
-                th:value="${description}"
-                placeholder="What are you working on?"
-              />
-              <div class="form-text">Saved to Toggl when you stop the timer.</div>
-            </div>
-            <div class="mt-3">
-              <button
-                type="button"
-                class="btn btn-outline-danger btn-sm"
-                hx-post="/timer/stop"
-                hx-include="#running-description"
-                hx-target="#result"
-                hx-swap="innerHTML"
-              >
-                <i class="bi bi-stop-circle me-1"></i>Stop Timer
-              </button>
-            </div>
-            <script>
-              (function () {
-                var el = document.querySelector('.js-elapsed-time');
-                if (!el) return;
-                var startedAt = new Date(el.getAttribute('data-started-at'));
-                if (isNaN(startedAt.getTime())) return;
-
-                function pad(n) { return n < 10 ? '0' + n : '' + n; }
-                function render() {
-                  if (!document.body.contains(el)) {
-                    clearInterval(window.__togglElapsedIntervalId);
-                    window.__togglElapsedIntervalId = null;
-                    return;
-                  }
-                  var secs = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
-                  var h = Math.floor(secs / 3600);
-                  var m = Math.floor((secs % 3600) / 60);
-                  var s = secs % 60;
-                  el.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
-                }
-
-                if (window.__togglElapsedIntervalId) {
-                  clearInterval(window.__togglElapsedIntervalId);
-                }
-                render();
-                window.__togglElapsedIntervalId = setInterval(render, 1000);
-              })();
-            </script>
-          </div>
-        </div>
+    <div
+      th:fragment="result-card"
+      class="running-timer-toolbar shadow-sm"
+      th:style="${runningTimer.projectPicker.projectColor != null} ? |--project-color: ${runningTimer.projectPicker.projectColor}| : null"
+      role="region"
+      aria-label="Running timer"
+    >
+      <div class="running-timer-description">
+        <th:block th:with="descriptionEditor=${runningTimer.descriptionEditor}">
+          <span th:replace="~{fragments/time-entry-description :: description-editor}"></span>
+        </th:block>
       </div>
+
+      <div class="running-timer-project">
+        <th:block th:with="projectPicker=${runningTimer.projectPicker}">
+          <div th:replace="~{fragments/time-entry-project :: project-picker}"></div>
+        </th:block>
+      </div>
+
+      <time
+        class="running-timer-elapsed js-elapsed-time"
+        th:attr="data-started-at=${runningTimer.startTime}"
+      >--:--:--</time>
+
+      <button
+        type="button"
+        class="btn btn-danger running-timer-action running-timer-stop"
+        hx-post="/timer/stop"
+        hx-target="#result"
+        hx-swap="innerHTML"
+        aria-label="Stop timer"
+        title="Stop timer"
+      >
+        <i class="bi bi-stop-fill" aria-hidden="true"></i>
+      </button>
     </div>
   </body>
 </html>

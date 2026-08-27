@@ -18,6 +18,7 @@ package io.github.mschout.gitlab.toggltimer.user
 import io.github.mschout.gitlab.toggltimer.timer.TogglService
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.time.ZoneId
 import org.springframework.stereotype.Controller
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.ui.Model
@@ -41,11 +42,18 @@ class UserSettingsController(
   fun show(model: Model): String {
     val settings = credentialsService.currentSettings()
     if (!model.containsAttribute("form")) {
-      model.addAttribute("form", SettingsForm(togglWorkspaceId = settings?.togglWorkspaceId))
+      model.addAttribute(
+          "form",
+          SettingsForm(
+              togglWorkspaceId = settings?.togglWorkspaceId,
+              timeZone = settings?.timeZone ?: DEFAULT_TIME_ZONE_ID,
+          ),
+      )
     }
     model.addAttribute("hasGitlabToken", !settings?.gitlabAccessToken.isNullOrBlank())
     model.addAttribute("hasTogglApiKey", !settings?.togglApiKey.isNullOrBlank())
     model.addAttribute("currentWorkspaceId", settings?.togglWorkspaceId)
+    model.addAttribute("timeZones", ZoneId.getAvailableZoneIds().sorted())
 
     val apiKey = settings?.togglApiKey?.takeIf { it.isNotBlank() }
     if (apiKey != null && !model.containsAttribute("workspaces")) {
@@ -59,12 +67,20 @@ class UserSettingsController(
   @PostMapping
   @Transactional
   fun save(@ModelAttribute("form") form: SettingsForm, redirectAttrs: RedirectAttributes): String {
+    val timeZone =
+        runCatching { ZoneId.of(form.timeZone).id }
+            .getOrElse {
+              redirectAttrs.addFlashAttribute("form", form)
+              redirectAttrs.addFlashAttribute("timeZoneError", "Choose a valid time zone.")
+              return "redirect:/settings"
+            }
     val user = credentialsService.currentUser()
     val settings = userSettingsRepository.findById(user.id).orElseGet { UserSettings(user = user) }
 
     form.gitlabAccessToken?.takeIf { it.isNotBlank() }?.let { settings.gitlabAccessToken = it }
     form.togglApiKey?.takeIf { it.isNotBlank() }?.let { settings.togglApiKey = it }
     form.togglWorkspaceId?.let { settings.togglWorkspaceId = it }
+    settings.timeZone = timeZone
 
     userSettingsRepository.save(settings)
 

@@ -13,23 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mschout.gitlab.toggltimer.timer
+package io.github.mschout.gitlab.toggltimer.configuration
 
-import java.time.Instant
+import java.time.Clock
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 
-data class StartTimerResult(
-    val togglId: Long,
-    val startTime: Instant,
-    val projectName: String?,
-    val description: String?,
-    val clientName: String? = null,
-    val projectColor: String? = null,
-)
-
-data class RunningTimerView(
-    val startTime: Instant,
-    val descriptionEditor: TimeEntryDescriptionEditorView,
-    val projectPicker: TimeEntryProjectPickerView,
-)
-
-data class StoppedTimerView(val workspaceId: Long?, val projects: List<StoppedTimerProjectView>)
+@Configuration
+class TimeConfiguration {
+  @Bean fun clock(): Clock = Clock.systemUTC()
+}

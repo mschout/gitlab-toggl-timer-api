@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <body>
+    <span
+      th:fragment="description-editor"
+      class="time-entry-description-wrapper"
+      th:classappend="${descriptionEditor.editing} ? ' is-editing'"
+      th:id="|time-entry-description-${descriptionEditor.togglId}|"
+    >
+      <input
+        type="text"
+        name="description"
+        class="time-entry-description-editor"
+        th:id="|time-entry-description-input-${descriptionEditor.togglId}|"
+        th:value="${descriptionEditor.description}"
+        th:attr="hx-post=@{/timer/entries/{togglId}/description(togglId=${descriptionEditor.togglId})},
+                 hx-target=|#time-entry-description-${descriptionEditor.togglId}|,
+                 hx-indicator=|#time-entry-description-saving-${descriptionEditor.togglId}|,
+                 data-editing=${descriptionEditor.editing},
+                 aria-label=|Edit time entry ${descriptionEditor.togglId} description|,
+                 autofocus=${descriptionEditor.editing} ? 'autofocus' : null"
+        hx-trigger="description-save"
+        hx-swap="outerHTML"
+        placeholder="No description"
+        autocomplete="off"
+        readonly
+      />
+      <span
+        th:id="|time-entry-description-saving-${descriptionEditor.togglId}|"
+        class="time-entry-description-saving htmx-indicator"
+        aria-label="Saving description"
+      >
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+      </span>
+      <span
+        th:if="${descriptionEditor.error != null}"
+        class="time-entry-description-error"
+        role="status"
+        th:text="${descriptionEditor.error}"
+      >Could not save. Press Enter to retry.</span>
+    </span>
+  </body>
+</html>

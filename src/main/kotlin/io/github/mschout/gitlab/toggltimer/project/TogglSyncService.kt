@@ -108,6 +108,8 @@ class TogglSyncService(
     val workspaceId =
         requireNotNull(entry.workspaceId) { "Toggl time entry is missing a workspaceId" }
 
+    upsertTimeEntryMetadata(workspaceId = workspaceId, entry = entry)
+
     val existing = timeEntryRepository.findByTogglId(togglId)
     return if (existing == null) {
       timeEntryRepository.save(
@@ -151,5 +153,33 @@ class TogglSyncService(
   fun upsertTimeEntries(userId: Long, entries: List<TogglTimeEntry>) {
     if (entries.isEmpty()) return
     entries.forEach { upsertTimeEntry(userId, it) }
+  }
+
+  private fun upsertTimeEntryMetadata(workspaceId: Long, entry: TogglTimeEntry) {
+    val clientId = entry.clientId
+    val clientName = entry.clientName
+    if (clientId != null && !clientName.isNullOrBlank()) {
+      upsertClients(
+          workspaceId = workspaceId,
+          clients = listOf(TogglWorkspaceClient(id = clientId, name = clientName)),
+      )
+    }
+
+    val projectId = entry.projectId
+    val projectName = entry.projectName
+    if (projectId != null && !projectName.isNullOrBlank()) {
+      upsertProject(
+          workspaceId = workspaceId,
+          project =
+              TogglProject(
+                  id = projectId,
+                  name = projectName,
+                  clientId = clientId,
+                  workspaceId = workspaceId,
+                  color = entry.projectColor,
+                  active = entry.projectActive,
+              ),
+      )
+    }
   }
 }

@@ -16,8 +16,23 @@
 package io.github.mschout.gitlab.toggltimer.security
 
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
+import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
+import io.github.mschout.gitlab.toggltimer.timer.StartTimerRequest
+import io.github.mschout.gitlab.toggltimer.timer.StartTimerResult
+import io.github.mschout.gitlab.toggltimer.timer.StoppedTimerProjectView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDayGroup
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionEditorView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryHistoryPage
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryHistoryService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryNotFoundException
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectPickerView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchResultView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectService
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
+import io.github.mschout.gitlab.toggltimer.timer.TogglDescriptionUpdateException
 import io.github.mschout.gitlab.toggltimer.timer.TogglService
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.mschout.gitlab.toggltimer.user.User
@@ -27,6 +42,9 @@ import io.github.mschout.gitlab.toggltimer.user.UserSettings
 import io.github.mschout.gitlab.toggltimer.user.UserSettingsRepository
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import java.time.Instant
+import java.time.LocalDate
 import java.util.Optional
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
@@ -48,7 +66,14 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @WebMvcTest(controllers = [TimerWebController::class, SessionKeepAliveController::class])
 @Import(SecurityConfig::class, AuthConfiguration::class, SecurityConfigWebMvcTest.MockBeans::class)
-class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
+class SecurityConfigWebMvcTest(
+    @Autowired val mvc: MockMvc,
+    @Autowired val timerService: TimerService,
+    @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
+    @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
+    @Autowired val timeEntryProjectService: TimeEntryProjectService,
+    @Autowired val credentialsService: CurrentUserCredentialsService,
+) {
 
   @TestConfiguration
   class MockBeans {
@@ -64,7 +89,70 @@ class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
 
     @Bean fun timerService(): TimerService = mockk(relaxed = true)
 
-    @Bean fun togglService(): TogglService = mockk(relaxed = true)
+    @Bean
+    fun togglService(): TogglService =
+        mockk<TogglService>(relaxed = true).also {
+          every { it.getCurrentRunningTimer() } returns
+              StartTimerResult(
+                  togglId = 321L,
+                  startTime = Instant.parse("2026-08-27T14:30:00Z"),
+                  projectName = "74398 - Compact timer",
+                  clientName = "Courtio",
+                  projectColor = "#4C6EF5",
+                  description = "Build the compact toolbar",
+              )
+        }
+
+    @Bean
+    fun timeEntryHistoryService(): TimeEntryHistoryService =
+        mockk<TimeEntryHistoryService>(relaxed = true).also {
+          every { it.initialPage() } returns
+              TimeEntryHistoryPage(
+                  groups =
+                      listOf(
+                          TimeEntryDayGroup(
+                              label = "Today",
+                              totalFormatted = "0:48:02",
+                              entries =
+                                  listOf(
+                                      RecentTimeEntryView(
+                                          descriptionEditor =
+                                              TimeEntryDescriptionEditorView(
+                                                  togglId = 123L,
+                                                  description = "Rendered history entry",
+                                              ),
+                                          projectPicker =
+                                              TimeEntryProjectPickerView(
+                                                  togglId = 123L,
+                                                  projectName = "74393 - Indiana",
+                                                  clientName = "Inforuptcy",
+                                                  projectColor = "#4C6EF5",
+                                              ),
+                                          timeRange = "12:36 PM – 1:24 PM",
+                                          durationFormatted = "0:48:02",
+                                      )
+                                  ),
+                          )
+                      ),
+                  rangeLabel = "Aug 20–Aug 26, 2026",
+                  nextBefore = LocalDate.parse("2026-08-20"),
+                  initial = true,
+              )
+        }
+
+    @Bean fun timeEntryDescriptionService(): TimeEntryDescriptionService = mockk(relaxed = true)
+
+    @Bean
+    fun timeEntryProjectService(): TimeEntryProjectService =
+        mockk<TimeEntryProjectService>(relaxed = true).also {
+          every { it.currentPicker(321L) } returns
+              TimeEntryProjectPickerView(
+                  togglId = 321L,
+                  projectName = "74398 - Compact timer",
+                  clientName = "Courtio",
+                  projectColor = "#4C6EF5",
+              )
+        }
 
     @Bean fun currentUserCredentialsService(): CurrentUserCredentialsService = mockk(relaxed = true)
 
@@ -113,6 +201,279 @@ class SecurityConfigWebMvcTest(@Autowired val mvc: MockMvc) {
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
+        .andExpect(content().string(containsString("class=\"running-timer-toolbar shadow-sm\"")))
+        .andExpect(content().string(containsString("data-started-at=\"2026-08-27T14:30:00Z\"")))
+        .andExpect(content().string(containsString("value=\"Build the compact toolbar\"")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/321/description\"")))
+        .andExpect(
+            content().string(containsString("aria-controls=\"time-entry-project-dialog-321\""))
+        )
+        .andExpect(content().string(containsString("hx-get=\"/timer/entries/321/projects\"")))
+        .andExpect(content().string(containsString("74398 - Compact timer")))
+        .andExpect(content().string(containsString("Courtio")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
+        .andExpect(content().string(containsString("aria-label=\"Stop timer\"")))
+        .andExpect(content().string(not(containsString("hx-include=\"#running-description\""))))
+        .andExpect(
+            content()
+                .string(containsString("hx-trigger=\"timeEntriesChanged from:body, every 1m\""))
+        )
+        .andExpect(content().string(containsString("Rendered history entry")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/description\"")))
+        .andExpect(content().string(containsString("placeholder=\"No description\"")))
+        .andExpect(content().string(containsString("time-entry-description-saving-123")))
+        .andExpect(content().string(containsString("74393 - Indiana")))
+        .andExpect(
+            content().string(containsString("aria-controls=\"time-entry-project-dialog-123\""))
+        )
+        .andExpect(content().string(containsString("hx-get=\"/timer/entries/123/projects\"")))
+        .andExpect(content().string(containsString("0:48:02")))
+  }
+
+  @Test
+  fun `authenticated HTMX start renders the reusable running timer toolbar`() {
+    every { timerService.startTimer(any()) } returns
+        StartTimerResult(
+            togglId = 654L,
+            startTime = Instant.parse("2026-08-27T15:00:00Z"),
+            projectName = null,
+            description = "Unassigned work",
+        )
+    every { timeEntryProjectService.currentPicker(654L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 654L,
+            projectName = null,
+            clientName = null,
+            projectColor = null,
+        )
+
+    mvc.perform(
+            post("/timer/start")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .header("HX-Request", "true")
+                .param("workspaceId", "7")
+                .param("projectId", "200")
+                .param("description", "Unassigned work")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("running-timer-toolbar")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/654/description\"")))
+        .andExpect(
+            content().string(containsString("aria-controls=\"time-entry-project-dialog-654\""))
+        )
+        .andExpect(content().string(containsString("data-started-at=\"2026-08-27T15:00:00Z\"")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
+
+    verify {
+      timerService.startTimer(
+          StartTimerRequest(workspaceId = 7L, projectId = 200L, description = "Unassigned work")
+      )
+    }
+  }
+
+  @Test
+  fun `authenticated stop renders a clickable stopped timer with project choices`() {
+    every { credentialsService.currentTogglWorkspaceId() } returns 7L
+    every { timeEntryProjectService.projectsForWorkspace(7L) } returns
+        listOf(
+            StoppedTimerProjectView(
+                togglId = 200L,
+                name = "74398 - Compact timer",
+                clientName = "Courtio",
+                color = "#4C6EF5",
+            )
+        )
+
+    mvc.perform(
+            post("/timer/stop")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .header("HX-Request", "true")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("aria-label=\"Stopped timer\"")))
+        .andExpect(content().string(containsString("placeholder=\"What are you working on?\"")))
+        .andExpect(content().string(containsString("name=\"workspaceId\"")))
+        .andExpect(content().string(containsString("value=\"7\"")))
+        .andExpect(content().string(containsString("name=\"projectId\"")))
+        .andExpect(content().string(containsString("value=\"200\"")))
+        .andExpect(content().string(containsString("74398 - Compact timer • Courtio")))
+        .andExpect(content().string(containsString("data-project-color=\"#4C6EF5\"")))
+        .andExpect(content().string(containsString(">00:00:00</time>")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/start\"")))
+        .andExpect(content().string(containsString("aria-label=\"Start timer\"")))
+        .andExpect(content().string(not(containsString("aria-label=\"Start timer\" disabled"))))
+  }
+
+  @Test
+  fun `authenticated GET start renders the toolbar with shared timer interactions`() {
+    every { timerService.startTimer(any()) } returns
+        StartTimerResult(
+            togglId = 987L,
+            startTime = Instant.parse("2026-08-27T16:00:00Z"),
+            projectName = "74398 - Compact timer",
+            description = "Direct start",
+        )
+    every { timeEntryProjectService.currentPicker(987L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 987L,
+            projectName = "74398 - Compact timer",
+            clientName = "Courtio",
+            projectColor = "#4C6EF5",
+        )
+
+    mvc.perform(
+            get("/timer/start")
+                .with(user("alice@example.com").roles("USER"))
+                .param("issueUrl", "https://gitlab.com/g/p/-/issues/74398")
+                .param("workspaceId", "7")
+                .param("clientId", "5")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("running-timer-toolbar")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/987/description\"")))
+        .andExpect(content().string(containsString("function startElapsedTimers()")))
+        .andExpect(content().string(containsString("Back")))
+  }
+
+  @Test
+  fun `authenticated POST description returns a successful editor fragment`() {
+    every { timeEntryDescriptionService.updateDescription(123L, "Updated") } returns
+        TimeEntryDescriptionEditorView(togglId = 123L, description = "Updated")
+
+    mvc.perform(
+            post("/timer/entries/123/description")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("description", "Updated")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("value=\"Updated\"")))
+        .andExpect(content().string(not(containsString("time-entry-description-error"))))
+  }
+
+  @Test
+  fun `authenticated POST description renders retry state on failure`() {
+    every { timeEntryDescriptionService.updateDescription(123L, "Still typed") } throws
+        TogglDescriptionUpdateException(RuntimeException("down"))
+
+    mvc.perform(
+            post("/timer/entries/123/description")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("description", "Still typed")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("value=\"Still typed\"")))
+        .andExpect(content().string(containsString("data-editing=\"true\"")))
+        .andExpect(content().string(containsString("Could not save to Toggl")))
+  }
+
+  @Test
+  fun `authenticated POST description returns not found for inaccessible entry`() {
+    every { timeEntryDescriptionService.updateDescription(999L, any()) } throws
+        TimeEntryNotFoundException(999L)
+
+    mvc.perform(
+            post("/timer/entries/999/description")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("description", "No access")
+        )
+        .andExpect(status().isNotFound)
+  }
+
+  @Test
+  fun `unauthenticated POST description redirects to login`() {
+    mvc.perform(
+            post("/timer/entries/123/description").with(csrf()).param("description", "No session")
+        )
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/login"))
+  }
+
+  @Test
+  fun `authenticated GET project search renders Postgres results`() {
+    every { timeEntryProjectService.searchProjects(123L, "Indiana") } returns
+        TimeEntryProjectSearchView(
+            togglId = 123L,
+            query = "Indiana",
+            projects =
+                listOf(
+                    TimeEntryProjectSearchResultView(
+                        togglId = 200L,
+                        name = "74393 - Indiana",
+                        clientName = "Inforuptcy",
+                        color = "#4C6EF5",
+                        selected = false,
+                    )
+                ),
+        )
+
+    mvc.perform(
+            get("/timer/entries/123/projects")
+                .with(user("alice@example.com").roles("USER"))
+                .param("query", "Indiana")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("74393 - Indiana")))
+        .andExpect(content().string(containsString("Inforuptcy")))
+        .andExpect(
+            content().string(containsString("hx-post=\"/timer/entries/123/project?projectId=200\""))
+        )
+  }
+
+  @Test
+  fun `authenticated POST project returns the updated picker`() {
+    every { timeEntryProjectService.updateProject(123L, 200L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 123L,
+            projectName = "74393 - Indiana",
+            clientName = "Inforuptcy",
+            projectColor = "#4C6EF5",
+        )
+
+    mvc.perform(
+            post("/timer/entries/123/project")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("projectId", "200")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("74393 - Indiana")))
+        .andExpect(content().string(containsString("Inforuptcy")))
+        .andExpect(content().string(containsString("data-project-color=\"#4C6EF5\"")))
+  }
+
+  @Test
+  fun `unauthenticated project search redirects to login`() {
+    mvc.perform(get("/timer/entries/123/projects").param("query", "Indiana"))
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/login"))
+  }
+
+  @Test
+  fun `project update requires CSRF`() {
+    mvc.perform(
+            post("/timer/entries/123/project")
+                .with(user("alice@example.com").roles("USER"))
+                .param("projectId", "200")
+        )
+        .andExpect(status().isForbidden)
+  }
+
+  @Test
+  fun `load more rows render the same description editor`() {
+    every { timeEntryHistoryService.pageBefore(LocalDate.parse("2026-08-20")) } returns
+        timeEntryHistoryService.initialPage().copy(initial = false)
+    mvc.perform(
+            get("/timer/entries/page")
+                .with(user("alice@example.com").roles("USER"))
+                .param("before", "2026-08-20")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/description\"")))
   }
 
   @Test

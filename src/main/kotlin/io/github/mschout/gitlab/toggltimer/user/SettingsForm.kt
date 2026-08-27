@@ -19,4 +19,5 @@ data class SettingsForm(
     val gitlabAccessToken: String? = null,
     val togglApiKey: String? = null,
     val togglWorkspaceId: Long? = null,
+    val timeZone: String = DEFAULT_TIME_ZONE_ID,
 )

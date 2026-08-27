@@ -16,5 +16,18 @@
 package io.github.mschout.gitlab.toggltimer.user
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 
-interface UserSettingsRepository : JpaRepository<UserSettings, Long>
+interface UserSettingsRepository : JpaRepository<UserSettings, Long> {
+  @Query(
+      """
+      SELECT settings
+      FROM UserSettings settings
+      JOIN settings.user user
+      WHERE user.enabled = true
+        AND settings.togglApiKey IS NOT NULL
+      ORDER BY settings.userId
+      """
+  )
+  fun findAllEligibleForTogglSync(): List<UserSettings>
+}

@@ -98,8 +98,13 @@ class TogglService(
                 createdWith = "Gitlab Toggl Timer",
             )
         val created = client.createTimeEntry(startTimerRequest.workspaceId, newEntry)
+        shadowWriteProject(startTimerRequest.workspaceId, project)
         shadowWriteTimeEntry(created)
-        StartTimerResult(startTime = start, projectName = project?.name, description = description)
+        created.toRunningTimerResult(
+            fallbackStart = start,
+            project = project,
+            fallbackDescription = description,
+        )
       }
 
       current.projectId == null && projectId != null -> {
@@ -120,11 +125,12 @@ class TogglService(
                 id = entryId,
             )
         val result = client.updateTimeEntry(workspaceId, entryId, updated)
+        shadowWriteProject(workspaceId, project)
         shadowWriteTimeEntry(result)
-        StartTimerResult(
-            startTime = start,
-            projectName = project.name,
-            description = newDescription,
+        result.toRunningTimerResult(
+            fallbackStart = start,
+            project = project,
+            fallbackDescription = newDescription,
         )
       }
 
@@ -142,11 +148,9 @@ class TogglService(
                   }
                   .getOrNull()
             }
-        StartTimerResult(
-            startTime = start,
-            projectName = runningProject?.name,
-            description = current.description,
-        )
+        shadowWriteProject(workspaceId, runningProject)
+        shadowWriteTimeEntry(current)
+        current.toRunningTimerResult(fallbackStart = start, project = runningProject)
       }
     }
   }
@@ -160,25 +164,22 @@ class TogglService(
     if (current.duration >= 0) return null
 
     val start = current.start ?: return null
+    if (current.id == null) return null
 
-    val workspaceId = current.workspaceId
+    val workspaceId = current.workspaceId ?: return null
 
-    val projectName =
+    val project =
         current.projectId?.let { projectId ->
-          if (workspaceId == null) return@let null
           runCatching { client.getProject(workspaceId, projectId) }
               .onFailure {
                 logger.warn(it) { "Failed to fetch Toggl project $projectId for running entry" }
               }
               .getOrNull()
-              ?.name
         }
 
-    return StartTimerResult(
-        startTime = start,
-        projectName = projectName,
-        description = current.description,
-    )
+    shadowWriteProject(workspaceId, project)
+    shadowWriteTimeEntry(current)
+    return current.toRunningTimerResult(fallbackStart = start, project = project)
   }
 
   /**
@@ -290,6 +291,26 @@ class TogglService(
     runCatching { togglSyncService.upsertTimeEntry(userId, entry) }
         .onFailure { logger.warn(it) { "Failed to sync Toggl time entry to Postgres" } }
   }
+
+  private fun shadowWriteProject(workspaceId: Long, project: TogglProject?) {
+    if (project == null) return
+    runCatching { togglSyncService.upsertProject(workspaceId, project) }
+        .onFailure { logger.warn(it) { "Failed to sync running Toggl project to Postgres" } }
+  }
+
+  private fun TogglTimeEntry.toRunningTimerResult(
+      fallbackStart: Instant,
+      project: TogglProject?,
+      fallbackDescription: String? = description,
+  ) =
+      StartTimerResult(
+          togglId = requireNotNull(id) { "Running entry missing id" },
+          startTime = start ?: fallbackStart,
+          projectName = project?.name ?: projectName,
+          clientName = clientName,
+          projectColor = sanitizeProjectColor(project?.color ?: projectColor),
+          description = description ?: fallbackDescription,
+      )
 
   private fun togglClient(): TogglClient =
       togglClientFactory.forApiKey(credentialsService.requireTogglApiKey())

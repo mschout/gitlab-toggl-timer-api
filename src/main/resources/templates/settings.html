@@ -106,6 +106,22 @@
                   <code th:text="${currentWorkspaceId}"></code>
                 </div>
               </div>
+
+              <div class="col-12">
+                <label for="timeZone" class="form-label">Time zone</label>
+                <select
+                  id="timeZone"
+                  class="form-select"
+                  th:classappend="${timeZoneError != null} ? 'is-invalid'"
+                  th:field="*{timeZone}"
+                >
+                  <option th:each="zone : ${timeZones}" th:value="${zone}" th:text="${zone}"></option>
+                </select>
+                <div class="invalid-feedback" th:if="${timeZoneError}" th:text="${timeZoneError}"></div>
+                <div class="form-text">
+                  Used for Today, Yesterday, and clock times in recent entries.
+                </div>
+              </div>
             </div>
 
             <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
