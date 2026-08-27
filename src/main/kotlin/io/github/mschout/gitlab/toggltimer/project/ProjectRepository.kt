@@ -26,6 +26,8 @@ interface ProjectRepository : JpaRepository<Project, Long> {
 
   fun findTop20ByWorkspaceIdAndActiveTrueOrderByNameAsc(workspaceId: Long): List<Project>
 
+  fun findAllByWorkspaceIdAndActiveTrueOrderByNameAsc(workspaceId: Long): List<Project>
+
   fun findTop20ByWorkspaceIdAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
       workspaceId: Long,
       name: String,

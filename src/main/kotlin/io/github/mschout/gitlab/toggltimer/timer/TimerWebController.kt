@@ -66,6 +66,8 @@ class TimerWebController(
             .getOrNull()
     if (running != null) {
       addRunningTimer(running, model)
+    } else {
+      addStoppedTimer(model)
     }
     return "timer-index"
   }
@@ -154,6 +156,7 @@ class TimerWebController(
     } else {
       model.addAttribute("stopped", false)
     }
+    addStoppedTimer(model)
     return if (hxRequest) "stop-timer :: result-card" else "stop-timer"
   }
 
@@ -279,6 +282,7 @@ class TimerWebController(
     model.addAttribute("formExpanded", true)
     loadDropdownData(form, model)
     loadHistoryData(model)
+    addStoppedTimer(model)
     if (hxRequest) {
       response.setHeader("HX-Retarget", "#timer-form-card")
       response.setHeader("HX-Reswap", "outerHTML")
@@ -323,6 +327,20 @@ class TimerWebController(
 
   private fun addRunningTimer(result: StartTimerResult, model: Model) {
     model.addAttribute("runningTimer", runningTimerView(result))
+  }
+
+  private fun addStoppedTimer(model: Model) {
+    val workspaceId = credentialsService.currentTogglWorkspaceId()
+    val projects =
+        workspaceId?.let { id ->
+          runCatching { timeEntryProjectService.projectsForWorkspace(id) }
+              .onFailure { logger.warn(it) { "Failed to load projects for stopped timer" } }
+              .getOrDefault(emptyList())
+        } ?: emptyList()
+    model.addAttribute(
+        "stoppedTimer",
+        StoppedTimerView(workspaceId = workspaceId, projects = projects),
+    )
   }
 
   private fun runningTimerView(result: StartTimerResult): RunningTimerView {

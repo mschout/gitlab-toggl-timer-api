@@ -26,6 +26,7 @@ data class StartTimerRequest(
     val issueUrl: String? = null,
     @field:NotNull val workspaceId: Long,
     val clientId: Long? = null,
+    val projectId: Long? = null,
     val start: Instant? = null,
     val description: String? = null,
 ) {

@@ -80,7 +80,7 @@ dl.row dt {
   white-space: nowrap;
 }
 
-.running-timer-stop {
+.running-timer-action {
   display: inline-grid;
   width: 2.6rem;
   height: 2.6rem;
@@ -91,9 +91,56 @@ dl.row dt {
   line-height: 1;
 }
 
+.running-timer-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--bs-primary) 30%, transparent);
+  outline-offset: 2px;
+}
+
 .running-timer-stop:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--bs-danger) 30%, transparent);
   outline-offset: 2px;
+}
+
+.stopped-timer-description {
+  width: 100%;
+  padding: 0.4rem 0.15rem;
+  color: var(--bs-body-color);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.stopped-timer-description::placeholder {
+  color: var(--bs-secondary-color);
+  font-weight: 500;
+  opacity: 1;
+}
+
+.stopped-timer-description:focus {
+  box-shadow: inset 0 -2px var(--bs-primary);
+}
+
+.stopped-timer-project {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  color: var(--bs-secondary-color);
+}
+
+.stopped-timer-project select {
+  max-width: 15rem;
+  padding: 0.4rem 1.65rem 0.4rem 0.45rem;
+  color: inherit;
+  background-color: transparent;
+  border: 0;
+  border-radius: var(--bs-border-radius-sm);
+  outline: 0;
+  text-overflow: ellipsis;
+}
+
+.stopped-timer-project select:focus-visible {
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
 }
 
 .time-entry-ledger {
@@ -466,7 +513,7 @@ dl.row dt {
     grid-column: 2;
   }
 
-  .running-timer-stop {
+  .running-timer-action {
     grid-column: 3;
   }
 

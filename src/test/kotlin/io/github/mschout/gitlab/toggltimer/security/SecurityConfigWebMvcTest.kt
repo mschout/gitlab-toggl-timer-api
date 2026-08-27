@@ -17,7 +17,9 @@ package io.github.mschout.gitlab.toggltimer.security
 
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
 import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
+import io.github.mschout.gitlab.toggltimer.timer.StartTimerRequest
 import io.github.mschout.gitlab.toggltimer.timer.StartTimerResult
+import io.github.mschout.gitlab.toggltimer.timer.StoppedTimerProjectView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDayGroup
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionEditorView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionService
@@ -40,6 +42,7 @@ import io.github.mschout.gitlab.toggltimer.user.UserSettings
 import io.github.mschout.gitlab.toggltimer.user.UserSettingsRepository
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.time.Instant
 import java.time.LocalDate
 import java.util.Optional
@@ -69,6 +72,7 @@ class SecurityConfigWebMvcTest(
     @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
     @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
     @Autowired val timeEntryProjectService: TimeEntryProjectService,
+    @Autowired val credentialsService: CurrentUserCredentialsService,
 ) {
 
   @TestConfiguration
@@ -249,6 +253,7 @@ class SecurityConfigWebMvcTest(
                 .with(csrf())
                 .header("HX-Request", "true")
                 .param("workspaceId", "7")
+                .param("projectId", "200")
                 .param("description", "Unassigned work")
         )
         .andExpect(status().isOk)
@@ -259,6 +264,46 @@ class SecurityConfigWebMvcTest(
         )
         .andExpect(content().string(containsString("data-started-at=\"2026-08-27T15:00:00Z\"")))
         .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
+
+    verify {
+      timerService.startTimer(
+          StartTimerRequest(workspaceId = 7L, projectId = 200L, description = "Unassigned work")
+      )
+    }
+  }
+
+  @Test
+  fun `authenticated stop renders a clickable stopped timer with project choices`() {
+    every { credentialsService.currentTogglWorkspaceId() } returns 7L
+    every { timeEntryProjectService.projectsForWorkspace(7L) } returns
+        listOf(
+            StoppedTimerProjectView(
+                togglId = 200L,
+                name = "74398 - Compact timer",
+                clientName = "Courtio",
+                color = "#4C6EF5",
+            )
+        )
+
+    mvc.perform(
+            post("/timer/stop")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .header("HX-Request", "true")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("aria-label=\"Stopped timer\"")))
+        .andExpect(content().string(containsString("placeholder=\"What are you working on?\"")))
+        .andExpect(content().string(containsString("name=\"workspaceId\"")))
+        .andExpect(content().string(containsString("value=\"7\"")))
+        .andExpect(content().string(containsString("name=\"projectId\"")))
+        .andExpect(content().string(containsString("value=\"200\"")))
+        .andExpect(content().string(containsString("74398 - Compact timer • Courtio")))
+        .andExpect(content().string(containsString("data-project-color=\"#4C6EF5\"")))
+        .andExpect(content().string(containsString(">00:00:00</time>")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/start\"")))
+        .andExpect(content().string(containsString("aria-label=\"Start timer\"")))
+        .andExpect(content().string(not(containsString("aria-label=\"Start timer\" disabled"))))
   }
 
   @Test

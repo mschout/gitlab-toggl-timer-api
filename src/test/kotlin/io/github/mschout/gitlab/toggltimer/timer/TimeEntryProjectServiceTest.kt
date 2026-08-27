@@ -66,6 +66,34 @@ class TimeEntryProjectServiceTest {
   }
 
   @Test
+  fun `lists active projects and clients for the stopped timer workspace`() {
+    val projects =
+        listOf(
+            project(togglId = 100L, name = "100 - CourtDrive", clientId = 10L),
+            project(togglId = 200L, name = "200 - Inforuptcy", clientId = null, color = "bad"),
+        )
+    every { projectRepository.findAllByWorkspaceIdAndActiveTrueOrderByNameAsc(7L) } returns projects
+    every { clientRepository.findAllByTogglIdIn(listOf(10L)) } returns
+        listOf(Client(togglId = 10L, workspaceId = 7L, name = "Courtio"))
+
+    service.projectsForWorkspace(7L) shouldBe
+        listOf(
+            StoppedTimerProjectView(
+                togglId = 100L,
+                name = "100 - CourtDrive",
+                clientName = "Courtio",
+                color = "#4C6EF5",
+            ),
+            StoppedTimerProjectView(
+                togglId = 200L,
+                name = "200 - Inforuptcy",
+                clientName = null,
+                color = null,
+            ),
+        )
+  }
+
+  @Test
   fun `searches active projects by name within the time entry workspace`() {
     every { timeEntryRepository.findByTogglIdAndUserId(123L, 42L) } returns entry(projectId = 100L)
     val current = project(togglId = 100L, name = "100 - Indiana", clientId = 10L)

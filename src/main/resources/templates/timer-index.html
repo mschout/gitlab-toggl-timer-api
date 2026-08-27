@@ -17,6 +17,9 @@
         <th:block th:if="${runningTimer != null}">
           <div th:replace="~{start-timer :: result-card}" th:remove="tag"></div>
         </th:block>
+        <th:block th:unless="${runningTimer != null}">
+          <div th:replace="~{stop-timer :: result-card}" th:remove="tag"></div>
+        </th:block>
       </div>
 
       <div
@@ -424,7 +427,19 @@
 
           document.addEventListener('change', function (evt) {
             var target = evt.target;
-            if (!target || !target.id) return;
+            if (!target) return;
+            if (target.matches && target.matches('.js-stopped-project')) {
+              var toolbar = target.closest('.running-timer-toolbar');
+              var selected = target.options[target.selectedIndex];
+              var projectColor = selected && selected.getAttribute('data-project-color');
+              if (toolbar && projectColor) {
+                toolbar.style.setProperty('--project-color', projectColor);
+              } else if (toolbar) {
+                toolbar.style.removeProperty('--project-color');
+              }
+              return;
+            }
+            if (!target.id) return;
             if (target.id === 'clientId') {
               var workspaceId = getWorkspaceId();
               if (workspaceId && target.value) {

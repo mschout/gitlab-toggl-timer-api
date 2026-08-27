@@ -52,6 +52,13 @@ data class TimeEntryProjectSearchResultView(
     val selected: Boolean,
 )
 
+data class StoppedTimerProjectView(
+    val togglId: Long,
+    val name: String,
+    val clientName: String?,
+    val color: String?,
+)
+
 @ResponseStatus(HttpStatus.NOT_FOUND)
 class TimeEntryProjectNotFoundException : RuntimeException("Time entry or project was not found")
 
@@ -70,6 +77,19 @@ class TimeEntryProjectService(
     private val credentialsService: CurrentUserCredentialsService,
     private val togglSyncService: TogglSyncService,
 ) {
+
+  fun projectsForWorkspace(workspaceId: Long): List<StoppedTimerProjectView> {
+    val projects = projectRepository.findAllByWorkspaceIdAndActiveTrueOrderByNameAsc(workspaceId)
+    val clientsByTogglId = loadClients(projects)
+    return projects.map { project ->
+      StoppedTimerProjectView(
+          togglId = project.togglId,
+          name = project.name,
+          clientName = project.togglClientId?.let(clientsByTogglId::get),
+          color = sanitizeProjectColor(project.color),
+      )
+    }
+  }
 
   fun currentPicker(togglId: Long): TimeEntryProjectPickerView {
     val entry = currentUserEntry(togglId)

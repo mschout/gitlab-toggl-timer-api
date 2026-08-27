@@ -16,6 +16,7 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
+import io.github.mschout.gitlab.toggltimer.project.ProjectRepository
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import java.time.LocalDate
 import org.springframework.stereotype.Service
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service
 class TimerService(
     private val gitLabService: GitLabService,
     private val togglService: TogglService,
+    private val projectRepository: ProjectRepository,
 ) {
 
   fun startTimer(startTimerRequest: StartTimerRequest): StartTimerResult {
@@ -41,6 +43,25 @@ class TimerService(
               issueTitle,
           )
         }
+            ?: startTimerRequest.projectId?.let { projectId ->
+              val project =
+                  requireNotNull(
+                      projectRepository.findByTogglIdAndWorkspaceIdAndActiveTrue(
+                          togglId = projectId,
+                          workspaceId = startTimerRequest.workspaceId,
+                      )
+                  ) {
+                    "The selected Toggl project is not active in this workspace"
+                  }
+              TogglProject(
+                  active = project.active,
+                  clientId = project.togglClientId,
+                  id = project.togglId,
+                  workspaceId = project.workspaceId,
+                  name = project.name,
+                  color = project.color,
+              )
+            }
 
     return togglService.startTimer(project, startTimerRequest)
   }

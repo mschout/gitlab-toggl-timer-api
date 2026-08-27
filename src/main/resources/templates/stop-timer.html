@@ -13,56 +13,67 @@
           <i class="bi bi-arrow-left me-1"></i>Back
         </a>
       </div>
+
+      <script th:replace="~{timer-index :: timer-script}"></script>
     </main>
 
-    <div th:fragment="result-card">
-      <div
-        th:if="${stopped}"
-        class="alert alert-success alert-dismissible fade show js-auto-dismiss"
-        role="alert"
-      >
-        <i class="bi bi-check-circle-fill me-2"></i>
-        <span>
-          Timer stopped &mdash;
-          <strong th:text="${durationFormatted}">00:00:00</strong>
-          elapsed.
-        </span>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="alert"
-          aria-label="Close"
-        ></button>
+    <form
+      th:fragment="result-card"
+      class="running-timer-toolbar running-timer-toolbar-stopped shadow-sm"
+      role="region"
+      aria-label="Stopped timer"
+    >
+      <input
+        th:if="${stoppedTimer.workspaceId != null}"
+        type="hidden"
+        name="workspaceId"
+        th:value="${stoppedTimer.workspaceId}"
+      />
+
+      <div class="running-timer-description">
+        <input
+          type="text"
+          name="description"
+          class="stopped-timer-description"
+          placeholder="What are you working on?"
+          aria-label="Time entry description"
+          autocomplete="off"
+        />
       </div>
-      <div
-        th:unless="${stopped}"
-        class="alert alert-warning alert-dismissible fade show js-auto-dismiss"
-        role="alert"
+
+      <label class="stopped-timer-project">
+        <i class="bi bi-folder-fill" aria-hidden="true"></i>
+        <span class="visually-hidden">Project</span>
+        <select
+          name="projectId"
+          class="js-stopped-project"
+          aria-label="Project"
+          th:disabled="${stoppedTimer.workspaceId == null}"
+        >
+          <option value="">No project</option>
+          <option
+            th:each="project : ${stoppedTimer.projects}"
+            th:value="${project.togglId}"
+            th:text="${project.clientName != null} ? |${project.name} • ${project.clientName}| : ${project.name}"
+            th:attr="data-project-color=${project.color}"
+          >Project</option>
+        </select>
+      </label>
+
+      <time class="running-timer-elapsed" aria-label="Elapsed time">00:00:00</time>
+
+      <button
+        type="submit"
+        class="btn btn-primary running-timer-action running-timer-start"
+        hx-post="/timer/start"
+        hx-target="#result"
+        hx-swap="innerHTML"
+        th:disabled="${stoppedTimer.workspaceId == null}"
+        aria-label="Start timer"
+        title="Start timer"
       >
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-        <span>No Toggl timer was running.</span>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="alert"
-          aria-label="Close"
-        ></button>
-      </div>
-      <script>
-        (function () {
-          var alerts = document.querySelectorAll('.alert.js-auto-dismiss');
-          alerts.forEach(function (el) {
-            setTimeout(function () {
-              if (window.bootstrap && window.bootstrap.Alert) {
-                var instance = window.bootstrap.Alert.getOrCreateInstance(el);
-                instance.close();
-              } else if (el.parentNode) {
-                el.parentNode.removeChild(el);
-              }
-            }, 5000);
-          });
-        })();
-      </script>
-    </div>
+        <i class="bi bi-play-fill" aria-hidden="true"></i>
+      </button>
+    </form>
   </body>
 </html>

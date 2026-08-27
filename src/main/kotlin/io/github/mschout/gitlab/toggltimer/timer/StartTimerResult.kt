@@ -31,3 +31,5 @@ data class RunningTimerView(
     val descriptionEditor: TimeEntryDescriptionEditorView,
     val projectPicker: TimeEntryProjectPickerView,
 )
+
+data class StoppedTimerView(val workspaceId: Long?, val projects: List<StoppedTimerProjectView>)

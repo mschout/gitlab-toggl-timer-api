@@ -17,6 +17,8 @@ package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssue
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabService
+import io.github.mschout.gitlab.toggltimer.project.Project
+import io.github.mschout.gitlab.toggltimer.project.ProjectRepository
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
@@ -33,13 +35,15 @@ class TimerServiceTest {
 
   private lateinit var gitLabService: GitLabService
   private lateinit var togglService: TogglService
+  private lateinit var projectRepository: ProjectRepository
   private lateinit var service: TimerService
 
   @BeforeEach
   fun setUp() {
     gitLabService = mockk()
     togglService = mockk()
-    service = TimerService(gitLabService, togglService)
+    projectRepository = mockk()
+    service = TimerService(gitLabService, togglService, projectRepository)
   }
 
   @Test
@@ -93,7 +97,46 @@ class TimerServiceTest {
     result shouldBe timerResult
     verify { togglService.startTimer(null, request) }
     verify { gitLabService wasNot Called }
+    verify { projectRepository wasNot Called }
     verify(exactly = 0) { togglService.findOrCreateProject(any(), any(), any(), any()) }
+  }
+
+  @Test
+  fun `startTimer should use a selected active project when no issue url is provided`() {
+    val request =
+        StartTimerRequest(workspaceId = 7L, projectId = 100L, description = "Review changes")
+    val storedProject =
+        Project(
+            togglId = 100L,
+            workspaceId = 7L,
+            togglClientId = 5L,
+            name = "74398 - Compact timer",
+            color = "#4C6EF5",
+        )
+    val togglProject =
+        TogglProject(
+            active = true,
+            clientId = 5L,
+            id = 100L,
+            workspaceId = 7L,
+            name = "74398 - Compact timer",
+            color = "#4C6EF5",
+        )
+    val timerResult =
+        StartTimerResult(
+            togglId = 123L,
+            startTime = Instant.parse("2026-08-27T15:00:00Z"),
+            projectName = "74398 - Compact timer",
+            description = "Review changes",
+        )
+    every { projectRepository.findByTogglIdAndWorkspaceIdAndActiveTrue(100L, 7L) } returns
+        storedProject
+    every { togglService.startTimer(togglProject, request) } returns timerResult
+
+    service.startTimer(request) shouldBe timerResult
+
+    verify { togglService.startTimer(togglProject, request) }
+    verify { gitLabService wasNot Called }
   }
 
   @Test

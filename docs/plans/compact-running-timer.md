@@ -1,10 +1,13 @@
-# Compact Running Timer Panel
+# Compact Timer Panel
 
 ## Summary
 
-Replace the current multi-row card with a Toggl-inspired compact toolbar:
+Replace the current multi-row card with a Toggl-inspired compact toolbar that remains visible in
+both running and stopped states:
 
 `[editable description] [editable project • client] [elapsed time] [red stop button]`
+
+`[draft description] [project selector] [00:00:00] [primary play button]`
 
 Keep the existing Bootstrap visual language, using the project color and circular red stop control as the distinctive accents. On narrow screens, the description occupies the first row while project, elapsed time, and stop remain grouped below.
 

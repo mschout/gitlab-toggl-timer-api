@@ -89,7 +89,28 @@ class TimerWebControllerTest {
       model["form"] shouldBe TimerForm()
       model["formExpanded"] shouldBe false
       model["historyPage"] shouldBe emptyHistoryPage()
+      model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = null, projects = emptyList())
     }
+  }
+
+  @Test
+  fun `index should expose projects for the stopped timer workspace`() {
+    val projects =
+        listOf(
+            StoppedTimerProjectView(
+                togglId = 200L,
+                name = "74398 - Compact timer",
+                clientName = "Courtio",
+                color = "#4C6EF5",
+            )
+        )
+    every { credentialsService.currentTogglWorkspaceId() } returns 7L
+    every { timeEntryProjectService.projectsForWorkspace(7L) } returns projects
+    val model = ExtendedModelMap()
+
+    controller.index(model)
+
+    model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = 7L, projects = projects)
   }
 
   @Test
@@ -780,6 +801,7 @@ class TimerWebControllerTest {
       view shouldBe "stop-timer :: result-card"
       model["durationFormatted"] shouldBe "01:01:01"
       model["stopped"] shouldBe true
+      model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = null, projects = emptyList())
       response.getHeader("HX-Trigger") shouldBe "timeEntriesChanged"
     }
   }
