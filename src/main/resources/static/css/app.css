@@ -20,6 +20,69 @@ dl.row dt {
   font-weight: 500;
 }
 
+.running-timer-toolbar {
+  --project-color: var(--bs-border-color);
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(9rem, auto) auto auto;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  min-height: 4rem;
+  padding: 0.65rem 0.75rem 0.65rem 0.9rem;
+  background: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-inline-start: 0.3rem solid var(--project-color);
+  border-radius: var(--bs-border-radius);
+}
+
+.running-timer-description,
+.running-timer-project {
+  min-width: 0;
+}
+
+.running-timer-description .time-entry-description-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.running-timer-description .time-entry-description-editor {
+  width: 100%;
+  field-sizing: fixed;
+}
+
+.running-timer-project .time-entry-project-picker,
+.running-timer-project .time-entry-project-trigger {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.running-timer-elapsed {
+  color: var(--bs-body-color);
+  font-family: var(--bs-font-monospace);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+}
+
+.running-timer-stop {
+  display: inline-grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.running-timer-stop:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--bs-danger) 30%, transparent);
+  outline-offset: 2px;
+}
+
 .time-entry-ledger {
   overflow: hidden;
   background: var(--bs-body-bg);
@@ -372,6 +435,28 @@ dl.row dt {
 }
 
 @media (max-width: 767.98px) {
+  .running-timer-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.55rem 0.8rem;
+    padding-block: 0.75rem;
+  }
+
+  .running-timer-description {
+    grid-column: 1 / -1;
+  }
+
+  .running-timer-project {
+    grid-column: 1;
+  }
+
+  .running-timer-elapsed {
+    grid-column: 2;
+  }
+
+  .running-timer-stop {
+    grid-column: 3;
+  }
+
   .time-entry-row {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.25rem 0.75rem;

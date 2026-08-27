@@ -64,9 +64,7 @@ class TimerWebController(
             .onFailure { logger.warn(it) { "Failed to fetch current Toggl timer" } }
             .getOrNull()
     if (running != null) {
-      model.addAttribute("startTime", running.startTime)
-      model.addAttribute("projectName", running.projectName)
-      model.addAttribute("description", running.description)
+      addRunningTimer(running, model)
     }
     return "timer-index"
   }
@@ -112,11 +110,7 @@ class TimerWebController(
     val request =
         StartTimerRequest(issueUrl = issueUrl, workspaceId = workspaceId, clientId = clientId)
     val result = timerService.startTimer(request)
-    return ModelAndView("start-timer").apply {
-      addObject("startTime", result.startTime)
-      addObject("projectName", result.projectName)
-      addObject("description", result.description)
-    }
+    return ModelAndView("start-timer").apply { addObject("runningTimer", runningTimerView(result)) }
   }
 
   @PostMapping("/start")
@@ -140,9 +134,7 @@ class TimerWebController(
       return formErrorView(form, model, hxRequest, response)
     }
     val result = timerService.startTimer(form.toStartTimerRequest())
-    model.addAttribute("startTime", result.startTime)
-    model.addAttribute("projectName", result.projectName)
-    model.addAttribute("description", result.description)
+    addRunningTimer(result, model)
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 
@@ -325,5 +317,44 @@ class TimerWebController(
 
   private fun loadHistoryData(model: Model) {
     model.addAttribute("historyPage", timeEntryHistoryService.initialPage())
+  }
+
+  private fun addRunningTimer(result: StartTimerResult, model: Model) {
+    model.addAttribute("runningTimer", runningTimerView(result))
+  }
+
+  private fun runningTimerView(result: StartTimerResult): RunningTimerView {
+    val fallbackPicker =
+        TimeEntryProjectPickerView(
+            togglId = result.togglId,
+            projectName = result.projectName,
+            clientName = result.clientName,
+            projectColor = result.projectColor,
+        )
+    val projectPicker =
+        runCatching { timeEntryProjectService.currentPicker(result.togglId) }
+            .onFailure {
+              logger.warn(it) {
+                "Failed to load project picker for running entry ${result.togglId}"
+              }
+            }
+            .getOrNull()
+            ?.let { picker ->
+              picker.copy(
+                  projectName = picker.projectName ?: fallbackPicker.projectName,
+                  clientName = picker.clientName ?: fallbackPicker.clientName,
+                  projectColor = picker.projectColor ?: fallbackPicker.projectColor,
+              )
+            } ?: fallbackPicker
+
+    return RunningTimerView(
+        startTime = result.startTime,
+        descriptionEditor =
+            TimeEntryDescriptionEditorView(
+                togglId = result.togglId,
+                description = result.description?.takeIf { it.isNotBlank() },
+            ),
+        projectPicker = projectPicker,
+    )
   }
 }

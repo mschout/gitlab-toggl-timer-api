@@ -14,7 +14,7 @@
       </section>
 
       <div id="result" class="mb-4">
-        <th:block th:if="${startTime != null}">
+        <th:block th:if="${runningTimer != null}">
           <div th:replace="~{start-timer :: result-card}" th:remove="tag"></div>
         </th:block>
       </div>
@@ -291,7 +291,7 @@
         </div>
       </section>
 
-      <script>
+      <script th:fragment="timer-script">
         (function () {
           var STORAGE_KEY = 'gitlabTogglTimer.timer.selectedClient';
           var ISSUE_URL_KEY = 'gitlabTogglTimer.timer.issueUrl';
@@ -355,9 +355,48 @@
             } catch (e) {}
           }
 
+          function padElapsedPart(value) {
+            return value < 10 ? '0' + value : '' + value;
+          }
+
+          function renderElapsedTime(el) {
+            var startedAt = new Date(el.getAttribute('data-started-at'));
+            if (isNaN(startedAt.getTime())) return;
+            var seconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+            var hours = Math.floor(seconds / 3600);
+            var minutes = Math.floor((seconds % 3600) / 60);
+            var remainingSeconds = seconds % 60;
+            el.textContent =
+              padElapsedPart(hours) +
+              ':' +
+              padElapsedPart(minutes) +
+              ':' +
+              padElapsedPart(remainingSeconds);
+          }
+
+          function startElapsedTimers() {
+            if (window.__togglElapsedIntervalId) {
+              clearInterval(window.__togglElapsedIntervalId);
+              window.__togglElapsedIntervalId = null;
+            }
+            var timers = document.querySelectorAll('.js-elapsed-time');
+            timers.forEach(renderElapsedTime);
+            if (!timers.length) return;
+            window.__togglElapsedIntervalId = setInterval(function () {
+              var currentTimers = document.querySelectorAll('.js-elapsed-time');
+              if (!currentTimers.length) {
+                clearInterval(window.__togglElapsedIntervalId);
+                window.__togglElapsedIntervalId = null;
+                return;
+              }
+              currentTimers.forEach(renderElapsedTime);
+            }, 1000);
+          }
+
           document.addEventListener('DOMContentLoaded', function () {
             restoreClientSelection();
             restoreIssueUrl();
+            startElapsedTimers();
           });
 
           document.addEventListener('change', function (evt) {
@@ -592,6 +631,7 @@
 
           document.body.addEventListener('htmx:afterSwap', function (evt) {
             var tgt = evt.detail && evt.detail.target;
+            startElapsedTimers();
             if (tgt && tgt.id === 'client-select-wrapper') {
               restoreClientSelection();
             }
@@ -610,7 +650,7 @@
                   tgt.querySelector &&
                   tgt.querySelector('.time-entry-project-picker');
             if (projectPicker) {
-              var projectRow = projectPicker.closest('.time-entry-row');
+              var projectRow = projectPicker.closest('.time-entry-row, .running-timer-toolbar');
               var projectColor = projectPicker.getAttribute('data-project-color');
               if (projectRow) {
                 if (projectColor) {

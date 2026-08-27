@@ -313,6 +313,7 @@ class TogglServiceTest {
 
     val result = service.startTimer(project, request)
 
+    result.togglId shouldBe 555L
     result.startTime shouldBe explicitStart
     result.projectName shouldBe "42 - X"
     result.description shouldBe "hacking on 42"
@@ -345,6 +346,7 @@ class TogglServiceTest {
     val result = service.startTimer(project, request)
     val after = Instant.now()
 
+    result.togglId shouldBe 555L
     result.startTime.shouldNotBeNull()
     (result.startTime >= before) shouldBe true
     (result.startTime <= after) shouldBe true
@@ -383,6 +385,7 @@ class TogglServiceTest {
 
     val result = service.startTimer(project, request)
 
+    result.togglId shouldBe 1234L
     result.startTime shouldBe existingStart
     result.projectName shouldBe "42 - X"
     result.description shouldBe "already going"
@@ -485,12 +488,15 @@ class TogglServiceTest {
 
     val result = service.startTimer(project, request)
 
+    result.togglId shouldBe 1234L
     result.startTime shouldBe existingStart
     result.projectName shouldBe "88 - Other work"
     result.description shouldBe "doing something else"
     verify { togglClient.getProject(7L, 88L) }
     verify(exactly = 0) { togglClient.createTimeEntry(any(), any()) }
     verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+    verify { togglSyncService.upsertProject(7L, runningProject) }
+    verify { togglSyncService.upsertTimeEntry(42L, running) }
   }
 
   @Test
@@ -507,6 +513,7 @@ class TogglServiceTest {
 
     val result = service.startTimer(null, request)
 
+    result.togglId shouldBe 555L
     result.startTime shouldBe explicitStart
     result.projectName shouldBe null
     result.description shouldBe "just tracking"
@@ -535,12 +542,14 @@ class TogglServiceTest {
 
     val result = service.startTimer(null, request)
 
+    result.togglId shouldBe 1234L
     result.startTime shouldBe existingStart
     result.projectName shouldBe null
     result.description shouldBe "in progress"
     verify(exactly = 0) { togglClient.getProject(any(), any()) }
     verify(exactly = 0) { togglClient.createTimeEntry(any(), any()) }
     verify(exactly = 0) { togglClient.updateTimeEntry(any(), any(), any()) }
+    verify { togglSyncService.upsertTimeEntry(42L, running) }
   }
 
   @Test
@@ -718,17 +727,22 @@ class TogglServiceTest {
             createdWith = "Toggl Web",
             id = 1234L,
         )
-    val runningProject = TogglProject(id = 88L, name = "88 - Some project", clientId = 5L)
+    val runningProject =
+        TogglProject(id = 88L, name = "88 - Some project", clientId = 5L, color = "#4C6EF5")
     every { togglClient.getCurrentTimeEntry() } returns running
     every { togglClient.getProject(7L, 88L) } returns runningProject
 
     val result = service.getCurrentRunningTimer()
 
     result.shouldNotBeNull()
+    result.togglId shouldBe 1234L
     result.startTime shouldBe startInstant
     result.projectName shouldBe "88 - Some project"
+    result.projectColor shouldBe "#4C6EF5"
     result.description shouldBe "currently going"
     verify { togglClient.getProject(7L, 88L) }
+    verify { togglSyncService.upsertProject(7L, runningProject) }
+    verify { togglSyncService.upsertTimeEntry(42L, running) }
   }
 
   @Test
@@ -749,10 +763,12 @@ class TogglServiceTest {
     val result = service.getCurrentRunningTimer()
 
     result.shouldNotBeNull()
+    result.togglId shouldBe 1234L
     result.startTime shouldBe startInstant
     result.projectName.shouldBeNull()
     result.description shouldBe "no project yet"
     verify(exactly = 0) { togglClient.getProject(any(), any()) }
+    verify { togglSyncService.upsertTimeEntry(42L, running) }
   }
 
   @Test
@@ -777,6 +793,46 @@ class TogglServiceTest {
     result.startTime shouldBe startInstant
     result.projectName.shouldBeNull()
     result.description shouldBe "going"
+    verify { togglSyncService.upsertTimeEntry(42L, running) }
+  }
+
+  @Test
+  fun `getCurrentRunningTimer uses entry metadata when the project fetch fails`() {
+    val running =
+        TogglTimeEntry(
+            workspaceId = 7L,
+            projectId = 88L,
+            projectName = "88 - Cached project",
+            projectColor = "#4C6EF5",
+            clientName = "Courtio",
+            start = Instant.parse("2026-05-15T10:00:00Z"),
+            duration = -1L,
+            id = 1234L,
+        )
+    every { togglClient.getCurrentTimeEntry() } returns running
+    every { togglClient.getProject(7L, 88L) } throws RuntimeException("toggl down")
+
+    val result = service.getCurrentRunningTimer()
+
+    result.shouldNotBeNull()
+    result.projectName shouldBe "88 - Cached project"
+    result.clientName shouldBe "Courtio"
+    result.projectColor shouldBe "#4C6EF5"
+    verify { togglSyncService.upsertTimeEntry(42L, running) }
+  }
+
+  @Test
+  fun `getCurrentRunningTimer hides a running entry without an id`() {
+    every { togglClient.getCurrentTimeEntry() } returns
+        TogglTimeEntry(
+            workspaceId = 7L,
+            start = Instant.parse("2026-05-15T10:00:00Z"),
+            duration = -1L,
+        )
+
+    service.getCurrentRunningTimer().shouldBeNull()
+
+    verify(exactly = 0) { togglSyncService.upsertTimeEntry(any(), any()) }
   }
 
   @Test

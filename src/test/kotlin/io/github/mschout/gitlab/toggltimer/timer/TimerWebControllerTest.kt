@@ -59,6 +59,13 @@ class TimerWebControllerTest {
     every { togglService.fetchClients(any()) } returns emptyList()
     every { togglService.getCurrentRunningTimer() } returns null
     every { timeEntryHistoryService.initialPage() } returns emptyHistoryPage()
+    every { timeEntryProjectService.currentPicker(123L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 123L,
+            projectName = null,
+            clientName = null,
+            projectColor = null,
+        )
     controller =
         TimerWebController(
             timerService,
@@ -301,13 +308,23 @@ class TimerWebControllerTest {
   }
 
   @Test
-  fun `index exposes running timer fields when a Toggl timer is already running`() {
+  fun `index exposes the unified running timer when a Toggl timer is already running`() {
     val startInstant = Instant.parse("2026-05-15T10:00:00Z")
     every { togglService.getCurrentRunningTimer() } returns
         StartTimerResult(
+            togglId = 123L,
             startTime = startInstant,
             projectName = "42 - Some issue",
+            clientName = "Courtio",
+            projectColor = "#4C6EF5",
             description = "in progress",
+        )
+    every { timeEntryProjectService.currentPicker(123L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 123L,
+            projectName = "42 - Some issue",
+            clientName = "Courtio",
+            projectColor = "#4C6EF5",
         )
     val model = ExtendedModelMap()
 
@@ -315,9 +332,19 @@ class TimerWebControllerTest {
 
     assertSoftly {
       view shouldBe "timer-index"
-      model["startTime"] shouldBe startInstant
-      model["projectName"] shouldBe "42 - Some issue"
-      model["description"] shouldBe "in progress"
+      model["runningTimer"] shouldBe
+          RunningTimerView(
+              startTime = startInstant,
+              descriptionEditor =
+                  TimeEntryDescriptionEditorView(togglId = 123L, description = "in progress"),
+              projectPicker =
+                  TimeEntryProjectPickerView(
+                      togglId = 123L,
+                      projectName = "42 - Some issue",
+                      clientName = "Courtio",
+                      projectColor = "#4C6EF5",
+                  ),
+          )
     }
   }
 
@@ -327,9 +354,7 @@ class TimerWebControllerTest {
 
     controller.index(model)
 
-    model.containsAttribute("startTime") shouldBe false
-    model.containsAttribute("projectName") shouldBe false
-    model.containsAttribute("description") shouldBe false
+    model.containsAttribute("runningTimer") shouldBe false
   }
 
   @Test
@@ -340,7 +365,7 @@ class TimerWebControllerTest {
     val view = controller.index(model)
 
     view shouldBe "timer-index"
-    model.containsAttribute("startTime") shouldBe false
+    model.containsAttribute("runningTimer") shouldBe false
   }
 
   @Test
@@ -497,6 +522,7 @@ class TimerWebControllerTest {
         )
     val timerResult =
         StartTimerResult(
+            togglId = 123L,
             startTime = startInstant,
             projectName = "99 - Some issue",
             description = "tracking",
@@ -512,9 +538,19 @@ class TimerWebControllerTest {
 
     assertSoftly(mav) {
       viewName shouldBe "start-timer"
-      model["startTime"] shouldBe startInstant
-      model["projectName"] shouldBe "99 - Some issue"
-      model["description"] shouldBe "tracking"
+      model["runningTimer"] shouldBe
+          RunningTimerView(
+              startTime = startInstant,
+              descriptionEditor =
+                  TimeEntryDescriptionEditorView(togglId = 123L, description = "tracking"),
+              projectPicker =
+                  TimeEntryProjectPickerView(
+                      togglId = 123L,
+                      projectName = "99 - Some issue",
+                      clientName = null,
+                      projectColor = null,
+                  ),
+          )
     }
     verify { timerService.startTimer(expectedRequest) }
   }
@@ -622,6 +658,7 @@ class TimerWebControllerTest {
     val startInstant = Instant.parse("2026-05-08T15:30:00Z")
     val timerResult =
         StartTimerResult(
+            togglId = 123L,
             startTime = startInstant,
             projectName = "42 - Some issue",
             description = "tracking",
@@ -641,9 +678,7 @@ class TimerWebControllerTest {
 
     assertSoftly {
       view shouldBe "start-timer"
-      model["startTime"] shouldBe startInstant
-      model["projectName"] shouldBe "42 - Some issue"
-      model["description"] shouldBe "tracking"
+      (model["runningTimer"] as RunningTimerView).descriptionEditor.description shouldBe "tracking"
       response.getHeader("HX-Retarget").shouldBeNull()
     }
   }
@@ -654,6 +689,7 @@ class TimerWebControllerTest {
     val startInstant = Instant.parse("2026-05-08T15:30:00Z")
     val timerResult =
         StartTimerResult(
+            togglId = 123L,
             startTime = startInstant,
             projectName = "42 - Some issue",
             description = null,
@@ -672,9 +708,18 @@ class TimerWebControllerTest {
         )
 
     view shouldBe "start-timer :: result-card"
-    model["startTime"] shouldBe startInstant
-    model["projectName"] shouldBe "42 - Some issue"
-    model["description"].shouldBeNull()
+    model["runningTimer"] shouldBe
+        RunningTimerView(
+            startTime = startInstant,
+            descriptionEditor = TimeEntryDescriptionEditorView(togglId = 123L, description = null),
+            projectPicker =
+                TimeEntryProjectPickerView(
+                    togglId = 123L,
+                    projectName = "42 - Some issue",
+                    clientName = null,
+                    projectColor = null,
+                ),
+        )
   }
 
   @Test

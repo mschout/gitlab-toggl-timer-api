@@ -55,6 +55,7 @@ class TimerServiceTest {
     val timerStart = Instant.parse("2026-05-08T15:00:00Z")
     val timerResult =
         StartTimerResult(
+            togglId = 123L,
             startTime = timerStart,
             projectName = "42 - Resolved title",
             description = "tracking",
@@ -79,6 +80,7 @@ class TimerServiceTest {
     val request = StartTimerRequest(workspaceId = 7L, description = "just tracking")
     val timerResult =
         StartTimerResult(
+            togglId = 123L,
             startTime = Instant.parse("2026-05-08T15:00:00Z"),
             projectName = null,
             description = "just tracking",

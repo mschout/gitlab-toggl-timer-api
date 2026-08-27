@@ -18,7 +18,16 @@ package io.github.mschout.gitlab.toggltimer.timer
 import java.time.Instant
 
 data class StartTimerResult(
+    val togglId: Long,
     val startTime: Instant,
     val projectName: String?,
     val description: String?,
+    val clientName: String? = null,
+    val projectColor: String? = null,
+)
+
+data class RunningTimerView(
+    val startTime: Instant,
+    val descriptionEditor: TimeEntryDescriptionEditorView,
+    val projectPicker: TimeEntryProjectPickerView,
 )
