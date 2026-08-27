@@ -12,6 +12,11 @@
   background-color: var(--bs-body-bg);
 }
 
+.app-navbar {
+  padding-block-start: calc(var(--bs-navbar-padding-y) + 0.2rem);
+  padding-block-end: calc(var(--bs-navbar-padding-y) - 0.2rem);
+}
+
 main {
   scroll-margin-top: 5rem;
 }
