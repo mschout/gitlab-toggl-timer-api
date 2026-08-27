@@ -19,7 +19,7 @@ import io.github.mschout.gitlab.toggltimer.support.PostgresContainerSupport
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 
-@SpringBootTest
+@SpringBootTest(properties = ["app.toggl-sync.enabled=true", "app.toggl-sync.initial-delay=PT24H"])
 class GitlabTogglTimerApplicationTests : PostgresContainerSupport() {
   @Test fun contextLoads() {}
 }

@@ -13,21 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mschout.gitlab.toggltimer.user
+package io.github.mschout.gitlab.toggltimer.project
 
-import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Query
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
+import java.time.Instant
 
-interface UserSettingsRepository : JpaRepository<UserSettings, Long> {
-  @Query(
-      """
-      SELECT settings
-      FROM UserSettings settings
-      JOIN settings.user user
-      WHERE user.enabled = true
-        AND settings.togglApiKey IS NOT NULL
-      ORDER BY settings.userId
-      """
-  )
-  fun findAllEligibleForTogglSync(): List<UserSettings>
-}
+@Entity
+@Table(name = "toggl_time_entry_sync_state")
+class TogglTimeEntrySyncState(
+    @Id @Column(name = "user_id") val userId: Long,
+    @Column(name = "last_successful_sync_at", nullable = false) var lastSuccessfulSyncAt: Instant,
+)

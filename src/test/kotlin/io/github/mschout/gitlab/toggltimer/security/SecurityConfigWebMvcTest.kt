@@ -172,6 +172,10 @@ class SecurityConfigWebMvcTest(
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
+        .andExpect(
+            content()
+                .string(containsString("hx-trigger=\"timeEntriesChanged from:body, every 1m\""))
+        )
         .andExpect(content().string(containsString("Rendered history entry")))
         .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/description\"")))
         .andExpect(content().string(containsString("placeholder=\"No description\"")))

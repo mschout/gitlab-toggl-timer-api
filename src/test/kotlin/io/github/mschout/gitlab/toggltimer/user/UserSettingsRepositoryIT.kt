@@ -16,6 +16,8 @@
 package io.github.mschout.gitlab.toggltimer.user
 
 import io.github.mschout.gitlab.toggltimer.support.PostgresContainerSupport
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import javax.sql.DataSource
@@ -51,6 +53,30 @@ constructor(
       reloaded.togglApiKey shouldBe "tog-secret"
     } finally {
       userRepository.deleteById(user.id)
+    }
+  }
+
+  @Test
+  fun `Toggl sync candidates include only enabled users with API keys`() {
+    val eligible = userRepository.save(User(email = "sync-eligible@example.com"))
+    val disabled = userRepository.save(User(email = "sync-disabled@example.com", enabled = false))
+    val missingKey = userRepository.save(User(email = "sync-no-key@example.com"))
+    try {
+      userSettingsRepository.saveAllAndFlush(
+          listOf(
+              UserSettings(user = eligible, togglApiKey = "eligible-key"),
+              UserSettings(user = disabled, togglApiKey = "disabled-key"),
+              UserSettings(user = missingKey, togglApiKey = null),
+          )
+      )
+
+      val candidateIds = userSettingsRepository.findAllEligibleForTogglSync().map { it.userId }
+
+      candidateIds.shouldContain(eligible.id)
+      candidateIds.shouldNotContain(disabled.id)
+      candidateIds.shouldNotContain(missingKey.id)
+    } finally {
+      userRepository.deleteAllById(listOf(eligible.id, disabled.id, missingKey.id))
     }
   }
 

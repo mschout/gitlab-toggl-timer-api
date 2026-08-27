@@ -27,6 +27,11 @@ import tools.jackson.databind.annotation.JsonNaming
 data class TogglTimeEntry(
     val workspaceId: Long? = null,
     val projectId: Long? = null,
+    val projectName: String? = null,
+    val projectColor: String? = null,
+    val projectActive: Boolean? = null,
+    val clientId: Long? = null,
+    val clientName: String? = null,
     val taskId: Long? = null,
     val userId: Long? = null,
     val start: Instant? = null,

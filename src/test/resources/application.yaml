@@ -26,3 +26,5 @@ app:
   encryption:
     password: test-encryption-password
     salt: deadbeefcafebabe1234567890abcdef
+  toggl-sync:
+    enabled: false

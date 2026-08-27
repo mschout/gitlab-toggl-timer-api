@@ -212,7 +212,7 @@
         id="recent-time-entries"
         class="mt-4"
         hx-get="/timer/entries"
-        hx-trigger="timeEntriesChanged from:body"
+        hx-trigger="timeEntriesChanged from:body, every 1m"
         hx-target="this"
         hx-swap="outerHTML"
         aria-live="polite"

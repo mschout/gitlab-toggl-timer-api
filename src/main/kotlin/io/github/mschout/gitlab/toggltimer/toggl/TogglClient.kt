@@ -61,6 +61,12 @@ interface TogglClient {
       @RequestParam("meta") meta: Boolean = true,
   ): List<TogglTimeEntry>
 
+  @GetExchange("/me/time_entries")
+  fun getModifiedTimeEntries(
+      @RequestParam("since") since: Long,
+      @RequestParam("meta") meta: Boolean = true,
+  ): List<TogglTimeEntry>
+
   @PostExchange("/workspaces/{workspaceId}/time_entries")
   fun createTimeEntry(
       @PathVariable workspaceId: Long,
