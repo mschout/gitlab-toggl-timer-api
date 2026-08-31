@@ -286,6 +286,9 @@
                 </div>
                 <time class="time-entry-range" th:text="${entry.timeRange}">12:36 PM – 1:24 PM</time>
                 <span class="time-entry-duration" th:text="${entry.durationFormatted}">0:48:02</span>
+                <th:block th:with="entryActions=${entry.actions}">
+                  <div th:replace="~{fragments/time-entry-actions :: entry-actions}"></div>
+                </th:block>
               </article>
             </section>
 
@@ -461,6 +464,42 @@
           });
 
           document.addEventListener('click', function (evt) {
+            var copyDescription =
+              evt.target.closest && evt.target.closest('.time-entry-copy-description');
+            if (copyDescription) {
+              copyEntryDescription(copyDescription);
+              return;
+            }
+
+            var deleteTrigger =
+              evt.target.closest && evt.target.closest('.time-entry-delete-trigger');
+            if (deleteTrigger) {
+              openDeleteDialog(deleteTrigger);
+              return;
+            }
+
+            var deleteClose =
+              evt.target.closest && evt.target.closest('.time-entry-delete-close');
+            if (deleteClose) {
+              var deleteDialog = deleteClose.closest('.time-entry-delete-dialog');
+              if (deleteDialog) deleteDialog.close();
+              return;
+            }
+
+            if (
+              evt.target.matches &&
+              evt.target.matches('.time-entry-delete-dialog')
+            ) {
+              var deleteDialogRect = evt.target.getBoundingClientRect();
+              var outsideDeleteDialog =
+                evt.clientX < deleteDialogRect.left ||
+                evt.clientX > deleteDialogRect.right ||
+                evt.clientY < deleteDialogRect.top ||
+                evt.clientY > deleteDialogRect.bottom;
+              if (outsideDeleteDialog) evt.target.close();
+              return;
+            }
+
             var projectTrigger =
               evt.target.closest && evt.target.closest('.time-entry-project-trigger');
             if (projectTrigger) {
@@ -518,6 +557,49 @@
             if (!search) return;
             search.focus();
             htmx.trigger(search, 'project-search');
+          }
+
+          function copyEntryDescription(button) {
+            if (!button || button.disabled) return;
+            var label = button.querySelector('.time-entry-copy-label');
+            var description = button.getAttribute('data-description') || '';
+            var clipboard = navigator.clipboard;
+            var copyRequest =
+              clipboard && clipboard.writeText
+                ? clipboard.writeText(description)
+                : Promise.reject(new Error('Clipboard API unavailable'));
+
+            copyRequest
+              .then(function () {
+                if (label) label.textContent = 'Copied!';
+                window.setTimeout(function () {
+                  if (label) label.textContent = 'Copy description';
+                  hideEntryActionsMenu(button);
+                }, 1200);
+              })
+              .catch(function () {
+                if (label) label.textContent = 'Copy failed';
+                window.setTimeout(function () {
+                  if (label) label.textContent = 'Copy description';
+                }, 2000);
+              });
+          }
+
+          function hideEntryActionsMenu(element) {
+            var actions = element && element.closest('.time-entry-actions');
+            var trigger = actions && actions.querySelector('.time-entry-actions-trigger');
+            if (trigger && window.bootstrap) {
+              bootstrap.Dropdown.getOrCreateInstance(trigger).hide();
+            }
+          }
+
+          function openDeleteDialog(trigger) {
+            if (!trigger) return;
+            var dialogId = trigger.getAttribute('aria-controls');
+            var dialog = dialogId && document.getElementById(dialogId);
+            if (!dialog) return;
+            hideEntryActionsMenu(trigger);
+            if (!dialog.open) dialog.showModal();
           }
 
           function beginDescriptionEdit(input) {
@@ -631,6 +713,20 @@
           document.body.addEventListener('htmx:afterRequest', function (evt) {
             var input = evt.detail && evt.detail.elt;
             if (!input || !input.matches) return;
+            if (!evt.detail.successful && input.matches('.time-entry-delete-confirm')) {
+              var deleteDialog = input.closest('.time-entry-delete-dialog');
+              var deleteError = deleteDialog.querySelector('.time-entry-delete-error');
+              if (!deleteError) {
+                deleteError = document.createElement('div');
+                deleteError.className = 'time-entry-delete-error';
+                deleteError.setAttribute('role', 'alert');
+                deleteDialog
+                  .querySelector('.time-entry-delete-dialog-body')
+                  .insertAdjacentElement('afterbegin', deleteError);
+              }
+              deleteError.textContent = 'Could not delete this time entry. Try again.';
+              return;
+            }
             if (
               !evt.detail.successful &&
               input.matches('.time-entry-project-option')
@@ -672,6 +768,15 @@
             startElapsedTimers();
             if (tgt && tgt.id === 'client-select-wrapper') {
               restoreClientSelection();
+            }
+            var deleteDialog =
+              tgt && tgt.querySelector && tgt.querySelector('.time-entry-delete-dialog');
+            if (
+              deleteDialog &&
+              deleteDialog.getAttribute('data-open') === 'true' &&
+              !deleteDialog.open
+            ) {
+              deleteDialog.showModal();
             }
             var descriptionInput =
               tgt && tgt.querySelector && tgt.querySelector('.time-entry-description-editor');

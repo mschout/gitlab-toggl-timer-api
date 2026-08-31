@@ -45,8 +45,16 @@ data class TimeEntryDayGroup(
 data class RecentTimeEntryView(
     val descriptionEditor: TimeEntryDescriptionEditorView,
     val projectPicker: TimeEntryProjectPickerView,
+    val actions: TimeEntryActionsView,
     val timeRange: String,
     val durationFormatted: String,
+)
+
+data class TimeEntryActionsView(
+    val togglId: Long,
+    val description: String?,
+    val error: String? = null,
+    val open: Boolean = false,
 )
 
 @Service
@@ -162,6 +170,11 @@ class TimeEntryHistoryService(
                 projectName = project?.name,
                 clientName = clientName,
                 projectColor = sanitizeProjectColor(project?.color),
+            ),
+        actions =
+            TimeEntryActionsView(
+                togglId = togglId,
+                description = description?.takeIf { it.isNotBlank() },
             ),
         timeRange = "${TIME_FORMATTER.format(localStart)} – ${TIME_FORMATTER.format(localStop)}",
         durationFormatted = formatDuration(duration),
