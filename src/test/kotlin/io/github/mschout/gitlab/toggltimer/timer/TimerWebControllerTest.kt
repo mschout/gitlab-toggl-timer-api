@@ -44,6 +44,7 @@ class TimerWebControllerTest {
   private lateinit var timeEntryHistoryService: TimeEntryHistoryService
   private lateinit var timeEntryDescriptionService: TimeEntryDescriptionService
   private lateinit var timeEntryProjectService: TimeEntryProjectService
+  private lateinit var timeEntryDeletionService: TimeEntryDeletionService
   private lateinit var controller: TimerWebController
 
   @BeforeEach
@@ -54,6 +55,7 @@ class TimerWebControllerTest {
     timeEntryHistoryService = mockk()
     timeEntryDescriptionService = mockk()
     timeEntryProjectService = mockk()
+    timeEntryDeletionService = mockk()
     every { credentialsService.currentTogglWorkspaceId() } returns null
     every { togglService.fetchWorkspaces() } returns emptyList()
     every { togglService.fetchClients(any()) } returns emptyList()
@@ -74,6 +76,7 @@ class TimerWebControllerTest {
             timeEntryHistoryService,
             timeEntryDescriptionService,
             timeEntryProjectService,
+            timeEntryDeletionService,
         )
   }
 
@@ -201,6 +204,75 @@ class TimerWebControllerTest {
           togglId = 999L,
           description = "No access",
           model = ExtendedModelMap(),
+      )
+    }
+  }
+
+  @Test
+  fun `delete refreshes recent entries and retargets the history section`() {
+    every { timeEntryDeletionService.delete(123L) } returns Unit
+    val historyPage = emptyHistoryPage()
+    every { timeEntryHistoryService.initialPage() } returns historyPage
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view = controller.deleteEntry(togglId = 123L, model = model, response = response)
+
+    view shouldBe "timer-index :: recent-entries"
+    model["historyPage"] shouldBeSameInstanceAs historyPage
+    response.getHeader("HX-Retarget") shouldBe "#recent-time-entries"
+    response.getHeader("HX-Reswap") shouldBe "outerHTML"
+  }
+
+  @Test
+  fun `delete reopens confirmation with a Toggl failure`() {
+    every { timeEntryDeletionService.delete(123L) } throws
+        TogglTimeEntryDeletionException(123L, "Review merge request", RuntimeException("down"))
+    val model = ExtendedModelMap()
+
+    val view =
+        controller.deleteEntry(togglId = 123L, model = model, response = MockHttpServletResponse())
+
+    view shouldBe "fragments/time-entry-actions :: entry-actions"
+    model["entryActions"] shouldBe
+        TimeEntryActionsView(
+            togglId = 123L,
+            description = "Review merge request",
+            error = "Could not delete from Toggl. Try again.",
+            open = true,
+        )
+  }
+
+  @Test
+  fun `delete distinguishes a local history failure`() {
+    every { timeEntryDeletionService.delete(123L) } throws
+        TimeEntryHistoryDeletionException(
+            123L,
+            "Review merge request",
+            RuntimeException("database down"),
+        )
+    val model = ExtendedModelMap()
+
+    controller.deleteEntry(togglId = 123L, model = model, response = MockHttpServletResponse())
+
+    model["entryActions"] shouldBe
+        TimeEntryActionsView(
+            togglId = 123L,
+            description = "Review merge request",
+            error = "Deleted from Toggl, but local history could not be removed. Try again.",
+            open = true,
+        )
+  }
+
+  @Test
+  fun `delete leaves inaccessible entries as not found`() {
+    every { timeEntryDeletionService.delete(999L) } throws TimeEntryNotFoundException(999L)
+
+    shouldThrow<TimeEntryNotFoundException> {
+      controller.deleteEntry(
+          togglId = 999L,
+          model = ExtendedModelMap(),
+          response = MockHttpServletResponse(),
       )
     }
   }

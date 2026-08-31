@@ -18,6 +18,7 @@ package io.github.mschout.gitlab.toggltimer.toggl
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.service.annotation.DeleteExchange
 import org.springframework.web.service.annotation.GetExchange
 import org.springframework.web.service.annotation.HttpExchange
 import org.springframework.web.service.annotation.PatchExchange
@@ -93,6 +94,9 @@ interface TogglClient {
       @PathVariable timeEntryId: Long,
       @RequestBody request: UpdateTimeEntryProjectRequest,
   ): TogglTimeEntry
+
+  @DeleteExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}")
+  fun deleteTimeEntry(@PathVariable workspaceId: Long, @PathVariable timeEntryId: Long)
 
   @PatchExchange("/workspaces/{workspaceId}/time_entries/{timeEntryId}/stop")
   fun stopTimeEntry(

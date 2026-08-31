@@ -452,6 +452,46 @@ class TogglSyncServiceTest {
   }
 
   @Test
+  fun `upsertTimeEntries removes tombstones without recreating missing entries`() {
+    val existing =
+        TimeEntry(
+            togglId = 1L,
+            userId = 42L,
+            workspaceId = 7L,
+            start = Instant.parse("2026-05-22T12:00:00Z"),
+            duration = 100L,
+        )
+    every { timeEntryRepository.findByTogglId(1L) } returns existing
+    every { timeEntryRepository.findByTogglId(2L) } returns null
+
+    service.upsertTimeEntries(
+        userId = 42L,
+        entries =
+            listOf(
+                TogglTimeEntry(
+                    id = 1L,
+                    workspaceId = 7L,
+                    start = Instant.parse("2026-05-22T12:00:00Z"),
+                    duration = 100L,
+                    serverDeletedAt = Instant.parse("2026-05-22T13:00:00Z"),
+                ),
+                TogglTimeEntry(
+                    id = 2L,
+                    workspaceId = 7L,
+                    start = Instant.parse("2026-05-22T14:00:00Z"),
+                    duration = 100L,
+                    serverDeletedAt = Instant.parse("2026-05-22T15:00:00Z"),
+                ),
+            ),
+    )
+
+    verify(exactly = 1) { timeEntryRepository.delete(existing) }
+    verify(exactly = 0) { timeEntryRepository.save(any()) }
+    verify(exactly = 0) { projectRepository.save(any()) }
+    verify(exactly = 0) { clientRepository.save(any()) }
+  }
+
+  @Test
   fun `upsertTimeEntry throws when Toggl id is missing`() {
     shouldThrow<IllegalArgumentException> {
       service.upsertTimeEntry(

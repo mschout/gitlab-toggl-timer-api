@@ -20,7 +20,9 @@ import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
 import io.github.mschout.gitlab.toggltimer.timer.StartTimerRequest
 import io.github.mschout.gitlab.toggltimer.timer.StartTimerResult
 import io.github.mschout.gitlab.toggltimer.timer.StoppedTimerProjectView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryActionsView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDayGroup
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDeletionService
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionEditorView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryDescriptionService
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryHistoryPage
@@ -34,6 +36,7 @@ import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
 import io.github.mschout.gitlab.toggltimer.timer.TogglDescriptionUpdateException
 import io.github.mschout.gitlab.toggltimer.timer.TogglService
+import io.github.mschout.gitlab.toggltimer.timer.TogglTimeEntryDeletionException
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.mschout.gitlab.toggltimer.user.User
 import io.github.mschout.gitlab.toggltimer.user.UserAuthIdentityRepository
@@ -58,6 +61,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
@@ -71,6 +75,7 @@ class SecurityConfigWebMvcTest(
     @Autowired val timerService: TimerService,
     @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
     @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
+    @Autowired val timeEntryDeletionService: TimeEntryDeletionService,
     @Autowired val timeEntryProjectService: TimeEntryProjectService,
     @Autowired val credentialsService: CurrentUserCredentialsService,
 ) {
@@ -128,6 +133,11 @@ class SecurityConfigWebMvcTest(
                                                   clientName = "Inforuptcy",
                                                   projectColor = "#4C6EF5",
                                               ),
+                                          actions =
+                                              TimeEntryActionsView(
+                                                  togglId = 123L,
+                                                  description = "Rendered history entry",
+                                              ),
                                           timeRange = "12:36 PM – 1:24 PM",
                                           durationFormatted = "0:48:02",
                                       )
@@ -141,6 +151,8 @@ class SecurityConfigWebMvcTest(
         }
 
     @Bean fun timeEntryDescriptionService(): TimeEntryDescriptionService = mockk(relaxed = true)
+
+    @Bean fun timeEntryDeletionService(): TimeEntryDeletionService = mockk(relaxed = true)
 
     @Bean
     fun timeEntryProjectService(): TimeEntryProjectService =
@@ -200,6 +212,7 @@ class SecurityConfigWebMvcTest(
   fun `authenticated GET timer is allowed when user has settings`() {
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
+        .andExpect(content().string(containsString("/webjars/htmx.org/4.0.0/dist/htmx.min.js")))
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
         .andExpect(content().string(containsString("class=\"running-timer-toolbar shadow-sm\"")))
         .andExpect(content().string(containsString("data-started-at=\"2026-08-27T14:30:00Z\"")))
@@ -228,6 +241,12 @@ class SecurityConfigWebMvcTest(
         )
         .andExpect(content().string(containsString("hx-get=\"/timer/entries/123/projects\"")))
         .andExpect(content().string(containsString("0:48:02")))
+        .andExpect(
+            content().string(containsString("aria-label=\"Actions for Rendered history entry\""))
+        )
+        .andExpect(content().string(containsString("data-description=\"Rendered history entry\"")))
+        .andExpect(content().string(containsString("hx-delete=\"/timer/entries/123\"")))
+        .andExpect(content().string(containsString("Delete time entry?")))
   }
 
   @Test
@@ -389,6 +408,54 @@ class SecurityConfigWebMvcTest(
     mvc.perform(
             post("/timer/entries/123/description").with(csrf()).param("description", "No session")
         )
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/login"))
+  }
+
+  @Test
+  fun `authenticated DELETE entry is allowed with CSRF`() {
+    mvc.perform(
+            delete("/timer/entries/123").with(user("alice@example.com").roles("USER")).with(csrf())
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("Recent time entries")))
+
+    verify(exactly = 1) { timeEntryDeletionService.delete(123L) }
+  }
+
+  @Test
+  fun `authenticated DELETE entry renders a retryable Toggl failure`() {
+    every { timeEntryDeletionService.delete(123L) } throws
+        TogglTimeEntryDeletionException(123L, "Rendered history entry", RuntimeException("down"))
+
+    mvc.perform(
+            delete("/timer/entries/123").with(user("alice@example.com").roles("USER")).with(csrf())
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("data-open=\"true\"")))
+        .andExpect(content().string(containsString("Could not delete from Toggl. Try again.")))
+        .andExpect(content().string(containsString("hx-delete=\"/timer/entries/123\"")))
+  }
+
+  @Test
+  fun `authenticated DELETE entry returns not found for inaccessible entry`() {
+    every { timeEntryDeletionService.delete(999L) } throws TimeEntryNotFoundException(999L)
+
+    mvc.perform(
+            delete("/timer/entries/999").with(user("alice@example.com").roles("USER")).with(csrf())
+        )
+        .andExpect(status().isNotFound)
+  }
+
+  @Test
+  fun `DELETE entry requires CSRF`() {
+    mvc.perform(delete("/timer/entries/123").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isForbidden)
+  }
+
+  @Test
+  fun `unauthenticated DELETE entry redirects to login`() {
+    mvc.perform(delete("/timer/entries/123").with(csrf()))
         .andExpect(status().is3xxRedirection)
         .andExpect(redirectedUrl("/login"))
   }

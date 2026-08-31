@@ -152,7 +152,13 @@ class TogglSyncService(
   @Transactional
   fun upsertTimeEntries(userId: Long, entries: List<TogglTimeEntry>) {
     if (entries.isEmpty()) return
-    entries.forEach { upsertTimeEntry(userId, it) }
+    entries.forEach { entry ->
+      if (entry.serverDeletedAt != null) {
+        entry.id?.let(timeEntryRepository::findByTogglId)?.let(timeEntryRepository::delete)
+      } else {
+        upsertTimeEntry(userId, entry)
+      }
+    }
   }
 
   private fun upsertTimeEntryMetadata(workspaceId: Long, entry: TogglTimeEntry) {

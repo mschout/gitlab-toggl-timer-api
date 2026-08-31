@@ -136,6 +136,7 @@ class TimeEntryHistoryServiceTest {
                       clientName = "Inforuptcy",
                       projectColor = "#4C6EF5",
                   ),
+              actions = TimeEntryActionsView(togglId = 1L, description = "Review merge request"),
               timeRange = "12:36 PM – 1:24 PM",
               durationFormatted = "0:48:02",
           )

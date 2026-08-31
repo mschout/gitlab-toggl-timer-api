@@ -26,6 +26,7 @@ import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.validation.BindingResult
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PathVariable
@@ -46,6 +47,7 @@ class TimerWebController(
     private val timeEntryHistoryService: TimeEntryHistoryService,
     private val timeEntryDescriptionService: TimeEntryDescriptionService,
     private val timeEntryProjectService: TimeEntryProjectService,
+    private val timeEntryDeletionService: TimeEntryDeletionService,
 ) {
 
   @GetMapping
@@ -203,6 +205,45 @@ class TimerWebController(
         }
     model.addAttribute("descriptionEditor", descriptionEditor)
     return "fragments/time-entry-description :: description-editor"
+  }
+
+  @DeleteMapping("/entries/{togglId}")
+  fun deleteEntry(
+      @PathVariable togglId: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val actions =
+        try {
+          timeEntryDeletionService.delete(togglId)
+          null
+        } catch (exception: TogglTimeEntryDeletionException) {
+          logger.warn(exception) { "Failed to delete Toggl time entry $togglId" }
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = exception.description,
+              error = "Could not delete from Toggl. Try again.",
+              open = true,
+          )
+        } catch (exception: TimeEntryHistoryDeletionException) {
+          logger.warn(exception) { "Failed to delete Toggl time entry $togglId from Postgres" }
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = exception.description,
+              error = "Deleted from Toggl, but local history could not be removed. Try again.",
+              open = true,
+          )
+        }
+
+    if (actions != null) {
+      model.addAttribute("entryActions", actions)
+      return "fragments/time-entry-actions :: entry-actions"
+    }
+
+    loadHistoryData(model)
+    response.setHeader("HX-Retarget", "#recent-time-entries")
+    response.setHeader("HX-Reswap", "outerHTML")
+    return "timer-index :: recent-entries"
   }
 
   @GetMapping("/entries/{togglId}/projects")
