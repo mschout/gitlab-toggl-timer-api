@@ -702,18 +702,21 @@
             true
           );
 
-          document.body.addEventListener('htmx:beforeRequest', function (evt) {
-            var input = evt.detail && evt.detail.elt;
+          document.body.addEventListener('htmx:before:request', function (evt) {
+            var ctx = evt.detail && evt.detail.ctx;
+            var input = ctx && ctx.sourceElement;
             if (!input || !input.matches('.time-entry-description-editor')) return;
             input.readOnly = true;
             var wrapper = input.closest('.time-entry-description-wrapper');
             if (wrapper) wrapper.classList.add('is-saving');
           });
 
-          document.body.addEventListener('htmx:afterRequest', function (evt) {
-            var input = evt.detail && evt.detail.elt;
+          document.body.addEventListener('htmx:after:request', function (evt) {
+            var ctx = evt.detail && evt.detail.ctx;
+            var input = ctx && ctx.sourceElement;
+            var successful = ctx && ctx.response && ctx.response.status < 400;
             if (!input || !input.matches) return;
-            if (!evt.detail.successful && input.matches('.time-entry-delete-confirm')) {
+            if (!successful && input.matches('.time-entry-delete-confirm')) {
               var deleteDialog = input.closest('.time-entry-delete-dialog');
               var deleteError = deleteDialog.querySelector('.time-entry-delete-error');
               if (!deleteError) {
@@ -728,7 +731,7 @@
               return;
             }
             if (
-              !evt.detail.successful &&
+              !successful &&
               input.matches('.time-entry-project-option')
             ) {
               var projectDialog = input.closest('.time-entry-project-dialog');
@@ -745,7 +748,7 @@
               return;
             }
             if (!input.matches('.time-entry-description-editor')) return;
-            if (evt.detail.successful) return;
+            if (successful) return;
             input.dataset.submitting = 'false';
             input.readOnly = false;
             var wrapper = input.closest('.time-entry-description-wrapper');
@@ -763,8 +766,10 @@
             input.focus();
           });
 
-          document.body.addEventListener('htmx:afterSwap', function (evt) {
-            var tgt = evt.detail && evt.detail.target;
+          document.body.addEventListener('htmx:after:swap', function (evt) {
+            var ctx = evt.detail && evt.detail.ctx;
+            var tgt = ctx && ctx.target;
+            if (typeof tgt === 'string') tgt = document.querySelector(tgt);
             startElapsedTimers();
             if (tgt && tgt.id === 'client-select-wrapper') {
               restoreClientSelection();

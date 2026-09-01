@@ -37,6 +37,7 @@ import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
 import io.github.mschout.gitlab.toggltimer.timer.TogglDescriptionUpdateException
 import io.github.mschout.gitlab.toggltimer.timer.TogglService
 import io.github.mschout.gitlab.toggltimer.timer.TogglTimeEntryDeletionException
+import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.mschout.gitlab.toggltimer.user.User
 import io.github.mschout.gitlab.toggltimer.user.UserAuthIdentityRepository
@@ -213,6 +214,17 @@ class SecurityConfigWebMvcTest(
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("/webjars/htmx.org/4.0.0/dist/htmx.min.js")))
+        .andExpect(content().string(containsString("htmx:config:request")))
+        .andExpect(content().string(containsString("evt.detail.ctx.request.headers[header]")))
+        .andExpect(content().string(containsString("htmx:before:request")))
+        .andExpect(content().string(containsString("htmx:after:request")))
+        .andExpect(content().string(containsString("htmx:after:swap")))
+        .andExpect(content().string(containsString("ctx.sourceElement")))
+        .andExpect(content().string(containsString("ctx.response.status < 400")))
+        .andExpect(content().string(not(containsString("htmx:configRequest"))))
+        .andExpect(content().string(not(containsString("htmx:beforeRequest"))))
+        .andExpect(content().string(not(containsString("htmx:afterRequest"))))
+        .andExpect(content().string(not(containsString("htmx:afterSwap"))))
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
         .andExpect(content().string(containsString("class=\"running-timer-toolbar shadow-sm\"")))
         .andExpect(content().string(containsString("data-started-at=\"2026-08-27T14:30:00Z\"")))
@@ -247,6 +259,25 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("data-description=\"Rendered history entry\"")))
         .andExpect(content().string(containsString("hx-delete=\"/timer/entries/123\"")))
         .andExpect(content().string(containsString("Delete time entry?")))
+  }
+
+  @Test
+  fun `authenticated HTMX create project is allowed with CSRF header`() {
+    every { timerService.createProject(any()) } returns
+        TogglProject(id = 100L, name = "42 - Some issue", clientId = 5L)
+
+    mvc.perform(
+            post("/timer/create-project")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf().asHeader())
+                .header("HX-Request", "true")
+                .param("issueUrl", "https://gitlab.com/g/p/-/issues/42")
+                .param("workspaceId", "7")
+                .param("clientId", "5")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("Project ready")))
+        .andExpect(content().string(containsString("42 - Some issue")))
   }
 
   @Test
