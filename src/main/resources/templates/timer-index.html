@@ -688,6 +688,7 @@
             if (evt.key === 'Enter') {
               evt.preventDefault();
               input.dataset.submitting = 'true';
+              input.blur();
               htmx.trigger(input, 'description-save');
             }
           });
