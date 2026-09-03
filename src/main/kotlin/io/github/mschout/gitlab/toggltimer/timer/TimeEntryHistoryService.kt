@@ -23,6 +23,7 @@ import io.github.mschout.gitlab.toggltimer.project.TimeEntryRepository
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import java.time.Clock
 import java.time.DayOfWeek
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -66,6 +67,22 @@ data class RecentTimeEntryView(
 data class TimeEntryActionsView(
     val togglId: Long,
     val description: String?,
+    val error: String? = null,
+    val open: Boolean = false,
+    val split: TimeEntrySplitView? = null,
+)
+
+data class TimeEntrySplitView(
+    val togglId: Long,
+    val expectedStart: Instant,
+    val expectedStop: Instant,
+    val durationSeconds: Long,
+    val splitOffsetSeconds: Long,
+    val timeZone: String,
+    val startEpochMilliseconds: Long,
+    val startLocalSecondOfDay: Int,
+    val startOffsetSeconds: Int,
+    val stopOffsetSeconds: Int,
     val error: String? = null,
     val open: Boolean = false,
 )
@@ -219,9 +236,59 @@ class TimeEntryHistoryService(
             TimeEntryActionsView(
                 togglId = togglId,
                 description = description?.takeIf { it.isNotBlank() },
+                split = splitView(zone),
             ),
         timeRange = "${TIME_FORMATTER.format(localStart)} – ${TIME_FORMATTER.format(localStop)}",
         durationFormatted = formatDuration(duration),
+    )
+  }
+
+  fun splitView(
+      togglId: Long,
+      start: Instant,
+      stop: Instant,
+      offset: Long,
+      error: String,
+  ): TimeEntrySplitView =
+      buildSplitView(
+          togglId = togglId,
+          start = start,
+          stop = stop,
+          zone = credentialsService.currentTimeZone(),
+          offset = offset,
+          error = error,
+          open = true,
+      ) ?: error("A split error view requires a splittable interval")
+
+  private fun TimeEntry.splitView(zone: ZoneId): TimeEntrySplitView? =
+      buildSplitView(togglId = togglId, start = start, stop = stop, zone = zone)
+
+  private fun buildSplitView(
+      togglId: Long,
+      start: Instant,
+      stop: Instant?,
+      zone: ZoneId,
+      offset: Long? = null,
+      error: String? = null,
+      open: Boolean = false,
+  ): TimeEntrySplitView? {
+    val entryStop = stop ?: return null
+    val durationSeconds = Duration.between(start, entryStop).seconds
+    if (durationSeconds < 2) return null
+    val localStart = start.atZone(zone)
+    return TimeEntrySplitView(
+        togglId = togglId,
+        expectedStart = start,
+        expectedStop = entryStop,
+        durationSeconds = durationSeconds,
+        splitOffsetSeconds = (offset ?: durationSeconds / 2).coerceIn(1, durationSeconds - 1),
+        timeZone = zone.id,
+        startEpochMilliseconds = start.toEpochMilli(),
+        startLocalSecondOfDay = localStart.toLocalTime().toSecondOfDay(),
+        startOffsetSeconds = localStart.offset.totalSeconds,
+        stopOffsetSeconds = entryStop.atZone(zone).offset.totalSeconds,
+        error = error,
+        open = open,
     )
   }
 

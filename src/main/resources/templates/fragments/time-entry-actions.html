@@ -31,6 +31,18 @@
               <span class="time-entry-copy-label">Copy description</span>
             </button>
           </li>
+          <li th:if="${entryActions.split != null}" role="none">
+            <button
+              type="button"
+              class="dropdown-item time-entry-split-trigger"
+              role="menuitem"
+              th:attr="aria-controls=|time-entry-split-dialog-${entryActions.togglId}|"
+              aria-haspopup="dialog"
+            >
+              <i class="bi bi-scissors" aria-hidden="true"></i>
+              <span>Split</span>
+            </button>
+          </li>
           <li role="separator"><hr class="dropdown-divider" /></li>
           <li role="none">
             <button
@@ -46,6 +58,139 @@
           </li>
         </ul>
       </div>
+
+      <dialog
+        th:if="${entryActions.split != null}"
+        class="time-entry-split-dialog"
+        th:id="|time-entry-split-dialog-${entryActions.togglId}|"
+        th:with="split=${entryActions.split}"
+        th:attr="aria-labelledby=|time-entry-split-title-${entryActions.togglId}|,
+                 data-open=${split.open},
+                 data-duration-seconds=${split.durationSeconds},
+                 data-start-epoch-milliseconds=${split.startEpochMilliseconds},
+                 data-start-local-second-of-day=${split.startLocalSecondOfDay},
+                 data-start-offset-seconds=${split.startOffsetSeconds},
+                 data-stop-offset-seconds=${split.stopOffsetSeconds},
+                 data-time-zone=${split.timeZone}"
+      >
+        <form
+          class="time-entry-split-form"
+          th:attr="hx-post=@{/timer/entries/{togglId}/split(togglId=${entryActions.togglId})},
+                   hx-target=|#time-entry-actions-${entryActions.togglId}|"
+          hx-swap="outerHTML"
+          hx-disabled-elt="find button, find input"
+        >
+          <input type="hidden" name="expectedStart" th:value="${split.expectedStart}" />
+          <input type="hidden" name="expectedStop" th:value="${split.expectedStop}" />
+          <div class="time-entry-split-dialog-header">
+            <h3
+              class="time-entry-split-title"
+              th:id="|time-entry-split-title-${entryActions.togglId}|"
+            >
+              Split time entry
+            </h3>
+            <button
+              type="button"
+              class="btn-close time-entry-split-close"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="time-entry-split-dialog-body">
+            <div
+              th:if="${split.error != null}"
+              class="time-entry-split-error"
+              role="alert"
+              th:text="${split.error}"
+            >
+              Choose a valid split point.
+            </div>
+            <div class="time-entry-split-readout" aria-live="polite">
+              <span>Split at</span>
+              <strong class="time-entry-split-clock">—</strong>
+            </div>
+            <input
+              type="range"
+              name="splitOffsetSeconds"
+              class="form-range time-entry-split-slider"
+              min="1"
+              step="1"
+              th:max="${split.durationSeconds - 1}"
+              th:value="${split.splitOffsetSeconds}"
+              th:attr="aria-describedby=|time-entry-split-durations-${entryActions.togglId}|"
+              aria-label="Split point"
+            />
+            <div
+              class="time-entry-split-durations"
+              th:id="|time-entry-split-durations-${entryActions.togglId}|"
+            >
+              <span>First <strong class="time-entry-split-first-duration">—</strong></span>
+              <span>Second <strong class="time-entry-split-second-duration">—</strong></span>
+            </div>
+
+            <details class="time-entry-split-manual">
+              <summary>Enter a time</summary>
+              <fieldset>
+                <legend class="visually-hidden">Time entry mode</legend>
+                <div class="btn-group time-entry-split-mode" role="group" aria-label="Time entry mode">
+                  <input
+                    type="radio"
+                    class="btn-check time-entry-split-mode-input"
+                    th:id="|time-entry-split-elapsed-${entryActions.togglId}|"
+                    th:name="|time-entry-split-mode-${entryActions.togglId}|"
+                    value="elapsed"
+                    checked
+                  />
+                  <label
+                    class="btn btn-outline-secondary"
+                    th:for="|time-entry-split-elapsed-${entryActions.togglId}|"
+                  >Elapsed</label>
+                  <input
+                    type="radio"
+                    class="btn-check time-entry-split-mode-input"
+                    th:id="|time-entry-split-clock-${entryActions.togglId}|"
+                    th:name="|time-entry-split-mode-${entryActions.togglId}|"
+                    value="clock"
+                  />
+                  <label
+                    class="btn btn-outline-secondary"
+                    th:for="|time-entry-split-clock-${entryActions.togglId}|"
+                  >Clock time</label>
+                </div>
+                <label
+                  class="form-label"
+                  th:for="|time-entry-split-manual-${entryActions.togglId}|"
+                >HH:MM:SS</label>
+                <input
+                  type="text"
+                  class="form-control time-entry-split-manual-input"
+                  th:id="|time-entry-split-manual-${entryActions.togglId}|"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  placeholder="00:00:00"
+                  th:attr="aria-describedby=|time-entry-split-manual-help-${entryActions.togglId}|"
+                />
+                <div
+                  class="form-text time-entry-split-manual-help"
+                  th:id="|time-entry-split-manual-help-${entryActions.togglId}|"
+                >Enter elapsed time after the start.</div>
+                <div class="invalid-feedback time-entry-split-manual-error" role="alert"></div>
+              </fieldset>
+            </details>
+          </div>
+          <div class="time-entry-split-dialog-footer">
+            <button type="button" class="btn btn-outline-secondary time-entry-split-close">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary time-entry-split-confirm">
+              <span
+                class="htmx-indicator spinner-border spinner-border-sm me-1"
+                aria-hidden="true"
+              ></span>
+              Split
+            </button>
+          </div>
+        </form>
+      </dialog>
 
       <dialog
         class="time-entry-delete-dialog"

@@ -47,6 +47,21 @@ data class TogglTimeEntry(
 )
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class CreateStoppedTimeEntryRequest(
+    val workspaceId: Long,
+    val projectId: Long? = null,
+    val taskId: Long? = null,
+    val start: Instant,
+    val stop: Instant,
+    val description: String? = null,
+    val duration: Long,
+    val billable: Boolean,
+    val tags: List<String>,
+    val createdWith: String,
+)
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class UpdateTimeEntryDescriptionRequest(val workspaceId: Long, val description: String)
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)

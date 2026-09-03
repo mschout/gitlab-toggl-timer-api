@@ -45,6 +45,7 @@ class TimerWebControllerTest {
   private lateinit var timeEntryDescriptionService: TimeEntryDescriptionService
   private lateinit var timeEntryProjectService: TimeEntryProjectService
   private lateinit var timeEntryDeletionService: TimeEntryDeletionService
+  private lateinit var timeEntrySplitWorkflow: TimeEntrySplitWorkflow
   private lateinit var controller: TimerWebController
 
   @BeforeEach
@@ -56,6 +57,7 @@ class TimerWebControllerTest {
     timeEntryDescriptionService = mockk()
     timeEntryProjectService = mockk()
     timeEntryDeletionService = mockk()
+    timeEntrySplitWorkflow = mockk()
     every { credentialsService.currentTogglWorkspaceId() } returns null
     every { togglService.fetchWorkspaces() } returns emptyList()
     every { togglService.fetchClients(any()) } returns emptyList()
@@ -78,6 +80,7 @@ class TimerWebControllerTest {
             timeEntryDescriptionService,
             timeEntryProjectService,
             timeEntryDeletionService,
+            timeEntrySplitWorkflow,
         )
   }
 
@@ -237,6 +240,70 @@ class TimerWebControllerTest {
     response.getHeader("HX-Retarget") shouldBe "#recent-time-entries"
     response.getHeader("HX-Reswap") shouldBe "outerHTML"
     response.getHeader("HX-Trigger") shouldBe "timeTotalsChanged"
+  }
+
+  @Test
+  fun `split refreshes recent entries and totals when replacement completes`() {
+    val start = Instant.parse("2026-08-26T14:00:00Z")
+    val stop = Instant.parse("2026-08-26T15:00:00Z")
+    val command = SplitTimeEntryCommand(123L, start, stop, 1_800L)
+    every { timeEntrySplitWorkflow.split(command) } returns SplitTimeEntryOutcome.Completed
+    every { timeEntryHistoryService.initialPage() } returns emptyHistoryPage()
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view =
+        controller.splitEntry(
+            togglId = 123L,
+            expectedStart = start,
+            expectedStop = stop,
+            splitOffsetSeconds = 1_800L,
+            model = model,
+            response = response,
+        )
+
+    view shouldBe "timer-index :: recent-entries"
+    response.getHeader("HX-Retarget") shouldBe "#recent-time-entries"
+    response.getHeader("HX-Reswap") shouldBe "outerHTML"
+    response.getHeader("HX-Trigger") shouldBe "timeTotalsChanged"
+  }
+
+  @Test
+  fun `split reopens the dialog with the submitted offset when rejected`() {
+    val start = Instant.parse("2026-08-26T14:00:00Z")
+    val stop = Instant.parse("2026-08-26T15:00:00Z")
+    val splitView =
+        TimeEntrySplitView(
+            togglId = 123L,
+            expectedStart = start,
+            expectedStop = stop,
+            durationSeconds = 3_600L,
+            splitOffsetSeconds = 1_200L,
+            timeZone = "America/Chicago",
+            startEpochMilliseconds = start.toEpochMilli(),
+            startLocalSecondOfDay = 32_400,
+            startOffsetSeconds = -18_000,
+            stopOffsetSeconds = -18_000,
+            error = "This entry changed in Toggl.",
+            open = true,
+        )
+    every { timeEntrySplitWorkflow.split(any()) } returns
+        SplitTimeEntryOutcome.Rejected("This entry changed in Toggl.")
+    every { timeEntryHistoryService.splitView(123L, start, stop, 1_200L, any()) } returns splitView
+    val model = ExtendedModelMap()
+
+    val view =
+        controller.splitEntry(
+            togglId = 123L,
+            expectedStart = start,
+            expectedStop = stop,
+            splitOffsetSeconds = 1_200L,
+            model = model,
+            response = MockHttpServletResponse(),
+        )
+
+    view shouldBe "fragments/time-entry-actions :: entry-actions"
+    (model["entryActions"] as TimeEntryActionsView).split shouldBeSameInstanceAs splitView
   }
 
   @Test

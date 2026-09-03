@@ -21,6 +21,7 @@ import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
+import java.time.Instant
 import java.time.LocalDate
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.stereotype.Controller
@@ -48,6 +49,7 @@ class TimerWebController(
     private val timeEntryDescriptionService: TimeEntryDescriptionService,
     private val timeEntryProjectService: TimeEntryProjectService,
     private val timeEntryDeletionService: TimeEntryDeletionService,
+    private val timeEntrySplitWorkflow: TimeEntrySplitWorkflow,
 ) {
 
   @GetMapping
@@ -257,6 +259,61 @@ class TimerWebController(
     response.setHeader("HX-Reswap", "outerHTML")
     response.setHeader("HX-Trigger", "timeTotalsChanged")
     return "timer-index :: recent-entries"
+  }
+
+  @PostMapping("/entries/{togglId}/split")
+  fun splitEntry(
+      @PathVariable togglId: Long,
+      @RequestParam expectedStart: Instant,
+      @RequestParam expectedStop: Instant,
+      @RequestParam splitOffsetSeconds: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val outcome =
+        try {
+          timeEntrySplitWorkflow.split(
+              SplitTimeEntryCommand(
+                  togglId = togglId,
+                  expectedStart = expectedStart,
+                  expectedStop = expectedStop,
+                  splitOffsetSeconds = splitOffsetSeconds,
+              )
+          )
+        } catch (exception: IllegalArgumentException) {
+          SplitTimeEntryOutcome.Rejected(
+              exception.message ?: "Choose a split point inside this time entry."
+          )
+        }
+
+    if (outcome == SplitTimeEntryOutcome.Completed) {
+      loadHistoryData(model)
+      response.setHeader("HX-Retarget", "#recent-time-entries")
+      response.setHeader("HX-Reswap", "outerHTML")
+      response.setHeader("HX-Trigger", "timeTotalsChanged")
+      return "timer-index :: recent-entries"
+    }
+
+    val message =
+        when (outcome) {
+          is SplitTimeEntryOutcome.Rejected -> outcome.message
+          is SplitTimeEntryOutcome.RecoveryPending -> outcome.message
+          is SplitTimeEntryOutcome.NeedsReview -> outcome.message
+          SplitTimeEntryOutcome.Completed -> error("Handled above")
+        }
+    val split =
+        timeEntryHistoryService.splitView(
+            togglId = togglId,
+            start = expectedStart,
+            stop = expectedStop,
+            offset = splitOffsetSeconds,
+            error = message,
+        )
+    model.addAttribute(
+        "entryActions",
+        TimeEntryActionsView(togglId = togglId, description = null, split = split),
+    )
+    return "fragments/time-entry-actions :: entry-actions"
   }
 
   @GetMapping("/entries/{togglId}/projects")
