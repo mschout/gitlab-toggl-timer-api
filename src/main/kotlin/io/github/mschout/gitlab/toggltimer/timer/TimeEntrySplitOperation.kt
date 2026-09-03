@@ -46,36 +46,74 @@ enum class TimeEntrySplitPhase {
 @Entity
 @Table(name = "time_entry_split_operations")
 class TimeEntrySplitOperation(
-    @Column(name = "user_id", nullable = false, updatable = false) val userId: Long,
+    // spotless:off
+    @Column(name = "user_id", nullable = false, updatable = false)
+    val userId: Long,
+
     @Column(name = "original_toggl_id", nullable = false, updatable = false)
     val originalTogglId: Long,
-    @Column(name = "workspace_id", nullable = false, updatable = false) val workspaceId: Long,
-    @Column(name = "project_id", updatable = false) val projectId: Long? = null,
-    @Column(name = "task_id", updatable = false) val taskId: Long? = null,
+
+    @Column(name = "workspace_id", nullable = false, updatable = false)
+    val workspaceId: Long,
+
+    @Column(name = "project_id", updatable = false)
+    val projectId: Long? = null,
+
+    @Column(name = "task_id", updatable = false)
+    val taskId: Long? = null,
+
     @Column(name = "description", columnDefinition = "TEXT", updatable = false)
     val description: String? = null,
+
     @Column(name = "original_start", nullable = false, updatable = false)
     val originalStart: Instant,
-    @Column(name = "original_stop", nullable = false, updatable = false) val originalStop: Instant,
-    @Column(name = "split_at", nullable = false, updatable = false) val splitAt: Instant,
-    @Column(name = "billable", nullable = false, updatable = false) val billable: Boolean,
+
+    @Column(name = "original_stop", nullable = false, updatable = false)
+    val originalStop: Instant,
+
+    @Column(name = "split_at", nullable = false, updatable = false)
+    val splitAt: Instant,
+
+    @Column(name = "billable", nullable = false, updatable = false)
+    val billable: Boolean,
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "tags", nullable = false, columnDefinition = "jsonb", updatable = false)
     val tags: List<String>,
-    @Column(name = "created_with", nullable = false, updatable = false) val createdWith: String,
-    @Column(name = "first_child_toggl_id") var firstChildTogglId: Long? = null,
-    @Column(name = "second_child_toggl_id") var secondChildTogglId: Long? = null,
+
+    @Column(name = "created_with", nullable = false, updatable = false)
+    val createdWith: String,
+
+    @Column(name = "first_child_toggl_id")
+    var firstChildTogglId: Long? = null,
+
+    @Column(name = "second_child_toggl_id")
+    var secondChildTogglId: Long? = null,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "phase", nullable = false)
     var phase: TimeEntrySplitPhase = TimeEntrySplitPhase.READY,
-    @Column(name = "last_error", columnDefinition = "TEXT") var lastError: String? = null,
-    @Column(name = "attempt_count", nullable = false) var attemptCount: Int = 0,
-    @Column(name = "next_attempt_at", nullable = false) var nextAttemptAt: Instant = Instant.now(),
-    @Column(name = "lease_until") var leaseUntil: Instant? = null,
+
+    @Column(name = "last_error", columnDefinition = "TEXT")
+    var lastError: String? = null,
+
+    @Column(name = "attempt_count", nullable = false)
+    var attemptCount: Int = 0,
+
+    @Column(name = "next_attempt_at", nullable = false)
+    var nextAttemptAt: Instant = Instant.now(),
+
+    @Column(name = "lease_until")
+    var leaseUntil: Instant? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
-    @Column(name = "updated_at", nullable = false) var updatedAt: Instant = Instant.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+
     @Id @GeneratedValue(strategy = GenerationType.UUID) val id: UUID? = null,
+    // spotless:on
 ) {
   @PrePersist
   @PreUpdate

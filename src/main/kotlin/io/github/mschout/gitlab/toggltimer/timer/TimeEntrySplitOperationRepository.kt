@@ -29,12 +29,18 @@ interface TimeEntrySplitOperationRepository : JpaRepository<TimeEntrySplitOperat
 
   @Query(
       """
-      SELECT operation
-      FROM TimeEntrySplitOperation operation
-      WHERE operation.phase <> io.github.mschout.gitlab.toggltimer.timer.TimeEntrySplitPhase.NEEDS_REVIEW
+      SELECT
+        operation
+      FROM
+        TimeEntrySplitOperation operation
+      WHERE
+        operation.phase <> TimeEntrySplitPhase.NEEDS_REVIEW
         AND operation.nextAttemptAt <= :now
-        AND (operation.leaseUntil IS NULL OR operation.leaseUntil <= :now)
-      ORDER BY operation.nextAttemptAt, operation.createdAt
+        AND (operation.leaseUntil IS NULL
+          OR operation.leaseUntil <= :now)
+      ORDER BY
+        operation.nextAttemptAt,
+        operation.createdAt
       """
   )
   fun findDue(@Param("now") now: Instant, pageable: Pageable): List<TimeEntrySplitOperation>
@@ -43,11 +49,15 @@ interface TimeEntrySplitOperationRepository : JpaRepository<TimeEntrySplitOperat
   @Transactional
   @Query(
       """
-      UPDATE TimeEntrySplitOperation operation
-      SET operation.leaseUntil = :leaseUntil,
-          operation.attemptCount = operation.attemptCount + 1
-      WHERE operation.id = :id
-        AND (operation.leaseUntil IS NULL OR operation.leaseUntil <= :now)
+      UPDATE
+        TimeEntrySplitOperation operation
+      SET
+        operation.leaseUntil = :leaseUntil,
+        operation.attemptCount = operation.attemptCount + 1
+      WHERE
+        operation.id = :id
+        AND (operation.leaseUntil IS NULL
+          OR operation.leaseUntil <= :now)
       """
   )
   fun claim(
