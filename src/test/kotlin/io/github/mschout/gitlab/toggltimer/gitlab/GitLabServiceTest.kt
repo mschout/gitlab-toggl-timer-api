@@ -56,7 +56,7 @@ class GitLabServiceTest {
     every { gitLabClient.getProject("missing-grp", "missing-proj") } returns null
 
     val ex =
-        shouldThrow<IllegalStateException> {
+        shouldThrow<GitLabIssueNotFoundException> {
           service.getGitlabIssueTitle(GitLabIssue("missing-grp", "missing-proj", 1L))
         }
     ex.message shouldBe "GitLab project not found: missing-grp/missing-proj"
@@ -73,7 +73,7 @@ class GitLabServiceTest {
     every { gitLabClient.getIssue(9L, 42L) } returns null
 
     val ex =
-        shouldThrow<IllegalStateException> {
+        shouldThrow<GitLabIssueNotFoundException> {
           service.getGitlabIssueTitle(GitLabIssue("noissue-grp", "noissue-proj", 42L))
         }
     ex.message shouldBe "GitLab issue not found: 42"

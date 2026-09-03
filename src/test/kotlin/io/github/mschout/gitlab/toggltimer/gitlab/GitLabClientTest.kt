@@ -16,12 +16,14 @@
 package io.github.mschout.gitlab.toggltimer.gitlab
 
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import java.util.stream.Stream
 import org.gitlab4j.api.GitLabApi
+import org.gitlab4j.api.GitLabApiException
 import org.gitlab4j.api.IssuesApi
 import org.gitlab4j.api.SearchApi
 import org.gitlab4j.api.models.Issue
@@ -125,5 +127,21 @@ class GitLabClientTest {
     every { issuesApi.getIssue(303L, 404L) } returns null
 
     client.getIssue(303L, 404L).shouldBeNull()
+  }
+
+  @Test
+  fun `getIssue returns null when API responds with not found`() {
+    every { issuesApi.getIssue(303L, 404L) } throws GitLabApiException("Not found", 404)
+
+    client.getIssue(303L, 404L).shouldBeNull()
+  }
+
+  @Test
+  fun `getIssue propagates other API failures`() {
+    every { issuesApi.getIssue(303L, 500L) } throws GitLabApiException("Internal server error", 500)
+
+    val exception = shouldThrow<GitLabApiException> { client.getIssue(303L, 500L) }
+
+    exception.httpStatus shouldBe 500
   }
 }

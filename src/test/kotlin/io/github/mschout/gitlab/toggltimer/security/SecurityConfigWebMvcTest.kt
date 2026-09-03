@@ -318,7 +318,7 @@ class SecurityConfigWebMvcTest(
                 .with(user("alice@example.com").roles("USER"))
                 .with(csrf().asHeader())
                 .header("HX-Request", "true")
-                .param("issueUrl", "https://gitlab.com/g/p/-/issues/42")
+                .param("issueUrl", "https://gitlab.com/g/p/-/work_items/42")
                 .param("workspaceId", "7")
                 .param("clientId", "5")
         )
@@ -423,7 +423,7 @@ class SecurityConfigWebMvcTest(
     mvc.perform(
             get("/timer/start")
                 .with(user("alice@example.com").roles("USER"))
-                .param("issueUrl", "https://gitlab.com/g/p/-/issues/74398")
+                .param("issueUrl", "https://gitlab.com/g/p/-/work_items/74398")
                 .param("workspaceId", "7")
                 .param("clientId", "5")
         )

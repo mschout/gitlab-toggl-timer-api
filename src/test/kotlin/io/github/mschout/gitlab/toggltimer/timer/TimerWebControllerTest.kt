@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssueNotFoundException
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
@@ -547,7 +548,11 @@ class TimerWebControllerTest {
   @Test
   fun `index should preserve a pre-existing form attribute`() {
     val existing =
-        TimerForm(issueUrl = "https://gitlab.com/g/p/-/issues/1", workspaceId = 1L, clientId = 2L)
+        TimerForm(
+            issueUrl = "https://gitlab.com/g/p/-/work_items/1",
+            workspaceId = 1L,
+            clientId = 2L,
+        )
     val model = ExtendedModelMap().apply { addAttribute("form", existing) }
 
     controller.index(model)
@@ -667,7 +672,7 @@ class TimerWebControllerTest {
     val project = TogglProject(id = 100L, name = "42 - Some issue", clientId = 5L)
     val expectedRequest =
         CreateProjectRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
         )
@@ -675,7 +680,7 @@ class TimerWebControllerTest {
 
     val mav =
         controller.createProject(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
         )
@@ -692,7 +697,7 @@ class TimerWebControllerTest {
     val startInstant = Instant.parse("2026-05-08T15:30:00Z")
     val expectedRequest =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/99",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/99",
             workspaceId = 11L,
             clientId = 22L,
         )
@@ -707,7 +712,7 @@ class TimerWebControllerTest {
 
     val mav =
         controller.startTimer(
-            issueUrl = "https://gitlab.com/g/p/-/issues/99",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/99",
             workspaceId = 11L,
             clientId = 22L,
         )
@@ -774,6 +779,32 @@ class TimerWebControllerTest {
 
     view shouldBe "create-project :: result-card"
     model["project"] shouldBeSameInstanceAs project
+  }
+
+  @Test
+  fun `createProject POST shows issue not found error when GitLab lookup fails`() {
+    val form = validForm()
+    val errors = bindingResult(form)
+    every { timerService.createProject(form.toCreateProjectRequest()) } throws
+        GitLabIssueNotFoundException("GitLab issue not found: 42")
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view =
+        controller.createProjectSubmit(
+            form = form,
+            bindingResult = errors,
+            hxRequest = true,
+            model = model,
+            response = response,
+        )
+
+    assertSoftly {
+      view shouldBe "timer-index :: timer-form"
+      errors.getFieldError("issueUrl")?.defaultMessage shouldBe "GitLab issue not found."
+      response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
+      model["formExpanded"] shouldBe true
+    }
   }
 
   @Test
@@ -900,6 +931,32 @@ class TimerWebControllerTest {
   }
 
   @Test
+  fun `startTimer POST shows issue not found error when GitLab lookup fails`() {
+    val form = validForm()
+    val errors = bindingResult(form)
+    every { timerService.startTimer(form.toStartTimerRequest()) } throws
+        GitLabIssueNotFoundException("GitLab issue not found: 42")
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view =
+        controller.startTimerSubmit(
+            form = form,
+            bindingResult = errors,
+            hxRequest = true,
+            model = model,
+            response = response,
+        )
+
+    assertSoftly {
+      view shouldBe "timer-index :: timer-form"
+      errors.getFieldError("issueUrl")?.defaultMessage shouldBe "GitLab issue not found."
+      response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
+      model["formExpanded"] shouldBe true
+    }
+  }
+
+  @Test
   fun `startTimer POST with binding errors returns form fragment with retarget headers when HTMX`() {
     val form = TimerForm()
     val errors = bindingResult(form).apply { rejectValue("workspaceId", "NotNull") }
@@ -995,7 +1052,7 @@ class TimerWebControllerTest {
 
   private fun validForm(description: String? = null) =
       TimerForm(
-          issueUrl = "https://gitlab.com/g/p/-/issues/42",
+          issueUrl = "https://gitlab.com/g/p/-/work_items/42",
           workspaceId = 7L,
           clientId = 5L,
           description = description,

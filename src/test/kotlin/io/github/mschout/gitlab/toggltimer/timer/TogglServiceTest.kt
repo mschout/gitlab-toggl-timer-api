@@ -298,7 +298,7 @@ class TogglServiceTest {
     val explicitStart = Instant.parse("2026-05-15T12:00:00Z")
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
             start = explicitStart,
@@ -331,7 +331,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
         )
@@ -361,7 +361,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
         )
@@ -403,7 +403,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
             description = "fresh description",
@@ -435,7 +435,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
             description = "   ",
@@ -467,7 +467,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
         )
@@ -840,7 +840,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
             start = Instant.parse("2026-05-22T12:00:00Z"),
@@ -866,7 +866,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
             start = Instant.parse("2026-05-22T12:00:00Z"),
@@ -892,7 +892,7 @@ class TogglServiceTest {
     val project = TogglProject(id = 99L, name = "42 - X", clientId = 5L)
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
         )

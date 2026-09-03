@@ -50,7 +50,7 @@ class TimerServiceTest {
   fun `startTimer should resolve issue title and start toggl timer for resolved project`() {
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/mygroup/myproject/-/issues/42",
+            issueUrl = "https://gitlab.com/mygroup/myproject/-/work_items/42",
             workspaceId = 7L,
             clientId = 5L,
         )
@@ -143,7 +143,7 @@ class TimerServiceTest {
   fun `startTimer should fail when an issue url is provided without a client`() {
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/42",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/42",
             workspaceId = 7L,
             clientId = null,
         )
@@ -155,7 +155,7 @@ class TimerServiceTest {
   fun `createProject should resolve issue title and delegate to toggl find or create`() {
     val request =
         CreateProjectRequest(
-            issueUrl = "https://gitlab.com/teamA/repoA/-/issues/99",
+            issueUrl = "https://gitlab.com/teamA/repoA/-/work_items/99",
             workspaceId = 11L,
             clientId = 22L,
         )
@@ -175,7 +175,7 @@ class TimerServiceTest {
   fun `startTimer should propagate gitlab service errors`() {
     val request =
         StartTimerRequest(
-            issueUrl = "https://gitlab.com/mygroup/myproject/-/issues/1",
+            issueUrl = "https://gitlab.com/mygroup/myproject/-/work_items/1",
             workspaceId = 7L,
             clientId = 5L,
         )
@@ -191,7 +191,7 @@ class TimerServiceTest {
   fun `createProject should propagate gitlab service errors`() {
     val request =
         CreateProjectRequest(
-            issueUrl = "https://gitlab.com/g/p/-/issues/7",
+            issueUrl = "https://gitlab.com/g/p/-/work_items/7",
             workspaceId = 1L,
             clientId = 2L,
         )
