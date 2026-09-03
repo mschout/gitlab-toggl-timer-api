@@ -419,10 +419,32 @@
             return value < 10 ? '0' + value : '' + value;
           }
 
+          var basePageTitle = document.title;
+
+          function elapsedSeconds(timer) {
+            if (!timer) return null;
+            var startedAt = new Date(timer.getAttribute('data-started-at'));
+            if (isNaN(startedAt.getTime())) return null;
+            return Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+          }
+
+          function formatElapsedTitle(seconds) {
+            var hours = Math.floor(seconds / 3600);
+            var minutes = Math.floor((seconds % 3600) / 60);
+            var remainingSeconds = seconds % 60;
+            if (hours === 0) return minutes + ':' + padElapsedPart(remainingSeconds);
+            return hours + ':' + padElapsedPart(minutes) + ':' + padElapsedPart(remainingSeconds);
+          }
+
+          function renderPageTitle(runningTimer) {
+            var seconds = elapsedSeconds(runningTimer);
+            document.title =
+              seconds === null ? basePageTitle : formatElapsedTitle(seconds) + ' • ' + basePageTitle;
+          }
+
           function renderElapsedTime(el) {
-            var startedAt = new Date(el.getAttribute('data-started-at'));
-            if (isNaN(startedAt.getTime())) return;
-            var seconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+            var seconds = elapsedSeconds(el);
+            if (seconds === null) return;
             var hours = Math.floor(seconds / 3600);
             var minutes = Math.floor((seconds % 3600) / 60);
             var remainingSeconds = seconds % 60;
@@ -476,16 +498,19 @@
             var timers = document.querySelectorAll('.js-elapsed-time');
             timers.forEach(renderElapsedTime);
             renderTimeTotals();
+            renderPageTitle(timers[0]);
             if (!timers.length) return;
             window.__togglElapsedIntervalId = setInterval(function () {
               var currentTimers = document.querySelectorAll('.js-elapsed-time');
               if (!currentTimers.length) {
                 clearInterval(window.__togglElapsedIntervalId);
                 window.__togglElapsedIntervalId = null;
+                renderPageTitle(null);
                 return;
               }
               currentTimers.forEach(renderElapsedTime);
               renderTimeTotals();
+              renderPageTitle(currentTimers[0]);
             }, 1000);
           }
 
