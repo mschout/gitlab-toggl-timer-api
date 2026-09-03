@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.timer
 
+import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssueNotFoundException
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
@@ -104,9 +105,17 @@ class TimerWebController(
     if (bindingResult.hasErrors()) {
       return formErrorView(form, model, hxRequest, response)
     }
-    val project = timerService.createProject(form.toCreateProjectRequest())
+    val project =
+        try {
+          timerService.createProject(form.toCreateProjectRequest())
+        } catch (exception: GitLabIssueNotFoundException) {
+          logger.warn { exception.message ?: "GitLab issue not found" }
+          bindingResult.rejectValue("issueUrl", "NotFound", "GitLab issue not found.")
+          return formErrorView(form, model, hxRequest, response)
+        }
     model.addAttribute("project", project)
-    return if (hxRequest) "create-project :: result-card" else "create-project"
+    if (hxRequest) response.setHeader("HX-Trigger", "issueUrlConsumed")
+    return if (hxRequest) "create-project :: success-alert" else "create-project"
   }
 
   @GetMapping("/start")
@@ -144,9 +153,19 @@ class TimerWebController(
     if (bindingResult.hasErrors()) {
       return formErrorView(form, model, hxRequest, response)
     }
-    val result = timerService.startTimer(form.toStartTimerRequest())
+    val result =
+        try {
+          timerService.startTimer(form.toStartTimerRequest())
+        } catch (exception: GitLabIssueNotFoundException) {
+          logger.warn { exception.message ?: "GitLab issue not found" }
+          bindingResult.rejectValue("issueUrl", "NotFound", "GitLab issue not found.")
+          return formErrorView(form, model, hxRequest, response)
+        }
     addRunningTimer(result, model)
     loadTotalsData(model)
+    if (hxRequest && form.issueUrl.isNotBlank()) {
+      response.setHeader("HX-Trigger", "issueUrlConsumed")
+    }
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 

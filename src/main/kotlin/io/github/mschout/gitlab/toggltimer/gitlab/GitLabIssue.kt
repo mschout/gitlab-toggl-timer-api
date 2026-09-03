@@ -21,11 +21,19 @@ data class GitLabIssue(val groupName: String, val projectPath: String, val issue
   companion object {
     fun fromUrl(url: String): GitLabIssue {
       val pathSegments = UriComponentsBuilder.fromUriString(url).build().pathSegments
-      require(pathSegments.size >= 5) { "Invalid GitLab issue URL: $url" }
+      val issueNumber = pathSegments.getOrNull(4)?.toLongOrNull()
+      if (
+          pathSegments.size < 5 ||
+              pathSegments[2] != "-" ||
+              pathSegments[3] != "work_items" ||
+              issueNumber == null
+      ) {
+        throw GitLabIssueNotFoundException("GitLab issue not found for URL: $url")
+      }
       return GitLabIssue(
           groupName = pathSegments[0],
           projectPath = pathSegments[1],
-          issueNumber = pathSegments[4].toLong(),
+          issueNumber = issueNumber,
       )
     }
   }

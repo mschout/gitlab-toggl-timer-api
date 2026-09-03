@@ -18,6 +18,7 @@ package io.github.mschout.gitlab.toggltimer.gitlab
 import io.github.mschout.gitlab.toggltimer.configuration.CacheManagerConfiguration
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.gitlab4j.api.GitLabApiException
 import org.gitlab4j.api.models.Issue
 import org.gitlab4j.api.models.Project
 import org.gitlab4j.models.Constants
@@ -40,7 +41,12 @@ class GitLabClient(
   )
   fun getIssue(projectId: Long, issueNumber: Long): Issue? {
     logger.info { "Looking up project $projectId issue $issueNumber using GitLab API" }
-    return gitLabApi().issuesApi.getIssue(projectId, issueNumber)
+    return try {
+      gitLabApi().issuesApi.getIssue(projectId, issueNumber)
+    } catch (exception: GitLabApiException) {
+      if (exception.httpStatus != 404) throw exception
+      null
+    }
   }
 
   @Cacheable(

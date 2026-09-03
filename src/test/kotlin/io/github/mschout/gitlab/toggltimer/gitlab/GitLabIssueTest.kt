@@ -24,7 +24,7 @@ class GitLabIssueTest {
 
   @Test
   fun `should parse standard gitlab issue url`() {
-    val issue = GitLabIssue.fromUrl("https://gitlab.com/mygroup/myproject/-/issues/123")
+    val issue = GitLabIssue.fromUrl("https://gitlab.com/mygroup/myproject/-/work_items/123")
 
     assertSoftly(issue) {
       groupName shouldBe "mygroup"
@@ -35,7 +35,7 @@ class GitLabIssueTest {
 
   @Test
   fun `should parse self-hosted gitlab url with custom port`() {
-    val issue = GitLabIssue.fromUrl("https://gitlab.example.com:8443/team/repo/-/issues/7")
+    val issue = GitLabIssue.fromUrl("https://gitlab.example.com:8443/team/repo/-/work_items/7")
 
     assertSoftly(issue) {
       groupName shouldBe "team"
@@ -47,7 +47,9 @@ class GitLabIssueTest {
   @Test
   fun `should parse url with query string and fragment`() {
     val issue =
-        GitLabIssue.fromUrl("https://gitlab.com/mygroup/myproject/-/issues/42?note=1#discussion_42")
+        GitLabIssue.fromUrl(
+            "https://gitlab.com/mygroup/myproject/-/work_items/42?note=1#discussion_42"
+        )
 
     assertSoftly(issue) {
       groupName shouldBe "mygroup"
@@ -58,7 +60,7 @@ class GitLabIssueTest {
 
   @Test
   fun `should parse url with trailing slash`() {
-    val issue = GitLabIssue.fromUrl("https://gitlab.com/mygroup/myproject/-/issues/99/")
+    val issue = GitLabIssue.fromUrl("https://gitlab.com/mygroup/myproject/-/work_items/99/")
 
     assertSoftly(issue) {
       groupName shouldBe "mygroup"
@@ -70,22 +72,40 @@ class GitLabIssueTest {
   @Test
   fun `should reject url with too few path segments`() {
     val ex =
-        shouldThrow<IllegalArgumentException> {
+        shouldThrow<GitLabIssueNotFoundException> {
           GitLabIssue.fromUrl("https://gitlab.com/group/project")
         }
-    ex.message shouldBe "Invalid GitLab issue URL: https://gitlab.com/group/project"
+    ex.message shouldBe "GitLab issue not found for URL: https://gitlab.com/group/project"
   }
 
   @Test
   fun `should reject root url`() {
-    shouldThrow<IllegalArgumentException> { GitLabIssue.fromUrl("https://gitlab.com/") }
+    shouldThrow<GitLabIssueNotFoundException> { GitLabIssue.fromUrl("https://gitlab.com/") }
   }
 
   @Test
   fun `should reject url with non-numeric issue number`() {
-    shouldThrow<NumberFormatException> {
-      GitLabIssue.fromUrl("https://gitlab.com/group/project/-/issues/abc")
+    shouldThrow<GitLabIssueNotFoundException> {
+      GitLabIssue.fromUrl("https://gitlab.com/group/project/-/work_items/abc")
     }
+  }
+
+  @Test
+  fun `should reject merge request url as an issue not found`() {
+    val url = "https://gitlab.com/group/project/-/merge_requests/42"
+
+    val ex = shouldThrow<GitLabIssueNotFoundException> { GitLabIssue.fromUrl(url) }
+
+    ex.message shouldBe "GitLab issue not found for URL: $url"
+  }
+
+  @Test
+  fun `should reject legacy issues url as an issue not found`() {
+    val url = "https://gitlab.com/group/project/-/issues/42"
+
+    val ex = shouldThrow<GitLabIssueNotFoundException> { GitLabIssue.fromUrl(url) }
+
+    ex.message shouldBe "GitLab issue not found for URL: $url"
   }
 
   @Test

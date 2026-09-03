@@ -22,6 +22,8 @@
         </th:block>
       </div>
 
+      <div id="timer-notifications" aria-live="polite" aria-atomic="true"></div>
+
       <section
         th:fragment="time-totals"
         id="time-totals"
@@ -112,7 +114,7 @@
                     class="form-control"
                     th:field="*{issueUrl}"
                     th:errorclass="is-invalid"
-                    placeholder="https://gitlab.com/group/project/-/issues/42"
+                    placeholder="https://gitlab.com/group/project/-/work_items/42"
                     autocomplete="off"
                   />
                   <button
@@ -231,7 +233,7 @@
                 type="submit"
                 class="btn btn-outline-primary"
                 hx-post="/timer/create-project"
-                hx-target="#result"
+                hx-target="#timer-notifications"
                 hx-swap="innerHTML"
                 hx-indicator="#timer-spinner"
               >
@@ -415,6 +417,14 @@
             } catch (e) {}
           }
 
+          function clearIssueUrl() {
+            var input = document.getElementById('issueUrl');
+            if (input) input.value = '';
+            try {
+              localStorage.removeItem(ISSUE_URL_KEY);
+            } catch (e) {}
+          }
+
           function padElapsedPart(value) {
             return value < 10 ? '0' + value : '' + value;
           }
@@ -520,6 +530,8 @@
             startElapsedTimers();
             document.querySelectorAll('.time-entry-split-dialog').forEach(initializeSplitDialog);
           });
+
+          document.body.addEventListener('issueUrlConsumed', clearIssueUrl);
 
           document.addEventListener('input', function (evt) {
             var target = evt.target;
@@ -690,12 +702,9 @@
 
             var btn = evt.target.closest && evt.target.closest('#issueUrlClear');
             if (!btn) return;
+            clearIssueUrl();
             var input = document.getElementById('issueUrl');
             if (!input) return;
-            input.value = '';
-            try {
-              localStorage.removeItem(ISSUE_URL_KEY);
-            } catch (e) {}
             input.focus();
           });
 
