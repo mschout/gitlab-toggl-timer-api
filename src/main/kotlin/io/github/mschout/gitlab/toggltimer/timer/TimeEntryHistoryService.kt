@@ -22,9 +22,12 @@ import io.github.mschout.gitlab.toggltimer.project.TimeEntry
 import io.github.mschout.gitlab.toggltimer.project.TimeEntryRepository
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import java.time.Clock
+import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -40,6 +43,16 @@ data class TimeEntryDayGroup(
     val label: String,
     val totalFormatted: String,
     val entries: List<RecentTimeEntryView>,
+)
+
+data class TimeEntryTotalsView(
+    val todayCompletedSeconds: Long,
+    val todayCompletedFormatted: String,
+    val weekCompletedSeconds: Long,
+    val weekCompletedFormatted: String,
+    val todayStart: Instant,
+    val weekStart: Instant,
+    val endExclusive: Instant,
 )
 
 data class RecentTimeEntryView(
@@ -76,6 +89,37 @@ class TimeEntryHistoryService(
         today = today,
         zone = zone,
         initial = true,
+    )
+  }
+
+  fun currentTotals(): TimeEntryTotalsView {
+    val zone = credentialsService.currentTimeZone()
+    val today = LocalDate.now(clock.withZone(zone))
+    val todayStart = today.atStartOfDay(zone).toInstant()
+    val weekStart =
+        today
+            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            .atStartOfDay(zone)
+            .toInstant()
+    val endExclusive = today.plusDays(1).atStartOfDay(zone).toInstant()
+    val entries =
+        timeEntryRepository.findCompletedInRange(
+            userId = credentialsService.currentUserId(),
+            startInclusive = weekStart,
+            endExclusive = endExclusive,
+        )
+    val weekCompletedSeconds = entries.sumOf { it.duration }
+    val todayCompletedSeconds =
+        entries.filter { !it.start.isBefore(todayStart) }.sumOf { it.duration }
+
+    return TimeEntryTotalsView(
+        todayCompletedSeconds = todayCompletedSeconds,
+        todayCompletedFormatted = formatDuration(todayCompletedSeconds),
+        weekCompletedSeconds = weekCompletedSeconds,
+        weekCompletedFormatted = formatDuration(weekCompletedSeconds),
+        todayStart = todayStart,
+        weekStart = weekStart,
+        endExclusive = endExclusive,
     )
   }
 

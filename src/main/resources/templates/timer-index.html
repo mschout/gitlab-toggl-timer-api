@@ -13,7 +13,7 @@
         <p class="lead text-body-secondary mb-0" th:text="${message}">Welcome</p>
       </section>
 
-      <div id="result" class="mb-4">
+      <div id="result" class="mb-2">
         <th:block th:if="${runningTimer != null}">
           <div th:replace="~{start-timer :: result-card}" th:remove="tag"></div>
         </th:block>
@@ -21,6 +21,36 @@
           <div th:replace="~{stop-timer :: result-card}" th:remove="tag"></div>
         </th:block>
       </div>
+
+      <section
+        th:fragment="time-totals"
+        id="time-totals"
+        class="time-totals"
+        hx-get="/timer/totals"
+        hx-trigger="timeEntriesChanged from:body, timeTotalsChanged from:body, every 1m"
+        hx-target="this"
+        hx-swap="outerHTML"
+        aria-label="Tracked time totals"
+      >
+        <dl class="time-totals-list">
+          <div class="time-total">
+            <dt>Today</dt>
+            <dd
+              class="js-time-total"
+              th:attr="data-base-seconds=${timeTotals.todayCompletedSeconds},data-period-start=${timeTotals.todayStart},data-period-end=${timeTotals.endExclusive}"
+              th:text="${timeTotals.todayCompletedFormatted}"
+            >0:00:00</dd>
+          </div>
+          <div class="time-total">
+            <dt>Week total</dt>
+            <dd
+              class="js-time-total"
+              th:attr="data-base-seconds=${timeTotals.weekCompletedSeconds},data-period-start=${timeTotals.weekStart},data-period-end=${timeTotals.endExclusive}"
+              th:text="${timeTotals.weekCompletedFormatted}"
+            >0:00:00</dd>
+          </div>
+        </dl>
+      </section>
 
       <div
         th:fragment="timer-form"
@@ -403,6 +433,40 @@
               padElapsedPart(remainingSeconds);
           }
 
+          function formatTotalTime(seconds) {
+            var hours = Math.floor(seconds / 3600);
+            var minutes = Math.floor((seconds % 3600) / 60);
+            var remainingSeconds = seconds % 60;
+            return hours + ':' + padElapsedPart(minutes) + ':' + padElapsedPart(remainingSeconds);
+          }
+
+          function renderTimeTotals() {
+            var runningTimer = document.querySelector('.js-elapsed-time');
+            var startedAt =
+              runningTimer && new Date(runningTimer.getAttribute('data-started-at'));
+            var startedAtMs = startedAt && startedAt.getTime();
+            var elapsedSeconds =
+              startedAtMs && !isNaN(startedAtMs)
+                ? Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000))
+                : 0;
+
+            document.querySelectorAll('.js-time-total').forEach(function (total) {
+              var seconds = Number(total.getAttribute('data-base-seconds')) || 0;
+              var periodStart = new Date(total.getAttribute('data-period-start')).getTime();
+              var periodEnd = new Date(total.getAttribute('data-period-end')).getTime();
+              if (
+                startedAtMs &&
+                !isNaN(periodStart) &&
+                !isNaN(periodEnd) &&
+                startedAtMs >= periodStart &&
+                startedAtMs < periodEnd
+              ) {
+                seconds += elapsedSeconds;
+              }
+              total.textContent = formatTotalTime(seconds);
+            });
+          }
+
           function startElapsedTimers() {
             if (window.__togglElapsedIntervalId) {
               clearInterval(window.__togglElapsedIntervalId);
@@ -410,6 +474,7 @@
             }
             var timers = document.querySelectorAll('.js-elapsed-time');
             timers.forEach(renderElapsedTime);
+            renderTimeTotals();
             if (!timers.length) return;
             window.__togglElapsedIntervalId = setInterval(function () {
               var currentTimers = document.querySelectorAll('.js-elapsed-time');
@@ -419,6 +484,7 @@
                 return;
               }
               currentTimers.forEach(renderElapsedTime);
+              renderTimeTotals();
             }, 1000);
           }
 

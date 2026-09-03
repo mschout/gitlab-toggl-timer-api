@@ -32,6 +32,7 @@ import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectPickerView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchResultView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryTotalsView
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
 import io.github.mschout.gitlab.toggltimer.timer.TogglDescriptionUpdateException
@@ -149,6 +150,16 @@ class SecurityConfigWebMvcTest(
                   nextBefore = LocalDate.parse("2026-08-20"),
                   initial = true,
               )
+          every { it.currentTotals() } returns
+              TimeEntryTotalsView(
+                  todayCompletedSeconds = 2_882L,
+                  todayCompletedFormatted = "0:48:02",
+                  weekCompletedSeconds = 10_923L,
+                  weekCompletedFormatted = "3:02:03",
+                  todayStart = Instant.parse("2026-08-27T05:00:00Z"),
+                  weekStart = Instant.parse("2026-08-24T05:00:00Z"),
+                  endExclusive = Instant.parse("2026-08-28T05:00:00Z"),
+              )
         }
 
     @Bean fun timeEntryDescriptionService(): TimeEntryDescriptionService = mockk(relaxed = true)
@@ -238,6 +249,12 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("Courtio")))
         .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
         .andExpect(content().string(containsString("aria-label=\"Stop timer\"")))
+        .andExpect(content().string(containsString("aria-label=\"Tracked time totals\"")))
+        .andExpect(content().string(containsString(">Today</dt>")))
+        .andExpect(content().string(containsString(">Week total</dt>")))
+        .andExpect(content().string(containsString("data-base-seconds=\"2882\"")))
+        .andExpect(content().string(containsString("data-base-seconds=\"10923\"")))
+        .andExpect(content().string(containsString("function renderTimeTotals()")))
         .andExpect(content().string(not(containsString("hx-include=\"#running-description\""))))
         .andExpect(
             content()
