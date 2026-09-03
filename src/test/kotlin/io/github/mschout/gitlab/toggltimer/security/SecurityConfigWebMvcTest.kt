@@ -262,6 +262,8 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
         .andExpect(content().string(containsString("class=\"running-timer-toolbar shadow-sm\"")))
         .andExpect(content().string(containsString("data-started-at=\"2026-08-27T14:30:00Z\"")))
+        .andExpect(content().string(containsString("<title>Home • Gitlab Toggl Timer</title>")))
+        .andExpect(content().string(containsString("function formatElapsedTitle(seconds)")))
         .andExpect(content().string(containsString("value=\"Build the compact toolbar\"")))
         .andExpect(content().string(containsString("hx-post=\"/timer/entries/321/description\"")))
         .andExpect(
