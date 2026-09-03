@@ -138,6 +138,43 @@ dl.row dt {
   box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
 }
 
+.time-totals {
+  margin-bottom: 1.5rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: var(--bs-border-width) solid var(--bs-border-color-translucent);
+}
+
+.time-totals-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem clamp(1.5rem, 5vw, 3rem);
+  align-items: baseline;
+  margin: 0;
+}
+
+.time-total {
+  display: inline-flex;
+  gap: 0.65rem;
+  align-items: baseline;
+}
+
+.time-total dt {
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.time-total dd {
+  margin: 0;
+  color: var(--bs-body-color);
+  font-family: var(--bs-font-monospace);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
 .time-entry-ledger {
   overflow: visible;
   background: var(--bs-body-bg);

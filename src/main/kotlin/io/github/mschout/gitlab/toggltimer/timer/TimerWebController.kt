@@ -61,6 +61,7 @@ class TimerWebController(
     model.addAttribute("formExpanded", false)
     loadDropdownData(form, model)
     loadHistoryData(model)
+    loadTotalsData(model)
 
     val running =
         runCatching { togglService.getCurrentRunningTimer() }
@@ -115,7 +116,10 @@ class TimerWebController(
     val request =
         StartTimerRequest(issueUrl = issueUrl, workspaceId = workspaceId, clientId = clientId)
     val result = timerService.startTimer(request)
-    return ModelAndView("start-timer").apply { addObject("runningTimer", runningTimerView(result)) }
+    return ModelAndView("start-timer").apply {
+      addObject("runningTimer", runningTimerView(result))
+      addObject("timeTotals", timeEntryHistoryService.currentTotals())
+    }
   }
 
   @PostMapping("/start")
@@ -140,6 +144,7 @@ class TimerWebController(
     }
     val result = timerService.startTimer(form.toStartTimerRequest())
     addRunningTimer(result, model)
+    loadTotalsData(model)
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 
@@ -159,7 +164,14 @@ class TimerWebController(
       model.addAttribute("stopped", false)
     }
     addStoppedTimer(model)
+    loadTotalsData(model)
     return if (hxRequest) "stop-timer :: result-card" else "stop-timer"
+  }
+
+  @GetMapping("/totals")
+  fun totals(model: Model): String {
+    loadTotalsData(model)
+    return "timer-index :: time-totals"
   }
 
   @GetMapping("/entries")
@@ -243,6 +255,7 @@ class TimerWebController(
     loadHistoryData(model)
     response.setHeader("HX-Retarget", "#recent-time-entries")
     response.setHeader("HX-Reswap", "outerHTML")
+    response.setHeader("HX-Trigger", "timeTotalsChanged")
     return "timer-index :: recent-entries"
   }
 
@@ -323,6 +336,7 @@ class TimerWebController(
     model.addAttribute("formExpanded", true)
     loadDropdownData(form, model)
     loadHistoryData(model)
+    loadTotalsData(model)
     addStoppedTimer(model)
     if (hxRequest) {
       response.setHeader("HX-Retarget", "#timer-form-card")
@@ -364,6 +378,10 @@ class TimerWebController(
 
   private fun loadHistoryData(model: Model) {
     model.addAttribute("historyPage", timeEntryHistoryService.initialPage())
+  }
+
+  private fun loadTotalsData(model: Model) {
+    model.addAttribute("timeTotals", timeEntryHistoryService.currentTotals())
   }
 
   private fun addRunningTimer(result: StartTimerResult, model: Model) {

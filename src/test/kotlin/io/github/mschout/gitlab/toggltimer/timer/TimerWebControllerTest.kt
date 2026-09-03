@@ -61,6 +61,7 @@ class TimerWebControllerTest {
     every { togglService.fetchClients(any()) } returns emptyList()
     every { togglService.getCurrentRunningTimer() } returns null
     every { timeEntryHistoryService.initialPage() } returns emptyHistoryPage()
+    every { timeEntryHistoryService.currentTotals() } returns timeTotals()
     every { timeEntryProjectService.currentPicker(123L) } returns
         TimeEntryProjectPickerView(
             togglId = 123L,
@@ -92,6 +93,7 @@ class TimerWebControllerTest {
       model["form"] shouldBe TimerForm()
       model["formExpanded"] shouldBe false
       model["historyPage"] shouldBe emptyHistoryPage()
+      model["timeTotals"] shouldBe timeTotals()
       model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = null, projects = emptyList())
     }
   }
@@ -126,6 +128,18 @@ class TimerWebControllerTest {
 
     view shouldBe "timer-index :: recent-entries"
     model["historyPage"] shouldBeSameInstanceAs historyPage
+  }
+
+  @Test
+  fun `totals returns the refreshed time totals section`() {
+    val totals = timeTotals()
+    every { timeEntryHistoryService.currentTotals() } returns totals
+    val model = ExtendedModelMap()
+
+    val view = controller.totals(model)
+
+    view shouldBe "timer-index :: time-totals"
+    model["timeTotals"] shouldBeSameInstanceAs totals
   }
 
   @Test
@@ -222,6 +236,7 @@ class TimerWebControllerTest {
     model["historyPage"] shouldBeSameInstanceAs historyPage
     response.getHeader("HX-Retarget") shouldBe "#recent-time-entries"
     response.getHeader("HX-Reswap") shouldBe "outerHTML"
+    response.getHeader("HX-Trigger") shouldBe "timeTotalsChanged"
   }
 
   @Test
@@ -898,6 +913,17 @@ class TimerWebControllerTest {
           rangeLabel = "Aug 20–Aug 26, 2026",
           nextBefore = null,
           initial = true,
+      )
+
+  private fun timeTotals() =
+      TimeEntryTotalsView(
+          todayCompletedSeconds = 3_605L,
+          todayCompletedFormatted = "1:00:05",
+          weekCompletedSeconds = 9_005L,
+          weekCompletedFormatted = "2:30:05",
+          todayStart = Instant.parse("2026-08-26T05:00:00Z"),
+          weekStart = Instant.parse("2026-08-24T05:00:00Z"),
+          endExclusive = Instant.parse("2026-08-27T05:00:00Z"),
       )
 
   private fun validForm(description: String? = null) =

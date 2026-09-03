@@ -174,6 +174,46 @@ class TimeEntryHistoryServiceTest {
   }
 
   @Test
+  fun `current totals sum today and the current Monday through Sunday week`() {
+    val mondayEntry =
+        entry(
+            togglId = 10L,
+            start = "2026-08-24T15:00:00Z",
+            stop = "2026-08-24T16:00:00Z",
+            duration = 3_600L,
+            description = "Monday work",
+        )
+    val todayEntry =
+        entry(
+            togglId = 11L,
+            start = "2026-08-26T16:00:00Z",
+            stop = "2026-08-26T16:30:05Z",
+            duration = 1_805L,
+            description = "Wednesday work",
+        )
+    every {
+      timeEntryRepository.findCompletedInRange(
+          userId = 42L,
+          startInclusive = Instant.parse("2026-08-24T05:00:00Z"),
+          endExclusive = Instant.parse("2026-08-27T05:00:00Z"),
+      )
+    } returns listOf(todayEntry, mondayEntry)
+
+    val totals = service.currentTotals()
+
+    totals shouldBe
+        TimeEntryTotalsView(
+            todayCompletedSeconds = 1_805L,
+            todayCompletedFormatted = "0:30:05",
+            weekCompletedSeconds = 5_405L,
+            weekCompletedFormatted = "1:30:05",
+            todayStart = Instant.parse("2026-08-26T05:00:00Z"),
+            weekStart = Instant.parse("2026-08-24T05:00:00Z"),
+            endExclusive = Instant.parse("2026-08-27T05:00:00Z"),
+        )
+  }
+
+  @Test
   fun `entry stays on its start day and unsafe project colors are discarded`() {
     val crossMidnight =
         entry(
