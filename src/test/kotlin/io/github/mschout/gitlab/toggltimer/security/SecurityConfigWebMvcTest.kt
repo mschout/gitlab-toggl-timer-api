@@ -17,6 +17,8 @@ package io.github.mschout.gitlab.toggltimer.security
 
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
 import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
+import io.github.mschout.gitlab.toggltimer.timer.SplitTimeEntryCommand
+import io.github.mschout.gitlab.toggltimer.timer.SplitTimeEntryOutcome
 import io.github.mschout.gitlab.toggltimer.timer.StartTimerRequest
 import io.github.mschout.gitlab.toggltimer.timer.StartTimerResult
 import io.github.mschout.gitlab.toggltimer.timer.StoppedTimerProjectView
@@ -32,6 +34,8 @@ import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectPickerView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchResultView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntrySplitView
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntrySplitWorkflow
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryTotalsView
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
@@ -78,6 +82,7 @@ class SecurityConfigWebMvcTest(
     @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
     @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
     @Autowired val timeEntryDeletionService: TimeEntryDeletionService,
+    @Autowired val timeEntrySplitWorkflow: TimeEntrySplitWorkflow,
     @Autowired val timeEntryProjectService: TimeEntryProjectService,
     @Autowired val credentialsService: CurrentUserCredentialsService,
 ) {
@@ -139,6 +144,22 @@ class SecurityConfigWebMvcTest(
                                               TimeEntryActionsView(
                                                   togglId = 123L,
                                                   description = "Rendered history entry",
+                                                  split =
+                                                      TimeEntrySplitView(
+                                                          togglId = 123L,
+                                                          expectedStart =
+                                                              Instant.parse("2026-08-26T17:36:00Z"),
+                                                          expectedStop =
+                                                              Instant.parse("2026-08-26T18:24:02Z"),
+                                                          durationSeconds = 2_882L,
+                                                          splitOffsetSeconds = 1_441L,
+                                                          timeZone = "America/Chicago",
+                                                          startEpochMilliseconds =
+                                                              1_777_225_360_000L,
+                                                          startLocalSecondOfDay = 45_360,
+                                                          startOffsetSeconds = -18_000,
+                                                          stopOffsetSeconds = -18_000,
+                                                      ),
                                               ),
                                           timeRange = "12:36 PM – 1:24 PM",
                                           durationFormatted = "0:48:02",
@@ -165,6 +186,8 @@ class SecurityConfigWebMvcTest(
     @Bean fun timeEntryDescriptionService(): TimeEntryDescriptionService = mockk(relaxed = true)
 
     @Bean fun timeEntryDeletionService(): TimeEntryDeletionService = mockk(relaxed = true)
+
+    @Bean fun timeEntrySplitWorkflow(): TimeEntrySplitWorkflow = mockk(relaxed = true)
 
     @Bean
     fun timeEntryProjectService(): TimeEntryProjectService =
@@ -274,6 +297,13 @@ class SecurityConfigWebMvcTest(
             content().string(containsString("aria-label=\"Actions for Rendered history entry\""))
         )
         .andExpect(content().string(containsString("data-description=\"Rendered history entry\"")))
+        .andExpect(content().string(containsString(">Split</span>")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/split\"")))
+        .andExpect(content().string(containsString("name=\"splitOffsetSeconds\"")))
+        .andExpect(content().string(containsString("data-time-zone=\"America/Chicago\"")))
+        .andExpect(content().string(containsString(">Enter a time</summary>")))
+        .andExpect(content().string(containsString(">Elapsed</label>")))
+        .andExpect(content().string(containsString(">Clock time</label>")))
         .andExpect(content().string(containsString("hx-delete=\"/timer/entries/123\"")))
         .andExpect(content().string(containsString("Delete time entry?")))
   }
@@ -469,6 +499,41 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("Recent time entries")))
 
     verify(exactly = 1) { timeEntryDeletionService.delete(123L) }
+  }
+
+  @Test
+  fun `authenticated POST split is allowed with CSRF`() {
+    val start = Instant.parse("2026-08-26T17:36:00Z")
+    val stop = Instant.parse("2026-08-26T18:24:02Z")
+    every { timeEntrySplitWorkflow.split(SplitTimeEntryCommand(123L, start, stop, 1_441L)) } returns
+        SplitTimeEntryOutcome.Completed
+
+    mvc.perform(
+            post("/timer/entries/123/split")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("expectedStart", start.toString())
+                .param("expectedStop", stop.toString())
+                .param("splitOffsetSeconds", "1441")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("Recent time entries")))
+
+    verify(exactly = 1) {
+      timeEntrySplitWorkflow.split(SplitTimeEntryCommand(123L, start, stop, 1_441L))
+    }
+  }
+
+  @Test
+  fun `POST split requires CSRF`() {
+    mvc.perform(
+            post("/timer/entries/123/split")
+                .with(user("alice@example.com").roles("USER"))
+                .param("expectedStart", "2026-08-26T17:36:00Z")
+                .param("expectedStop", "2026-08-26T18:24:02Z")
+                .param("splitOffsetSeconds", "1441")
+        )
+        .andExpect(status().isForbidden)
   }
 
   @Test

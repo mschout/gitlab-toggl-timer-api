@@ -493,11 +493,45 @@
             restoreClientSelection();
             restoreIssueUrl();
             startElapsedTimers();
+            document.querySelectorAll('.time-entry-split-dialog').forEach(initializeSplitDialog);
           });
+
+          document.addEventListener('input', function (evt) {
+            var target = evt.target;
+            if (!target || !target.matches) return;
+            if (target.matches('.time-entry-split-slider')) {
+              renderSplitDialog(target.closest('.time-entry-split-dialog'), false);
+              return;
+            }
+            if (target.matches('.time-entry-split-manual-input')) {
+              applyManualSplit(target.closest('.time-entry-split-dialog'));
+            }
+          });
+
+          document.addEventListener(
+            'toggle',
+            function (evt) {
+              if (!evt.target.matches || !evt.target.matches('.time-entry-split-manual')) return;
+              var dialog = evt.target.closest('.time-entry-split-dialog');
+              if (evt.target.open) {
+                renderSplitDialog(dialog, false);
+                var input = dialog.querySelector('.time-entry-split-manual-input');
+                if (input) input.focus();
+              } else {
+                setManualSplitError(dialog, '');
+                renderSplitDialog(dialog, false);
+              }
+            },
+            true
+          );
 
           document.addEventListener('change', function (evt) {
             var target = evt.target;
             if (!target) return;
+            if (target.matches && target.matches('.time-entry-split-mode-input')) {
+              renderSplitDialog(target.closest('.time-entry-split-dialog'), false);
+              return;
+            }
             if (target.matches && target.matches('.js-stopped-project')) {
               var toolbar = target.closest('.running-timer-toolbar');
               var selected = target.options[target.selectedIndex];
@@ -535,6 +569,32 @@
               evt.target.closest && evt.target.closest('.time-entry-copy-description');
             if (copyDescription) {
               copyEntryDescription(copyDescription);
+              return;
+            }
+
+            var splitTrigger =
+              evt.target.closest && evt.target.closest('.time-entry-split-trigger');
+            if (splitTrigger) {
+              openSplitDialog(splitTrigger);
+              return;
+            }
+
+            var splitClose =
+              evt.target.closest && evt.target.closest('.time-entry-split-close');
+            if (splitClose) {
+              var splitDialog = splitClose.closest('.time-entry-split-dialog');
+              if (splitDialog) splitDialog.close();
+              return;
+            }
+
+            if (evt.target.matches && evt.target.matches('.time-entry-split-dialog')) {
+              var splitDialogRect = evt.target.getBoundingClientRect();
+              var outsideSplitDialog =
+                evt.clientX < splitDialogRect.left ||
+                evt.clientX > splitDialogRect.right ||
+                evt.clientY < splitDialogRect.top ||
+                evt.clientY > splitDialogRect.bottom;
+              if (outsideSplitDialog) evt.target.close();
               return;
             }
 
@@ -669,6 +729,153 @@
             if (!dialog.open) dialog.showModal();
           }
 
+          function openSplitDialog(trigger) {
+            if (!trigger) return;
+            var dialogId = trigger.getAttribute('aria-controls');
+            var dialog = dialogId && document.getElementById(dialogId);
+            if (!dialog) return;
+            hideEntryActionsMenu(trigger);
+            initializeSplitDialog(dialog);
+            if (!dialog.open) dialog.showModal();
+          }
+
+          function initializeSplitDialog(dialog) {
+            if (!dialog) return;
+            renderSplitDialog(dialog, false);
+          }
+
+          function splitMode(dialog) {
+            var selected = dialog.querySelector('.time-entry-split-mode-input:checked');
+            return selected ? selected.value : 'elapsed';
+          }
+
+          function formatSplitDuration(seconds) {
+            var safeSeconds = Math.max(0, Math.floor(seconds));
+            var hours = Math.floor(safeSeconds / 3600);
+            var minutes = Math.floor((safeSeconds % 3600) / 60);
+            var remainingSeconds = safeSeconds % 60;
+            return (
+              String(hours).padStart(2, '0') +
+              ':' +
+              String(minutes).padStart(2, '0') +
+              ':' +
+              String(remainingSeconds).padStart(2, '0')
+            );
+          }
+
+          function formatSplitClock(dialog, offset, twentyFourHour) {
+            var startMilliseconds = Number(dialog.dataset.startEpochMilliseconds);
+            var instant = new Date(startMilliseconds + offset * 1000);
+            var options = {
+              timeZone: dialog.dataset.timeZone,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            };
+            if (twentyFourHour) {
+              options.hourCycle = 'h23';
+            } else {
+              options.hour = 'numeric';
+            }
+            return new Intl.DateTimeFormat('en-US', options).format(instant);
+          }
+
+          function renderSplitDialog(dialog, preserveManualValue) {
+            if (!dialog) return;
+            var slider = dialog.querySelector('.time-entry-split-slider');
+            var offset = Number(slider.value);
+            var duration = Number(dialog.dataset.durationSeconds);
+            dialog.querySelector('.time-entry-split-clock').textContent =
+              formatSplitClock(dialog, offset, false);
+            dialog.querySelector('.time-entry-split-first-duration').textContent =
+              formatSplitDuration(offset);
+            dialog.querySelector('.time-entry-split-second-duration').textContent =
+              formatSplitDuration(duration - offset);
+
+            var manual = dialog.querySelector('.time-entry-split-manual');
+            if (!manual || !manual.open || preserveManualValue) return;
+            var input = dialog.querySelector('.time-entry-split-manual-input');
+            input.value =
+              splitMode(dialog) === 'elapsed'
+                ? formatSplitDuration(offset)
+                : formatSplitClock(dialog, offset, true);
+            var help = dialog.querySelector('.time-entry-split-manual-help');
+            help.textContent =
+              splitMode(dialog) === 'elapsed'
+                ? 'Enter elapsed time after the start.'
+                : 'Enter a 24-hour clock time in ' + dialog.dataset.timeZone + '.';
+            setManualSplitError(dialog, '');
+          }
+
+          function parseElapsedSplit(value) {
+            var match = /^(\d{2,}):([0-5]\d):([0-5]\d)$/.exec(value.trim());
+            if (!match) return null;
+            return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+          }
+
+          function parseClockSplit(value) {
+            var match = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.exec(value.trim());
+            if (!match) return null;
+            return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+          }
+
+          function applyManualSplit(dialog) {
+            if (!dialog) return;
+            var input = dialog.querySelector('.time-entry-split-manual-input');
+            var mode = splitMode(dialog);
+            var duration = Number(dialog.dataset.durationSeconds);
+            var offset;
+            if (mode === 'elapsed') {
+              offset = parseElapsedSplit(input.value);
+              if (offset === null) {
+                setManualSplitError(dialog, 'Use HH:MM:SS, for example 00:29:00.');
+                return;
+              }
+            } else {
+              var clockSeconds = parseClockSplit(input.value);
+              if (clockSeconds === null) {
+                setManualSplitError(dialog, 'Use a 24-hour time such as 09:42:00.');
+                return;
+              }
+              if (
+                duration >= 86400 ||
+                dialog.dataset.startOffsetSeconds !== dialog.dataset.stopOffsetSeconds
+              ) {
+                setManualSplitError(
+                  dialog,
+                  'This clock time may occur more than once. Use Elapsed or the slider.'
+                );
+                return;
+              }
+              offset = clockSeconds - Number(dialog.dataset.startLocalSecondOfDay);
+              if (offset < 0) offset += 86400;
+            }
+
+            if (offset < 1 || offset >= duration) {
+              setManualSplitError(
+                dialog,
+                'Choose a time that leaves at least one second on each side.'
+              );
+              return;
+            }
+            dialog.querySelector('.time-entry-split-slider').value = String(offset);
+            setManualSplitError(dialog, '');
+            renderSplitDialog(dialog, true);
+          }
+
+          function setManualSplitError(dialog, message) {
+            if (!dialog) return;
+            var input = dialog.querySelector('.time-entry-split-manual-input');
+            var error = dialog.querySelector('.time-entry-split-manual-error');
+            var confirm = dialog.querySelector('.time-entry-split-confirm');
+            input.classList.toggle('is-invalid', Boolean(message));
+            input.setAttribute('aria-invalid', message ? 'true' : 'false');
+            error.textContent = message;
+            if (message) error.style.display = 'block';
+            else error.style.removeProperty('display');
+            confirm.disabled = Boolean(message);
+          }
+
           function beginDescriptionEdit(input) {
             if (!input || input.dataset.submitting === 'true') return;
             var wrapper = input.closest('.time-entry-description-wrapper');
@@ -789,6 +996,23 @@
             var input = ctx && ctx.sourceElement;
             var successful = ctx && ctx.response && ctx.response.status < 400;
             if (!input || !input.matches) return;
+            if (
+              !successful &&
+              input.matches('.time-entry-split-confirm, .time-entry-split-form')
+            ) {
+              var splitDialog = input.closest('.time-entry-split-dialog');
+              var splitError = splitDialog.querySelector('.time-entry-split-error');
+              if (!splitError) {
+                splitError = document.createElement('div');
+                splitError.className = 'time-entry-split-error';
+                splitError.setAttribute('role', 'alert');
+                splitDialog
+                  .querySelector('.time-entry-split-dialog-body')
+                  .insertAdjacentElement('afterbegin', splitError);
+              }
+              splitError.textContent = 'Could not split this time entry. Try again.';
+              return;
+            }
             if (!successful && input.matches('.time-entry-delete-confirm')) {
               var deleteDialog = input.closest('.time-entry-delete-dialog');
               var deleteError = deleteDialog.querySelector('.time-entry-delete-error');
@@ -855,6 +1079,16 @@
               !deleteDialog.open
             ) {
               deleteDialog.showModal();
+            }
+            var splitDialog =
+              tgt && tgt.querySelector && tgt.querySelector('.time-entry-split-dialog');
+            if (
+              splitDialog &&
+              splitDialog.getAttribute('data-open') === 'true' &&
+              !splitDialog.open
+            ) {
+              initializeSplitDialog(splitDialog);
+              splitDialog.showModal();
             }
             var descriptionInput =
               tgt && tgt.querySelector && tgt.querySelector('.time-entry-description-editor');

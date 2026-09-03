@@ -136,7 +136,25 @@ class TimeEntryHistoryServiceTest {
                       clientName = "Inforuptcy",
                       projectColor = "#4C6EF5",
                   ),
-              actions = TimeEntryActionsView(togglId = 1L, description = "Review merge request"),
+              actions =
+                  TimeEntryActionsView(
+                      togglId = 1L,
+                      description = "Review merge request",
+                      split =
+                          TimeEntrySplitView(
+                              togglId = 1L,
+                              expectedStart = Instant.parse("2026-08-26T17:36:00Z"),
+                              expectedStop = Instant.parse("2026-08-26T18:24:02Z"),
+                              durationSeconds = 2_882L,
+                              splitOffsetSeconds = 1_441L,
+                              timeZone = "America/Chicago",
+                              startEpochMilliseconds =
+                                  Instant.parse("2026-08-26T17:36:00Z").toEpochMilli(),
+                              startLocalSecondOfDay = 45_360,
+                              startOffsetSeconds = -18_000,
+                              stopOffsetSeconds = -18_000,
+                          ),
+                  ),
               timeRange = "12:36 PM – 1:24 PM",
               durationFormatted = "0:48:02",
           )
