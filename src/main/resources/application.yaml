@@ -41,6 +41,10 @@ spring:
           oidc:
             issuer-uri: ${OIDC_ISSUER_URI}
 
+  threads:
+    virtual:
+      enabled: true
+
 springdoc:
   swagger-ui:
     csrf:
