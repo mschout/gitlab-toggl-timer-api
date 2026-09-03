@@ -757,6 +757,7 @@ class TimerWebControllerTest {
       view shouldBe "create-project"
       model["project"] shouldBeSameInstanceAs project
       response.getHeader("HX-Retarget").shouldBeNull()
+      response.getHeader("HX-Trigger").shouldBeNull()
     }
   }
 
@@ -777,8 +778,9 @@ class TimerWebControllerTest {
             response = response,
         )
 
-    view shouldBe "create-project :: result-card"
+    view shouldBe "create-project :: success-alert"
     model["project"] shouldBeSameInstanceAs project
+    response.getHeader("HX-Trigger") shouldBe "issueUrlConsumed"
   }
 
   @Test
@@ -803,6 +805,7 @@ class TimerWebControllerTest {
       view shouldBe "timer-index :: timer-form"
       errors.getFieldError("issueUrl")?.defaultMessage shouldBe "GitLab issue not found."
       response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
+      response.getHeader("HX-Trigger").shouldBeNull()
       model["formExpanded"] shouldBe true
     }
   }
@@ -888,6 +891,7 @@ class TimerWebControllerTest {
       view shouldBe "start-timer"
       (model["runningTimer"] as RunningTimerView).descriptionEditor.description shouldBe "tracking"
       response.getHeader("HX-Retarget").shouldBeNull()
+      response.getHeader("HX-Trigger").shouldBeNull()
     }
   }
 
@@ -916,6 +920,7 @@ class TimerWebControllerTest {
         )
 
     view shouldBe "start-timer :: result-card"
+    response.getHeader("HX-Trigger") shouldBe "issueUrlConsumed"
     model["runningTimer"] shouldBe
         RunningTimerView(
             startTime = startInstant,
@@ -952,8 +957,33 @@ class TimerWebControllerTest {
       view shouldBe "timer-index :: timer-form"
       errors.getFieldError("issueUrl")?.defaultMessage shouldBe "GitLab issue not found."
       response.getHeader("HX-Retarget") shouldBe "#timer-form-card"
+      response.getHeader("HX-Trigger").shouldBeNull()
       model["formExpanded"] shouldBe true
     }
+  }
+
+  @Test
+  fun `startTimer POST does not clear issue URL when starting without one`() {
+    val form = TimerForm(workspaceId = 7L)
+    val timerResult =
+        StartTimerResult(
+            togglId = 123L,
+            startTime = Instant.parse("2026-05-08T15:30:00Z"),
+            projectName = null,
+            description = null,
+        )
+    every { timerService.startTimer(form.toStartTimerRequest()) } returns timerResult
+    val response = MockHttpServletResponse()
+
+    controller.startTimerSubmit(
+        form = form,
+        bindingResult = bindingResult(form),
+        hxRequest = true,
+        model = ExtendedModelMap(),
+        response = response,
+    )
+
+    response.getHeader("HX-Trigger").shouldBeNull()
   }
 
   @Test

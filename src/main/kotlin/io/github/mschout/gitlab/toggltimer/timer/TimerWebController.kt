@@ -114,7 +114,8 @@ class TimerWebController(
           return formErrorView(form, model, hxRequest, response)
         }
     model.addAttribute("project", project)
-    return if (hxRequest) "create-project :: result-card" else "create-project"
+    if (hxRequest) response.setHeader("HX-Trigger", "issueUrlConsumed")
+    return if (hxRequest) "create-project :: success-alert" else "create-project"
   }
 
   @GetMapping("/start")
@@ -162,6 +163,9 @@ class TimerWebController(
         }
     addRunningTimer(result, model)
     loadTotalsData(model)
+    if (hxRequest && form.issueUrl.isNotBlank()) {
+      response.setHeader("HX-Trigger", "issueUrlConsumed")
+    }
     return if (hxRequest) "start-timer :: result-card" else "start-timer"
   }
 

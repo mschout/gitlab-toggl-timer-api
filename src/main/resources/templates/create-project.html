@@ -6,7 +6,7 @@
 >
   <body>
     <main>
-      <div th:replace="~{::result-card}" th:remove="tag"></div>
+      <div th:replace="~{::success-alert}" th:remove="tag"></div>
 
       <div class="mt-3">
         <a class="btn btn-outline-secondary btn-sm" th:href="@{/timer}">
@@ -15,30 +15,16 @@
       </div>
     </main>
 
-    <div th:fragment="result-card" class="card border-success shadow-sm">
-      <div class="card-body">
-        <div class="d-flex align-items-start gap-3">
-          <i class="bi bi-folder-check text-success display-6"></i>
-          <div class="flex-grow-1">
-            <h2 class="h5 card-title mb-1">Project ready</h2>
-            <p class="text-body-secondary small mb-3">
-              The Toggl project for this issue is set up.
-            </p>
-            <dl class="row mb-0 small">
-              <dt class="col-sm-3 text-body-secondary">Name</dt>
-              <dd class="col-sm-9 mb-1" th:text="${project.name}">Project name</dd>
-              <dt class="col-sm-3 text-body-secondary">Project ID</dt>
-              <dd class="col-sm-9 mb-1">
-                <code th:text="${project.id}">123</code>
-              </dd>
-              <dt class="col-sm-3 text-body-secondary">Client ID</dt>
-              <dd class="col-sm-9 mb-0">
-                <code th:text="${project.clientId}">456</code>
-              </dd>
-            </dl>
-          </div>
-        </div>
-      </div>
+    <div
+      th:fragment="success-alert"
+      class="alert alert-success alert-dismissible fade show shadow-sm mb-3"
+      role="status"
+      data-auto-dismiss-after="5000"
+    >
+      <i class="bi bi-folder-check me-2" aria-hidden="true"></i>
+      <span class="fw-semibold">Project ready.</span>
+      <span th:text="|${project.name} is ready to track.|">The project is ready to track.</span>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button>
     </div>
   </body>
 </html>

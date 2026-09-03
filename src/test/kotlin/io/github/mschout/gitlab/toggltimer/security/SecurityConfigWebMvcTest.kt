@@ -272,6 +272,12 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("Courtio")))
         .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
         .andExpect(content().string(containsString("aria-label=\"Stop timer\"")))
+        .andExpect(content().string(containsString("id=\"timer-notifications\"")))
+        .andExpect(content().string(containsString("aria-live=\"polite\"")))
+        .andExpect(content().string(containsString("hx-target=\"#timer-notifications\"")))
+        .andExpect(content().string(containsString("bootstrap.Alert.getOrCreateInstance")))
+        .andExpect(content().string(containsString("issueUrlConsumed")))
+        .andExpect(content().string(containsString("function clearIssueUrl()")))
         .andExpect(content().string(containsString("aria-label=\"Tracked time totals\"")))
         .andExpect(content().string(containsString(">Today</dt>")))
         .andExpect(content().string(containsString(">Week total</dt>")))
@@ -325,6 +331,10 @@ class SecurityConfigWebMvcTest(
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("Project ready")))
         .andExpect(content().string(containsString("42 - Some issue")))
+        .andExpect(content().string(containsString("alert-success")))
+        .andExpect(content().string(containsString("alert-dismissible")))
+        .andExpect(content().string(containsString("data-auto-dismiss-after=\"5000\"")))
+        .andExpect(content().string(containsString("data-bs-dismiss=\"alert\"")))
   }
 
   @Test
