@@ -334,16 +334,17 @@
               <button
                 th:if="${historyPage.nextBefore != null}"
                 type="button"
-                class="btn btn-outline-secondary btn-sm"
+                class="time-entry-load-more-button btn btn-outline-secondary btn-sm"
+                aria-label="Load more"
                 th:attr="hx-get=@{/timer/entries/page(before=${historyPage.nextBefore})}"
                 hx-target="#time-entry-load-more"
                 hx-swap="outerHTML"
               >
                 <span
-                  class="htmx-indicator spinner-border spinner-border-sm me-1"
+                  class="htmx-indicator spinner-border spinner-border-sm"
                   aria-hidden="true"
                 ></span>
-                Load more
+                <span class="time-entry-load-more-label">Load more</span>
               </button>
             </div>
           </th:block>

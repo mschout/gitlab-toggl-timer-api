@@ -8,6 +8,21 @@
   opacity: 1;
 }
 
+.time-entry-load-more-button {
+  position: relative;
+}
+
+.time-entry-load-more-button .spinner-border {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+.time-entry-load-more-button.htmx-request .time-entry-load-more-label {
+  visibility: hidden;
+}
+
 .app-footer {
   background-color: var(--bs-body-bg);
 }
