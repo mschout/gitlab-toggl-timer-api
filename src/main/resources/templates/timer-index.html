@@ -692,6 +692,13 @@
             if (wrapper) wrapper.classList.remove('is-editing');
           }
 
+          function submitDescriptionEdit(input) {
+            if (!input || input.readOnly || input.dataset.submitting === 'true') return;
+            input.dataset.submitting = 'true';
+            if (document.activeElement === input) input.blur();
+            htmx.trigger(input, 'description-save');
+          }
+
           document.addEventListener(
             'focus',
             function (evt) {
@@ -753,9 +760,7 @@
 
             if (evt.key === 'Enter') {
               evt.preventDefault();
-              input.dataset.submitting = 'true';
-              input.blur();
-              htmx.trigger(input, 'description-save');
+              submitDescriptionEdit(input);
             }
           });
 
@@ -763,7 +768,7 @@
             'blur',
             function (evt) {
               if (evt.target.matches && evt.target.matches('.time-entry-description-editor')) {
-                cancelDescriptionEdit(evt.target);
+                submitDescriptionEdit(evt.target);
               }
             },
             true
