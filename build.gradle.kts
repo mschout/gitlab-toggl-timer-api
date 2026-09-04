@@ -53,6 +53,10 @@ tasks.test { useJUnitPlatform() }
 
 tasks.named<BootBuildImage>("bootBuildImage") {
   imageName = providers.environmentVariable("IMAGE_NAME").orElse("mschout/gitlab-toggl-timer").get()
+  environment.put(
+      "TRAINING_RUN_JAVA_TOOL_OPTIONS",
+      "-Dspring.profiles.active=aot-cache",
+  )
 
   val registryUsername = providers.environmentVariable("REGISTRY_USERNAME").orNull
   val registryPassword = providers.environmentVariable("REGISTRY_PASSWORD").orNull

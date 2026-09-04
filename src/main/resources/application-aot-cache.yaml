@@ -1,0 +1,36 @@
+spring:
+  flyway:
+    enabled: false
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        boot:
+          allow_jdbc_metadata_access: false
+
+  sql:
+    init:
+      mode: never
+
+  security:
+    oauth2:
+      client:
+        registration:
+          oidc:
+            client-id: aot-cache-training-only
+            client-secret: aot-cache-training-only
+        provider:
+          oidc:
+            authorization-uri: https://aot-cache.invalid/authorize
+            token-uri: https://aot-cache.invalid/token
+            jwk-set-uri: https://aot-cache.invalid/jwks
+            user-info-uri: https://aot-cache.invalid/userinfo
+            user-name-attribute: sub
+
+app:
+  encryption:
+    password: aot-cache-training-only
+    salt: "0000000000000000"

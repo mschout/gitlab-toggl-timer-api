@@ -37,10 +37,6 @@ spring:
               - openid
               - email
               - profile
-        provider:
-          oidc:
-            issuer-uri: ${OIDC_ISSUER_URI}
-
   threads:
     virtual:
       enabled: true
@@ -81,3 +77,15 @@ logging:
   level:
     org.hobsoft.spring.resttemplatelogger.LoggingCustomizer: DEBUG
     org.springframework.web.client.RestTemplate: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!aot-cache"
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${OIDC_ISSUER_URI}
