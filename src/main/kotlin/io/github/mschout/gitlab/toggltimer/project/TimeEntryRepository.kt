@@ -17,6 +17,7 @@ package io.github.mschout.gitlab.toggltimer.project
 
 import java.time.Instant
 import java.util.UUID
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -45,6 +46,25 @@ interface TimeEntryRepository : JpaRepository<TimeEntry, UUID> {
       @Param("userId") userId: Long,
       @Param("startInclusive") startInclusive: Instant,
       @Param("endExclusive") endExclusive: Instant,
+  ): List<TimeEntry>
+
+  @Query(
+      """
+      SELECT entry
+      FROM TimeEntry entry
+      WHERE entry.userId = :userId
+        AND entry.stop >= :startInclusive
+        AND entry.stop < :endExclusive
+        AND entry.duration >= 0
+        AND entry.serverDeletedAt IS NULL
+      ORDER BY entry.stop DESC
+      """
+  )
+  fun findCompletedEndingInRange(
+      @Param("userId") userId: Long,
+      @Param("startInclusive") startInclusive: Instant,
+      @Param("endExclusive") endExclusive: Instant,
+      pageable: Pageable,
   ): List<TimeEntry>
 
   @Query(

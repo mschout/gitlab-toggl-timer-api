@@ -1,4 +1,5 @@
 [versions]
+airDatepicker = "3.6.0"
 bootstrap = "5.3.8"
 bootstrapIcons = "1.13.1"
 caffeine = "3.2.4"
@@ -48,6 +49,7 @@ springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openap
 testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 thymeleaf-extras-springsecurity = { module = "org.thymeleaf.extras:thymeleaf-extras-springsecurity6" }
+webjars-air-datepicker = { module = "org.webjars.npm:air-datepicker", version.ref = "airDatepicker" }
 webjars-bootstrap = { module = "org.webjars.npm:bootstrap", version.ref = "bootstrap" }
 webjars-bootstrap-icons = { module = "org.webjars.npm:bootstrap-icons", version.ref = "bootstrapIcons" }
 webjars-htmx = { module = "org.webjars.npm:htmx.org", version.ref = "htmx" }
@@ -83,6 +85,7 @@ testcontainers = [
     "testcontainers-postgresql",
 ]
 webjars = [
+    "webjars-air-datepicker",
     "webjars-bootstrap",
     "webjars-bootstrap-icons",
     "webjars-htmx",

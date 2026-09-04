@@ -17,6 +17,7 @@ package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssueNotFoundException
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
@@ -29,8 +30,11 @@ import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.mock.web.MockHttpServletResponse
@@ -44,6 +48,7 @@ class TimerWebControllerTest {
   private lateinit var togglService: TogglService
   private lateinit var timeEntryHistoryService: TimeEntryHistoryService
   private lateinit var timeEntryDescriptionService: TimeEntryDescriptionService
+  private lateinit var timeEntryStartService: TimeEntryStartService
   private lateinit var timeEntryProjectService: TimeEntryProjectService
   private lateinit var timeEntryDeletionService: TimeEntryDeletionService
   private lateinit var timeEntrySplitWorkflow: TimeEntrySplitWorkflow
@@ -56,10 +61,12 @@ class TimerWebControllerTest {
     togglService = mockk()
     timeEntryHistoryService = mockk()
     timeEntryDescriptionService = mockk()
+    timeEntryStartService = mockk()
     timeEntryProjectService = mockk()
     timeEntryDeletionService = mockk()
     timeEntrySplitWorkflow = mockk()
     every { credentialsService.currentTogglWorkspaceId() } returns null
+    every { credentialsService.currentTimeZone() } returns ZoneId.of("America/Chicago")
     every { togglService.fetchWorkspaces() } returns emptyList()
     every { togglService.fetchClients(any()) } returns emptyList()
     every { togglService.getCurrentRunningTimer() } returns null
@@ -79,10 +86,190 @@ class TimerWebControllerTest {
             togglService,
             timeEntryHistoryService,
             timeEntryDescriptionService,
+            timeEntryStartService,
             timeEntryProjectService,
             timeEntryDeletionService,
             timeEntrySplitWorkflow,
+            Clock.fixed(Instant.parse("2026-09-03T20:00:00Z"), ZoneOffset.UTC),
         )
+  }
+
+  @Test
+  fun `start update replaces the running toolbar with the saved start`() {
+    val expectedStart = Instant.parse("2026-09-03T19:30:45Z")
+    val updatedStart = Instant.parse("2026-09-03T19:23:31Z")
+    val command =
+        UpdateTimeEntryStartCommand(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = LocalDate.parse("2026-09-03"),
+            startTime = "2:23 PM",
+        )
+    val updated =
+        TogglTimeEntry(
+            id = 123L,
+            workspaceId = 7L,
+            start = updatedStart,
+            duration = -1L,
+            description = "Working",
+        )
+    every { timeEntryStartService.updateStart(command) } returns
+        TimeEntryStartUpdateOutcome.Saved(updated, historySynchronized = true)
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view =
+        controller.updateEntryStart(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = LocalDate.parse("2026-09-03"),
+            startTime = "2:23 PM",
+            model = model,
+            response = response,
+        )
+
+    view shouldBe "start-timer :: start-update-response"
+    (model["runningTimer"] as RunningTimerView).startTime shouldBe updatedStart
+    model["timerNotification"].shouldBeNull()
+    response.getHeader("HX-Retarget").shouldBeNull()
+  }
+
+  @Test
+  fun `invalid start update preserves the draft and retargets the open dialog`() {
+    val expectedStart = Instant.parse("2026-09-03T19:30:45Z")
+    val command =
+        UpdateTimeEntryStartCommand(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = LocalDate.parse("2026-09-04"),
+            startTime = "2:23 PM",
+        )
+    every { timeEntryStartService.updateStart(command) } throws
+        TimeEntryStartValidationException("Start time cannot be in the future.")
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view =
+        controller.updateEntryStart(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = command.startDate,
+            startTime = command.startTime,
+            model = model,
+            response = response,
+        )
+
+    view shouldBe "start-timer :: start-editor"
+    model["startEditor"] shouldBe
+        TimeEntryStartEditorView(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = LocalDate.parse("2026-09-04"),
+            startTime = "2:23 PM",
+            today = LocalDate.parse("2026-09-03"),
+            timeZone = "America/Chicago",
+            error = "Start time cannot be in the future.",
+            open = true,
+        )
+    response.getHeader("HX-Retarget") shouldBe "#running-timer-start-dialog-123"
+    response.getHeader("HX-Reswap") shouldBe "outerHTML"
+  }
+
+  @Test
+  fun `Toggl start failure preserves the submitted draft in the open dialog`() {
+    val expectedStart = Instant.parse("2026-09-03T19:30:45Z")
+    every { timeEntryStartService.updateStart(any()) } throws
+        TogglStartUpdateException(RuntimeException("Toggl down"))
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view =
+        controller.updateEntryStart(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = LocalDate.parse("2026-09-02"),
+            startTime = "11:04 AM",
+            model = model,
+            response = response,
+        )
+
+    view shouldBe "start-timer :: start-editor"
+    (model["startEditor"] as TimeEntryStartEditorView) shouldBe
+        TimeEntryStartEditorView(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = LocalDate.parse("2026-09-02"),
+            startTime = "11:04 AM",
+            today = LocalDate.parse("2026-09-03"),
+            timeZone = "America/Chicago",
+            error = "Could not save the start time to Toggl. Try again.",
+            open = true,
+        )
+    response.getHeader("HX-Retarget") shouldBe "#running-timer-start-dialog-123"
+  }
+
+  @Test
+  fun `stale start update renders the actual replacement timer with a warning`() {
+    val expectedStart = Instant.parse("2026-09-03T19:30:45Z")
+    val replacementStart = Instant.parse("2026-09-03T19:45:00Z")
+    val replacement =
+        TogglTimeEntry(
+            id = 999L,
+            workspaceId = 8L,
+            start = replacementStart,
+            duration = -1L,
+            description = "Replacement",
+        )
+    every { timeEntryStartService.updateStart(any()) } returns
+        TimeEntryStartUpdateOutcome.Stale(replacement)
+    every { timeEntryProjectService.currentPicker(999L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 999L,
+            projectName = null,
+            clientName = null,
+            projectColor = null,
+        )
+    val model = ExtendedModelMap()
+
+    controller.updateEntryStart(
+        togglId = 123L,
+        expectedStart = expectedStart,
+        startDate = LocalDate.parse("2026-09-03"),
+        startTime = "2:23 PM",
+        model = model,
+        response = MockHttpServletResponse(),
+    )
+
+    (model["runningTimer"] as RunningTimerView).startTime shouldBe replacementStart
+    model["timerNotification"] shouldBe
+        "The running timer changed in Toggl. Your start time edit was not applied."
+    verify(exactly = 0) { togglService.getCurrentRunningTimer() }
+  }
+
+  @Test
+  fun `local sync failure closes the editor and warns that synchronization will catch up`() {
+    val expectedStart = Instant.parse("2026-09-03T19:30:45Z")
+    val updatedStart = Instant.parse("2026-09-03T19:23:00Z")
+    val updated = TogglTimeEntry(id = 123L, workspaceId = 7L, start = updatedStart, duration = -1L)
+    every { timeEntryStartService.updateStart(any()) } returns
+        TimeEntryStartUpdateOutcome.Saved(updated, historySynchronized = false)
+    val model = ExtendedModelMap()
+
+    val view =
+        controller.updateEntryStart(
+            togglId = 123L,
+            expectedStart = expectedStart,
+            startDate = LocalDate.parse("2026-09-03"),
+            startTime = "2:23 PM",
+            model = model,
+            response = MockHttpServletResponse(),
+        )
+
+    view shouldBe "start-timer :: start-update-response"
+    (model["runningTimer"] as RunningTimerView).startTime shouldBe updatedStart
+    model["timerNotification"] shouldBe
+        "Start time was saved to Toggl, but local history is out of sync. " +
+            "It will catch up automatically."
   }
 
   @Test
@@ -521,6 +708,15 @@ class TimerWebControllerTest {
                       clientName = "Courtio",
                       projectColor = "#4C6EF5",
                   ),
+              startEditor =
+                  TimeEntryStartEditorView(
+                      togglId = 123L,
+                      expectedStart = startInstant,
+                      startDate = LocalDate.parse("2026-05-15"),
+                      startTime = "5:00 AM",
+                      today = LocalDate.parse("2026-09-03"),
+                      timeZone = "America/Chicago",
+                  ),
           )
     }
   }
@@ -731,6 +927,15 @@ class TimerWebControllerTest {
                       clientName = null,
                       projectColor = null,
                   ),
+              startEditor =
+                  TimeEntryStartEditorView(
+                      togglId = 123L,
+                      expectedStart = startInstant,
+                      startDate = LocalDate.parse("2026-05-08"),
+                      startTime = "10:30 AM",
+                      today = LocalDate.parse("2026-09-03"),
+                      timeZone = "America/Chicago",
+                  ),
           )
     }
     verify { timerService.startTimer(expectedRequest) }
@@ -931,6 +1136,15 @@ class TimerWebControllerTest {
                     projectName = "42 - Some issue",
                     clientName = null,
                     projectColor = null,
+                ),
+            startEditor =
+                TimeEntryStartEditorView(
+                    togglId = 123L,
+                    expectedStart = startInstant,
+                    startDate = LocalDate.parse("2026-05-08"),
+                    startTime = "10:30 AM",
+                    today = LocalDate.parse("2026-09-03"),
+                    timeZone = "America/Chicago",
                 ),
         )
   }
