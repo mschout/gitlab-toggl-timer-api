@@ -25,6 +25,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -92,7 +93,8 @@ class TogglServiceTest {
             issueTitle = "New issue",
         )
 
-    result shouldBeSameInstanceAs created
+    result.id shouldBe created.id
+    TogglService.PROJECT_COLOR_PALETTE shouldContain result.color
   }
 
   @Test
@@ -111,14 +113,15 @@ class TogglServiceTest {
             issueTitle = "Title",
         )
 
-    result shouldBeSameInstanceAs created
+    result.id shouldBe created.id
+    TogglService.PROJECT_COLOR_PALETTE shouldContain result.color
   }
 
   @Test
   fun `should create new project with correct name and client when no match found`() {
     every { togglClient.getProjects(7L, "42") } returns emptyList()
     val expectedRequest = CreateTogglProjectRequest(name = "42 - Brand new", clientId = 5L)
-    val created = TogglProject(id = 999L, name = "42 - Brand new", clientId = 5L)
+    val created = TogglProject(id = 999L, name = "42 - Brand new", clientId = 5L, color = "#0b83d9")
     every { togglClient.createProject(7L, expectedRequest) } returns created
 
     val result =
@@ -129,7 +132,8 @@ class TogglServiceTest {
             issueTitle = "Brand new",
         )
 
-    result shouldBeSameInstanceAs created
+    result.id shouldBe created.id
+    TogglService.PROJECT_COLOR_PALETTE shouldContain result.color
     // Verify the exact request was sent (workspaceId, name, clientId, plus default fields).
     verify { togglClient.createProject(7L, expectedRequest) }
   }
@@ -262,7 +266,7 @@ class TogglServiceTest {
   @Test
   fun `findOrCreateProject shadow-writes the created project to Postgres`() {
     every { togglClient.getProjects(7L, "42") } returns emptyList()
-    val created = TogglProject(id = 999L, name = "42 - New", clientId = 5L)
+    val created = TogglProject(id = 999L, name = "42 - New", clientId = 5L, color = "#0b83d9")
     every { togglClient.createProject(7L, any()) } returns created
 
     service.findOrCreateProject(
@@ -272,7 +276,10 @@ class TogglServiceTest {
         issueTitle = "New",
     )
 
-    verify { togglSyncService.upsertProject(7L, created) }
+    val locallyColoredProject = slot<TogglProject>()
+    verify { togglSyncService.upsertProject(7L, capture(locallyColoredProject)) }
+    locallyColoredProject.captured.id shouldBe created.id
+    TogglService.PROJECT_COLOR_PALETTE shouldContain locallyColoredProject.captured.color
   }
 
   @Test

@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.project
 
+import io.github.mschout.gitlab.toggltimer.toggl.TogglClientProperties
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
@@ -50,6 +51,10 @@ class TogglSyncServiceTest {
             clientRepository,
             projectRepository,
             timeEntryRepository,
+            TogglClientProperties(
+                baseUrl = "https://api.track.toggl.com/api/v9",
+                defaultProjectColor = "#abcdef",
+            ),
         )
   }
 
@@ -253,6 +258,29 @@ class TogglSyncServiceTest {
     existing.name shouldBe "new name"
     existing.color shouldBe "#ef4444"
     existing.active shouldBe true
+  }
+
+  @Test
+  fun `upsertProject preserves an existing color when Toggl reports the configured default color`() {
+    val existing = Project(togglId = 999L, workspaceId = 7L, name = "existing", color = "#ef4444")
+    every { projectRepository.findByTogglId(999L) } returns existing
+    every { projectRepository.save(any()) } answers { firstArg() }
+
+    service.upsertProject(7L, TogglProject(id = 999L, name = "renamed", color = "#abcdef"))
+
+    existing.name shouldBe "renamed"
+    existing.color shouldBe "#ef4444"
+  }
+
+  @Test
+  fun `upsertProject stores the configured default color when no local color exists`() {
+    val existing = Project(togglId = 999L, workspaceId = 7L, name = "existing", color = null)
+    every { projectRepository.findByTogglId(999L) } returns existing
+    every { projectRepository.save(any()) } answers { firstArg() }
+
+    service.upsertProject(7L, TogglProject(id = 999L, name = "renamed", color = "#abcdef"))
+
+    existing.color shouldBe "#abcdef"
   }
 
   @Test
