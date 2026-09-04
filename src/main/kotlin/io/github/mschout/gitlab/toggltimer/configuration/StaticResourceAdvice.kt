@@ -23,12 +23,31 @@ import org.springframework.web.servlet.resource.ResourceUrlProvider
 @ControllerAdvice
 class StaticResourceAdvice(private val resourceUrlProvider: ResourceUrlProvider) {
 
-  @ModelAttribute("appStylesheetUrl")
-  fun appStylesheetUrl(request: HttpServletRequest): String {
+  @ModelAttribute("staticResourceUrls")
+  fun staticResourceUrls(request: HttpServletRequest): StaticResourceUrls =
+      StaticResourceUrls(
+          appStylesheet = resourceUrl(request, "/css/app.css"),
+          baseScript = resourceUrl(request, "/js/base.js"),
+          loginScript = resourceUrl(request, "/js/login.js"),
+          settingsScript = resourceUrl(request, "/js/settings.js"),
+          settingsMfaScript = resourceUrl(request, "/js/settings-mfa.js"),
+          timerScript = resourceUrl(request, "/js/timer.js"),
+      )
+
+  private fun resourceUrl(request: HttpServletRequest, path: String): String {
     val versionedPath =
-        requireNotNull(resourceUrlProvider.getForLookupPath("/css/app.css")) {
-          "Could not resolve the versioned app stylesheet"
+        requireNotNull(resourceUrlProvider.getForLookupPath(path)) {
+          "Could not resolve the versioned static resource: $path"
         }
     return request.contextPath + versionedPath
   }
 }
+
+data class StaticResourceUrls(
+    val appStylesheet: String,
+    val baseScript: String,
+    val loginScript: String,
+    val settingsScript: String,
+    val settingsMfaScript: String,
+    val timerScript: String,
+)

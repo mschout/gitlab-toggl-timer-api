@@ -56,7 +56,7 @@ spring:
         strategy:
           content:
             enabled: true
-            paths: "/css/**"
+            paths: "/css/**,/js/**"
 
 springdoc:
   swagger-ui:
