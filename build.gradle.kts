@@ -10,7 +10,9 @@ plugins {
 
 group = "io.github.mschout"
 
-version = "0.9.0"
+val gitVersion = extra["gitVersion"] as groovy.lang.Closure<*>
+
+version = gitVersion.call().toString()
 
 description = "Personal Toggl Timer Integrations for Gitlab"
 
