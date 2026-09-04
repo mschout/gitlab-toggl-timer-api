@@ -14,7 +14,7 @@
     <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.8/dist/css/bootstrap.min.css}" />
     <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css}" />
     <link rel="stylesheet" th:href="@{/webjars/air-datepicker/3.6.0/air-datepicker.css}" />
-    <link rel="stylesheet" th:href="@{/css/app.css}" />
+    <link rel="stylesheet" th:href="${appStylesheetUrl}" />
   </head>
   <body class="d-flex flex-column min-vh-100 bg-body-tertiary">
     <header th:replace="~{fragments/navbar :: navbar}"></header>

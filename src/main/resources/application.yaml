@@ -45,6 +45,19 @@ spring:
     virtual:
       enabled: true
 
+  # Enable caching of static resources for 1 year (365 days)
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          cache-public: true
+          max-age: 365d
+      chain:
+        strategy:
+          content:
+            enabled: true
+            paths: "/css/**"
+
 springdoc:
   swagger-ui:
     csrf:

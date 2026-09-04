@@ -61,6 +61,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Optional
+import org.hamcrest.Matchers.allOf
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
@@ -70,6 +71,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.http.HttpHeaders
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.web.servlet.MockMvc
@@ -77,13 +79,25 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delet
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.web.servlet.resource.ResourceUrlProvider
 
-@WebMvcTest(controllers = [TimerWebController::class, SessionKeepAliveController::class])
+@WebMvcTest(
+    controllers = [TimerWebController::class, SessionKeepAliveController::class],
+    properties =
+        [
+            "spring.web.resources.cache.cachecontrol.cache-public=true",
+            "spring.web.resources.cache.cachecontrol.max-age=365d",
+            "spring.web.resources.chain.strategy.content.enabled=true",
+            "spring.web.resources.chain.strategy.content.paths=/css/**",
+        ],
+)
 @Import(SecurityConfig::class, AuthConfiguration::class, SecurityConfigWebMvcTest.MockBeans::class)
 class SecurityConfigWebMvcTest(
     @Autowired val mvc: MockMvc,
+    @Autowired val resourceUrlProvider: ResourceUrlProvider,
     @Autowired val timerService: TimerService,
     @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
     @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
@@ -256,6 +270,29 @@ class SecurityConfigWebMvcTest(
     mvc.perform(get("/timer"))
         .andExpect(status().is3xxRedirection)
         .andExpect(redirectedUrl("/login"))
+  }
+
+  @Test
+  fun `static resources use content hashes and long-lived public caching`() {
+    val versionedStylesheet =
+        requireNotNull(resourceUrlProvider.getForLookupPath("/css/app.css")) {
+          "Expected Spring's resource chain to version app.css"
+        }
+
+    mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("href=\"$versionedStylesheet\"")))
+
+    mvc.perform(get(versionedStylesheet))
+        .andExpect(status().isOk)
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.CACHE_CONTROL,
+                    allOf(containsString("max-age=31536000"), containsString("public")),
+                )
+        )
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
   }
 
   @Test

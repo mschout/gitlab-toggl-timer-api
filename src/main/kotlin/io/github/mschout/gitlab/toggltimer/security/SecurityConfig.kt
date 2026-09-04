@@ -20,8 +20,10 @@ import io.github.mschout.gitlab.toggltimer.user.UserRepository
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.security.config.ObjectPostProcessor
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -39,6 +41,27 @@ import org.springframework.web.filter.OncePerRequestFilter
 @EnableWebSecurity
 class SecurityConfig {
 
+  /**
+   * This filter chain is ordered first so that static resources are served without any security
+   * checks.
+   */
+  @Bean
+  @Order(1)
+  fun staticResourcesSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    http
+        .securityMatcher(PathRequest.toStaticResources().atCommonLocations())
+        .authorizeHttpRequests { it.anyRequest().permitAll() }
+        .csrf { it.disable() }
+        .requestCache { it.disable() }
+        .securityContext { it.disable() }
+        .sessionManagement { it.disable() }
+
+    return http.build()
+  }
+
+  /**
+   * This filter chain is ordered second so that all other requests are subject to security checks.
+   */
   @Bean
   fun securityFilterChain(
       http: HttpSecurity,
@@ -57,9 +80,7 @@ class SecurityConfig {
               "/login/webauthn",
               "/webauthn/**",
               "/error",
-              "/css/**",
               "/static/**",
-              "/webjars/**",
               "/actuator/health",
           )
           .permitAll()
