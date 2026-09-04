@@ -31,15 +31,61 @@ interface TimeEntryRepository : JpaRepository<TimeEntry, UUID> {
 
   @Query(
       """
-      SELECT entry
-      FROM TimeEntry entry
-      WHERE entry.userId = :userId
+      SELECT
+        entry
+      FROM
+        TimeEntry entry
+      WHERE
+        entry.userId = :userId
+        AND entry.stop IS NOT NULL
+        AND entry.duration >= 0
+        AND entry.serverDeletedAt IS NULL
+      ORDER BY
+        entry.start DESC,
+        entry.togglId DESC
+      """
+  )
+  fun findLatestCompletedForColorSelection(
+      @Param("userId") userId: Long,
+      pageable: Pageable,
+  ): List<TimeEntry>
+
+  @Query(
+      """
+      SELECT
+        entry
+      FROM
+        TimeEntry entry
+      WHERE
+        entry.userId = :userId
+        AND entry.stop IS NULL
+        AND entry.duration < 0
+        AND entry.serverDeletedAt IS NULL
+      ORDER BY
+        entry.start DESC,
+        entry.togglId DESC
+      """
+  )
+  fun findLatestRunningForColorSelection(
+      @Param("userId") userId: Long,
+      pageable: Pageable,
+  ): List<TimeEntry>
+
+  @Query(
+      """
+      SELECT
+        entry
+      FROM
+        TimeEntry entry
+      WHERE
+        entry.userId = :userId
         AND entry.start >= :startInclusive
         AND entry.start < :endExclusive
         AND entry.stop IS NOT NULL
         AND entry.duration >= 0
         AND entry.serverDeletedAt IS NULL
-      ORDER BY entry.start DESC
+      ORDER BY
+        entry.start DESC
       """
   )
   fun findCompletedInRange(
@@ -50,14 +96,18 @@ interface TimeEntryRepository : JpaRepository<TimeEntry, UUID> {
 
   @Query(
       """
-      SELECT entry
-      FROM TimeEntry entry
-      WHERE entry.userId = :userId
+      SELECT
+        entry
+      FROM
+        TimeEntry entry
+      WHERE
+        entry.userId = :userId
         AND entry.stop >= :startInclusive
         AND entry.stop < :endExclusive
         AND entry.duration >= 0
         AND entry.serverDeletedAt IS NULL
-      ORDER BY entry.stop DESC
+      ORDER BY
+        entry.stop DESC
       """
   )
   fun findCompletedEndingInRange(

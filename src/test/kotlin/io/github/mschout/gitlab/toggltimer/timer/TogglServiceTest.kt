@@ -45,6 +45,7 @@ class TogglServiceTest {
   private lateinit var togglClientFactory: TogglClientFactory
   private lateinit var credentialsService: CurrentUserCredentialsService
   private lateinit var togglSyncService: TogglSyncService
+  private lateinit var projectColorSelector: ProjectColorSelector
   private lateinit var service: TogglService
 
   @BeforeEach
@@ -53,10 +54,13 @@ class TogglServiceTest {
     togglClientFactory = mockk()
     credentialsService = mockk()
     togglSyncService = mockk(relaxUnitFun = true)
+    projectColorSelector = mockk()
     every { credentialsService.requireTogglApiKey() } returns "test-api-key"
     every { credentialsService.currentUserId() } returns 42L
     every { togglClientFactory.forApiKey("test-api-key") } returns togglClient
-    service = TogglService(togglClientFactory, credentialsService, togglSyncService)
+    every { projectColorSelector.select() } returns "#ef4444"
+    service =
+        TogglService(togglClientFactory, credentialsService, togglSyncService, projectColorSelector)
   }
 
   @Test
@@ -73,6 +77,7 @@ class TogglServiceTest {
         )
 
     result shouldBeSameInstanceAs existing
+    verify(exactly = 0) { projectColorSelector.select() }
   }
 
   @Test
@@ -94,7 +99,7 @@ class TogglServiceTest {
         )
 
     result.id shouldBe created.id
-    TogglService.PROJECT_COLOR_PALETTE shouldContain result.color
+    ProjectColorSelector.PROJECT_COLOR_PALETTE shouldContain result.color
   }
 
   @Test
@@ -114,7 +119,7 @@ class TogglServiceTest {
         )
 
     result.id shouldBe created.id
-    TogglService.PROJECT_COLOR_PALETTE shouldContain result.color
+    ProjectColorSelector.PROJECT_COLOR_PALETTE shouldContain result.color
   }
 
   @Test
@@ -133,7 +138,8 @@ class TogglServiceTest {
         )
 
     result.id shouldBe created.id
-    TogglService.PROJECT_COLOR_PALETTE shouldContain result.color
+    ProjectColorSelector.PROJECT_COLOR_PALETTE shouldContain result.color
+    verify(exactly = 1) { projectColorSelector.select() }
     // Verify the exact request was sent (workspaceId, name, clientId, plus default fields).
     verify { togglClient.createProject(7L, expectedRequest) }
   }
@@ -279,7 +285,7 @@ class TogglServiceTest {
     val locallyColoredProject = slot<TogglProject>()
     verify { togglSyncService.upsertProject(7L, capture(locallyColoredProject)) }
     locallyColoredProject.captured.id shouldBe created.id
-    TogglService.PROJECT_COLOR_PALETTE shouldContain locallyColoredProject.captured.color
+    ProjectColorSelector.PROJECT_COLOR_PALETTE shouldContain locallyColoredProject.captured.color
   }
 
   @Test
