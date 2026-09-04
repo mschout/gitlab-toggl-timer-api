@@ -26,5 +26,9 @@ class TogglClientConfiguration
 
 @ConfigurationProperties(prefix = "toggl")
 data class TogglClientProperties(
-    @DefaultValue("https://api.track.toggl.com/api/v9") val baseUrl: String
+    /** The base URL for the Toggl API. Defaults to "https://api.track.toggl.com/api/v9". */
+    @DefaultValue("https://api.track.toggl.com/api/v9") val baseUrl: String,
+
+    /** The default color for projects in assigned by Toggl. Defaults to "#0b83d9". */
+    @DefaultValue("#0b83d9") val defaultProjectColor: String,
 )

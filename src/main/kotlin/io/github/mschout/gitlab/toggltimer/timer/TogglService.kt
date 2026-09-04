@@ -64,7 +64,9 @@ class TogglService(
                       clientId = clientId,
                   )
 
-              client.createProject(workspaceId, createProjectRequest)
+              client
+                  .createProject(workspaceId, createProjectRequest)
+                  .copy(color = createProjectRequest.color ?: PROJECT_COLOR_PALETTE.random())
             }
 
     runCatching { togglSyncService.upsertProject(workspaceId, project) }
@@ -316,7 +318,7 @@ class TogglService(
       togglClientFactory.forApiKey(credentialsService.requireTogglApiKey())
 
   companion object {
-    private val PROJECT_COLOR_PALETTE =
+    internal val PROJECT_COLOR_PALETTE =
         listOf(
             "#ef4444", // red-500
             "#f97316", // orange-500

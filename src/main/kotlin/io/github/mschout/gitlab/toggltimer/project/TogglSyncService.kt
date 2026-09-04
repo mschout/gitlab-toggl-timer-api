@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.project
 
+import io.github.mschout.gitlab.toggltimer.toggl.TogglClientProperties
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
 import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
@@ -28,6 +29,7 @@ class TogglSyncService(
     private val clientRepository: ClientRepository,
     private val projectRepository: ProjectRepository,
     private val timeEntryRepository: TimeEntryRepository,
+    private val togglProperties: TogglClientProperties,
 ) {
 
   @Transactional
@@ -89,7 +91,9 @@ class TogglSyncService(
       existing.workspaceId = workspaceId
       existing.togglClientId = project.clientId
       existing.name = name
-      existing.color = project.color
+      if (existing.color == null || project.color != togglProperties.defaultProjectColor) {
+        existing.color = project.color
+      }
       existing.active = project.active ?: true
       projectRepository.save(existing)
     }

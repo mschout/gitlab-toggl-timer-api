@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
-@SpringBootTest
+@SpringBootTest(properties = ["toggl.default-project-color=#abcdef"])
 class TogglSyncServiceIT
 @Autowired
 constructor(
@@ -152,6 +152,23 @@ constructor(
     reloaded.color shouldBe "#10b981"
     reloaded.active shouldBe false
     reloaded.createdAt shouldBe initialCreatedAt
+
+    syncService.upsertProject(
+        7L,
+        TogglProject(
+            id = 999L,
+            name = "42 - Toggl default color",
+            clientId = 11L,
+            color = "#abcdef",
+            active = true,
+        ),
+    )
+
+    val afterDefaultColorSync = projectRepository.findByTogglId(999L)
+    afterDefaultColorSync.shouldNotBeNull()
+    afterDefaultColorSync.name shouldBe "42 - Toggl default color"
+    afterDefaultColorSync.color shouldBe "#10b981"
+    afterDefaultColorSync.active shouldBe true
   }
 
   @Test
