@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html
   xmlns:th="http://www.thymeleaf.org"
-  th:replace="~{layout/base :: layout('Sign in', ~{::main})}"
+  th:replace="~{layout/base :: layout('Sign in', ~{::main}, ~{}, ~{})}"
   lang="en"
 >
   <body>
@@ -70,7 +70,12 @@
 
               <hr />
               <div class="d-grid">
-                <button class="btn btn-outline-primary" type="button" id="passkey-signin-btn">
+                <button
+                  class="btn btn-outline-primary"
+                  type="button"
+                  id="passkey-signin-btn"
+                  data-passkey-login
+                >
                   <i class="bi bi-fingerprint me-1"></i>Sign in with a passkey
                 </button>
                 <p class="small text-danger mt-2 d-none" id="passkey-signin-error"></p>
@@ -81,25 +86,7 @@
       </section>
 
       <script th:src="@{/login/webauthn.js}"></script>
-      <script>
-        (function () {
-          function meta(name) {
-            const el = document.querySelector('meta[name="' + name + '"]');
-            return el ? el.content : '';
-          }
-          const csrfToken = meta('_csrf');
-          const csrfHeader = meta('_csrf_header');
-          const btn = document.getElementById('passkey-signin-btn');
-          if (!btn) return;
-          if (!window.PublicKeyCredential || !window.setupLogin) {
-            btn.disabled = true;
-            return;
-          }
-          const headers = {};
-          if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
-          window.setupLogin(headers, '', btn);
-        })();
-      </script>
+      <script defer th:src="${staticResourceUrls.loginScript}"></script>
     </main>
   </body>
 </html>

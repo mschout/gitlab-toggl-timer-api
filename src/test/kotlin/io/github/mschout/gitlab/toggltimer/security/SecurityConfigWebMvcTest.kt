@@ -15,6 +15,7 @@
  */
 package io.github.mschout.gitlab.toggltimer.security
 
+import io.github.mschout.gitlab.toggltimer.home.HomeController
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
 import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
 import io.github.mschout.gitlab.toggltimer.timer.SplitTimeEntryCommand
@@ -61,6 +62,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Optional
+import org.hamcrest.Matchers.allOf
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
@@ -70,6 +72,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.http.HttpHeaders
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.web.servlet.MockMvc
@@ -77,13 +80,26 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delet
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.web.servlet.resource.ResourceUrlProvider
 
-@WebMvcTest(controllers = [TimerWebController::class, SessionKeepAliveController::class])
+@WebMvcTest(
+    controllers =
+        [HomeController::class, TimerWebController::class, SessionKeepAliveController::class],
+    properties =
+        [
+            "spring.web.resources.cache.cachecontrol.cache-public=true",
+            "spring.web.resources.cache.cachecontrol.max-age=365d",
+            "spring.web.resources.chain.strategy.content.enabled=true",
+            "spring.web.resources.chain.strategy.content.paths=/css/**,/js/**",
+        ],
+)
 @Import(SecurityConfig::class, AuthConfiguration::class, SecurityConfigWebMvcTest.MockBeans::class)
 class SecurityConfigWebMvcTest(
     @Autowired val mvc: MockMvc,
+    @Autowired val resourceUrlProvider: ResourceUrlProvider,
     @Autowired val timerService: TimerService,
     @Autowired val timeEntryHistoryService: TimeEntryHistoryService,
     @Autowired val timeEntryDescriptionService: TimeEntryDescriptionService,
@@ -259,6 +275,64 @@ class SecurityConfigWebMvcTest(
   }
 
   @Test
+  fun `static resources use content hashes and long-lived public caching`() {
+    val versionedStylesheet =
+        requireNotNull(resourceUrlProvider.getForLookupPath("/css/app.css")) {
+          "Expected Spring's resource chain to version app.css"
+        }
+    val versionedBaseScript =
+        requireNotNull(resourceUrlProvider.getForLookupPath("/js/base.js")) {
+          "Expected Spring's resource chain to version base.js"
+        }
+    val versionedTimerScript =
+        requireNotNull(resourceUrlProvider.getForLookupPath("/js/timer.js")) {
+          "Expected Spring's resource chain to version timer.js"
+        }
+
+    mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("href=\"$versionedStylesheet\"")))
+        .andExpect(content().string(containsString("src=\"$versionedBaseScript\"")))
+        .andExpect(content().string(containsString("src=\"$versionedTimerScript\"")))
+        .andExpect(content().string(not(containsString("<script>"))))
+
+    mvc.perform(get(versionedStylesheet))
+        .andExpect(status().isOk)
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.CACHE_CONTROL,
+                    allOf(containsString("max-age=31536000"), containsString("public")),
+                )
+        )
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+
+    mvc.perform(get(versionedBaseScript))
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("htmx:config:request")))
+        .andExpect(content().string(containsString("evt.detail.ctx.request.headers[header]")))
+        .andExpect(content().string(not(containsString("htmx:configRequest"))))
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+
+    mvc.perform(get(versionedTimerScript))
+        .andExpect(status().isOk)
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.CACHE_CONTROL,
+                    allOf(containsString("max-age=31536000"), containsString("public")),
+                )
+        )
+        .andExpect(content().string(containsString("htmx:before:request")))
+        .andExpect(content().string(containsString("htmx:after:request")))
+        .andExpect(content().string(containsString("htmx:after:swap")))
+        .andExpect(content().string(not(containsString("htmx:beforeRequest"))))
+        .andExpect(content().string(not(containsString("htmx:afterRequest"))))
+        .andExpect(content().string(not(containsString("htmx:afterSwap"))))
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+  }
+
+  @Test
   fun `authenticated GET timer is allowed when user has settings`() {
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
@@ -269,17 +343,6 @@ class SecurityConfigWebMvcTest(
             content().string(containsString("/webjars/air-datepicker/3.6.0/air-datepicker.js"))
         )
         .andExpect(content().string(containsString("/webjars/htmx.org/4.0.0/dist/htmx.min.js")))
-        .andExpect(content().string(containsString("htmx:config:request")))
-        .andExpect(content().string(containsString("evt.detail.ctx.request.headers[header]")))
-        .andExpect(content().string(containsString("htmx:before:request")))
-        .andExpect(content().string(containsString("htmx:after:request")))
-        .andExpect(content().string(containsString("htmx:after:swap")))
-        .andExpect(content().string(containsString("ctx.sourceElement")))
-        .andExpect(content().string(containsString("ctx.response.status < 400")))
-        .andExpect(content().string(not(containsString("htmx:configRequest"))))
-        .andExpect(content().string(not(containsString("htmx:beforeRequest"))))
-        .andExpect(content().string(not(containsString("htmx:afterRequest"))))
-        .andExpect(content().string(not(containsString("htmx:afterSwap"))))
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
         .andExpect(content().string(containsString("class=\"running-timer-toolbar shadow-sm\"")))
         .andExpect(content().string(containsString("data-started-at=\"2026-08-27T14:30:00Z\"")))
@@ -298,11 +361,7 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString(">Cancel</button>")))
         .andExpect(content().string(containsString("running-timer-start-confirm")))
         .andExpect(content().string(containsString("running-timer-start-confirm-label")))
-        .andExpect(content().string(containsString("showOtherMonths: false")))
-        .andExpect(content().string(containsString("fixedHeight: true")))
-        .andExpect(content().string(containsString("firstDay: 1")))
         .andExpect(content().string(containsString("<title>Home • Gitlab Toggl Timer</title>")))
-        .andExpect(content().string(containsString("function formatElapsedTitle(seconds)")))
         .andExpect(content().string(containsString("value=\"Build the compact toolbar\"")))
         .andExpect(content().string(containsString("hx-post=\"/timer/entries/321/description\"")))
         .andExpect(
@@ -316,15 +375,11 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("id=\"timer-notifications\"")))
         .andExpect(content().string(containsString("aria-live=\"polite\"")))
         .andExpect(content().string(containsString("hx-target=\"#timer-notifications\"")))
-        .andExpect(content().string(containsString("bootstrap.Alert.getOrCreateInstance")))
-        .andExpect(content().string(containsString("issueUrlConsumed")))
-        .andExpect(content().string(containsString("function clearIssueUrl()")))
         .andExpect(content().string(containsString("aria-label=\"Tracked time totals\"")))
         .andExpect(content().string(containsString(">Today</dt>")))
         .andExpect(content().string(containsString(">Week total</dt>")))
         .andExpect(content().string(containsString("data-base-seconds=\"2882\"")))
         .andExpect(content().string(containsString("data-base-seconds=\"10923\"")))
-        .andExpect(content().string(containsString("function renderTimeTotals()")))
         .andExpect(content().string(not(containsString("hx-include=\"#running-description\""))))
         .andExpect(
             content()
@@ -540,7 +595,7 @@ class SecurityConfigWebMvcTest(
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("running-timer-toolbar")))
         .andExpect(content().string(containsString("hx-post=\"/timer/entries/987/description\"")))
-        .andExpect(content().string(containsString("function startElapsedTimers()")))
+        .andExpect(content().string(containsString("defer src=\"/js/timer-")))
         .andExpect(content().string(containsString("Back")))
   }
 
@@ -771,6 +826,7 @@ class SecurityConfigWebMvcTest(
     mvc.perform(get("/"))
         .andExpect(status().isOk)
         .andExpect(content().string(not(containsString("hx-post=\"/auth/keep-alive\""))))
+        .andExpect(content().string(not(containsString("/webjars/air-datepicker/"))))
   }
 
   @Test

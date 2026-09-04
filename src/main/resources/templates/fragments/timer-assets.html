@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <head>
+    <link
+      th:fragment="styles"
+      rel="stylesheet"
+      th:href="@{/webjars/air-datepicker/3.6.0/air-datepicker.css}"
+    />
+  </head>
+  <body>
+    <th:block th:fragment="scripts">
+      <script th:src="@{/webjars/air-datepicker/3.6.0/air-datepicker.js}"></script>
+      <script defer th:src="${staticResourceUrls.timerScript}"></script>
+    </th:block>
+  </body>
+</html>

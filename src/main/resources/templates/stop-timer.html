@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html
   xmlns:th="http://www.thymeleaf.org"
-  th:replace="~{layout/base :: layout('Timer Stopped', ~{::main})}"
+  th:replace="~{layout/base :: layout('Timer Stopped', ~{::main}, ~{fragments/timer-assets :: styles}, ~{fragments/timer-assets :: scripts})}"
   lang="en"
 >
   <body>
@@ -16,7 +16,6 @@
         </a>
       </div>
 
-      <script th:replace="~{timer-index :: timer-script}"></script>
     </main>
 
     <form
