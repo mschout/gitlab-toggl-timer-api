@@ -451,6 +451,7 @@ dl.row dt {
   font: inherit;
   font-weight: 500;
   line-height: inherit;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 
