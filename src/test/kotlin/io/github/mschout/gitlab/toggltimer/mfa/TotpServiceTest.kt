@@ -15,14 +15,21 @@
  */
 package io.github.mschout.gitlab.toggltimer.mfa
 
-import dev.samstevens.totp.code.DefaultCodeGenerator
-import dev.samstevens.totp.time.SystemTimeProvider
+import com.helger.totp.code.DefaultCodeGenerator
+import com.helger.totp.code.DefaultCodeVerifier
+import com.helger.totp.code.EHashingAlgorithm
+import com.helger.totp.time.ITimeProvider
+import com.helger.totp.time.SystemTimeProvider
 import io.github.mschout.gitlab.toggltimer.security.AuthProperties
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
 import org.junit.jupiter.api.Test
 
 class TotpServiceTest {
+
+  private companion object {
+    const val RFC_SHA1_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+  }
 
   private val service =
       TotpService(
@@ -40,6 +47,28 @@ class TotpServiceTest {
     val currentBucket = SystemTimeProvider().time / 30
     val code = DefaultCodeGenerator().generate(secret, currentBucket)
     service.verify(secret, code) shouldBe true
+  }
+
+  @Test
+  fun `matches the RFC 6238 SHA1 test vector`() {
+    val codeGenerator = DefaultCodeGenerator(EHashingAlgorithm.SHA1, 8)
+    codeGenerator.generate(RFC_SHA1_SECRET, 59 / 30) shouldBe "94287082"
+  }
+
+  @Test
+  fun `accepts one adjacent time period but rejects two`() {
+    val codeGenerator = DefaultCodeGenerator()
+    val verifier =
+        DefaultCodeVerifier(codeGenerator, ITimeProvider { 60 }).apply {
+          setTimePeriod(30)
+          setAllowedTimePeriodDiscrepancy(1)
+        }
+
+    verifier.isValidCode(RFC_SHA1_SECRET, codeGenerator.generate(RFC_SHA1_SECRET, 1)) shouldBe true
+    verifier.isValidCode(RFC_SHA1_SECRET, codeGenerator.generate(RFC_SHA1_SECRET, 2)) shouldBe true
+    verifier.isValidCode(RFC_SHA1_SECRET, codeGenerator.generate(RFC_SHA1_SECRET, 3)) shouldBe true
+    verifier.isValidCode(RFC_SHA1_SECRET, codeGenerator.generate(RFC_SHA1_SECRET, 0)) shouldBe false
+    verifier.isValidCode(RFC_SHA1_SECRET, codeGenerator.generate(RFC_SHA1_SECRET, 4)) shouldBe false
   }
 
   @Test
