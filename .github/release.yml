@@ -1,0 +1,26 @@
+# this is the default layout, lock it in
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking
+
+    - title: Features
+      labels:
+        - enhancement
+
+    - title: Bug Fixes
+      labels:
+        - bug
+
+    - title: Dependency Updates
+      labels:
+        - dependencies
+
+    - title: Other Changes
+      labels:
+        - "*"
