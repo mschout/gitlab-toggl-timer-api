@@ -73,7 +73,7 @@ jobs:
           IMAGE_NAME: ${{ steps.tags.outputs.primary }}
           REGISTRY_USERNAME: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew bootBuildImage --publishImage --environment BP_JVM_AOTCACHE_ENABLED=true
+        run: ./gradlew bootBuildImage --publishImage
 
       - name: Tag and push additional tag
         run: |
