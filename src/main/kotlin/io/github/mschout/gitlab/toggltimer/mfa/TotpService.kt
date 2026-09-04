@@ -15,12 +15,13 @@
  */
 package io.github.mschout.gitlab.toggltimer.mfa
 
-import dev.samstevens.totp.code.DefaultCodeGenerator
-import dev.samstevens.totp.code.DefaultCodeVerifier
-import dev.samstevens.totp.qr.QrData
-import dev.samstevens.totp.qr.ZxingPngQrGenerator
-import dev.samstevens.totp.secret.DefaultSecretGenerator
-import dev.samstevens.totp.time.SystemTimeProvider
+import com.helger.totp.code.DefaultCodeGenerator
+import com.helger.totp.code.DefaultCodeVerifier
+import com.helger.totp.code.EHashingAlgorithm
+import com.helger.totp.qr.QrData
+import com.helger.totp.qr.image.ZxingPngQrCodeImageGenerator
+import com.helger.totp.secret.DefaultSecretGenerator
+import com.helger.totp.time.SystemTimeProvider
 import io.github.mschout.gitlab.toggltimer.security.AuthProperties
 import java.util.Base64
 import org.springframework.stereotype.Service
@@ -34,7 +35,7 @@ class TotpService(private val authProperties: AuthProperties) {
         setTimePeriod(30)
         setAllowedTimePeriodDiscrepancy(1)
       }
-  private val qrGenerator = ZxingPngQrGenerator()
+  private val qrGenerator = ZxingPngQrCodeImageGenerator()
 
   fun newSecret(): String = secretGenerator.generate()
 
@@ -43,7 +44,7 @@ class TotpService(private val authProperties: AuthProperties) {
           .label(accountLabel)
           .secret(secret)
           .issuer(authProperties.rpName)
-          .algorithm(dev.samstevens.totp.code.HashingAlgorithm.SHA1)
+          .algorithm(EHashingAlgorithm.SHA1)
           .digits(6)
           .period(30)
           .build()
@@ -56,7 +57,7 @@ class TotpService(private val authProperties: AuthProperties) {
             .label(accountLabel)
             .secret(secret)
             .issuer(authProperties.rpName)
-            .algorithm(dev.samstevens.totp.code.HashingAlgorithm.SHA1)
+            .algorithm(EHashingAlgorithm.SHA1)
             .digits(6)
             .period(30)
             .build()

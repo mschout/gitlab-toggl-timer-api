@@ -35,7 +35,8 @@ dependencies {
   implementation(libs.kotlin.logging)
   implementation(libs.kotlin.reflect)
   implementation(libs.thymeleaf.extras.springsecurity)
-  implementation(libs.samstevens.totp)
+  implementation(libs.ph.totp)
+  implementation(libs.ph.totp.qrcode)
   implementation(libs.spring.boot.starter.jdbc)
 
   runtimeOnly(libs.postgresql)

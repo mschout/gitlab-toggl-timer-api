@@ -16,7 +16,7 @@ springDependencyManagement = "1.1.7"
 springSecurityWebauthn = "7.1.1"
 springdoc = "3.1.0"
 testcontainers = "1.21.4"
-totp = "1.7.1"
+phTotp = "2.0.0"
 
 [libraries]
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
@@ -29,7 +29,8 @@ kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = 
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 postgresql = { module = "org.postgresql:postgresql" }
-samstevens-totp = { module = "dev.samstevens.totp:totp", version.ref = "totp" }
+ph-totp = { module = "com.helger:ph-totp", version.ref = "phTotp" }
+ph-totp-qrcode = { module = "com.helger:ph-totp-qrcode", version.ref = "phTotp" }
 spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway", version.ref = "springBoot" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache", version.ref = "springBoot" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
