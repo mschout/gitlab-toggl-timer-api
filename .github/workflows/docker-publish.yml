@@ -2,8 +2,11 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -12,15 +15,22 @@ env:
 
 jobs:
   build-and-push:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    env:
+      SOURCE_REF: ${{ github.event.workflow_run.head_sha || github.ref }}
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          ref: ${{ env.SOURCE_REF }}
           submodules: recursive
 
       - name: Set up JDK 25
@@ -49,7 +59,7 @@ jobs:
             primary="${image_base}:${GITHUB_REF#refs/tags/v}"
             extra="${image_base}:latest"
           else
-            primary="${image_base}:${version}-${GITHUB_SHA::7}"
+            primary="${image_base}:${version}-${SOURCE_SHA::7}"
             extra="${image_base}:main"
           fi
           {
