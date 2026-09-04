@@ -16,14 +16,18 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import io.github.mschout.gitlab.toggltimer.gitlab.GitLabIssueNotFoundException
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspace
 import io.github.mschout.gitlab.toggltimer.toggl.TogglWorkspaceClient
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
@@ -48,9 +52,11 @@ class TimerWebController(
     private val togglService: TogglService,
     private val timeEntryHistoryService: TimeEntryHistoryService,
     private val timeEntryDescriptionService: TimeEntryDescriptionService,
+    private val timeEntryStartService: TimeEntryStartService,
     private val timeEntryProjectService: TimeEntryProjectService,
     private val timeEntryDeletionService: TimeEntryDeletionService,
     private val timeEntrySplitWorkflow: TimeEntrySplitWorkflow,
+    private val clock: Clock,
 ) {
 
   @GetMapping
@@ -238,6 +244,89 @@ class TimerWebController(
         }
     model.addAttribute("descriptionEditor", descriptionEditor)
     return "fragments/time-entry-description :: description-editor"
+  }
+
+  @PostMapping("/entries/{togglId}/start")
+  fun updateEntryStart(
+      @PathVariable togglId: Long,
+      @RequestParam expectedStart: Instant,
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) startDate: LocalDate,
+      @RequestParam startTime: String,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val command =
+        UpdateTimeEntryStartCommand(
+            togglId = togglId,
+            expectedStart = expectedStart,
+            startDate = startDate,
+            startTime = startTime,
+        )
+    val outcome =
+        try {
+          timeEntryStartService.updateStart(command)
+        } catch (exception: TimeEntryStartValidationException) {
+          return startEditorError(command, exception.message.orEmpty(), model, response)
+        } catch (exception: TogglStartUpdateException) {
+          logger.warn(exception) { "Failed to update Toggl time entry $togglId start" }
+          return startEditorError(
+              command,
+              "Could not save the start time to Toggl. Try again.",
+              model,
+              response,
+          )
+        }
+
+    when (outcome) {
+      is TimeEntryStartUpdateOutcome.Saved -> {
+        addRunningTimer(outcome.entry.toStartTimerResult(), model)
+        model.addAttribute(
+            "timerNotification",
+            if (outcome.historySynchronized) null
+            else
+                "Start time was saved to Toggl, but local history is out of sync. " +
+                    "It will catch up automatically.",
+        )
+      }
+      is TimeEntryStartUpdateOutcome.Unchanged -> {
+        addRunningTimer(outcome.entry.toStartTimerResult(), model)
+        model.addAttribute("timerNotification", null)
+      }
+      is TimeEntryStartUpdateOutcome.Stale -> {
+        addActualTimer(outcome.currentEntry, model)
+        model.addAttribute(
+            "timerNotification",
+            "The running timer changed in Toggl. Your start time edit was not applied.",
+        )
+      }
+    }
+
+    return "start-timer :: start-update-response"
+  }
+
+  private fun startEditorError(
+      command: UpdateTimeEntryStartCommand,
+      error: String,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val zone = credentialsService.currentTimeZone()
+    model.addAttribute(
+        "startEditor",
+        TimeEntryStartEditorView(
+            togglId = command.togglId,
+            expectedStart = command.expectedStart,
+            startDate = command.startDate,
+            startTime = command.startTime,
+            today = LocalDate.now(clock.withZone(zone)),
+            timeZone = zone.id,
+            error = error,
+            open = true,
+        ),
+    )
+    response.setHeader("HX-Retarget", "#running-timer-start-dialog-${command.togglId}")
+    response.setHeader("HX-Reswap", "outerHTML")
+    return "start-timer :: start-editor"
   }
 
   @DeleteMapping("/entries/{togglId}")
@@ -464,6 +553,14 @@ class TimerWebController(
     model.addAttribute("runningTimer", runningTimerView(result))
   }
 
+  private fun addActualTimer(entry: TogglTimeEntry?, model: Model) {
+    if (entry == null || entry.duration >= 0 || entry.id == null || entry.start == null) {
+      addStoppedTimer(model)
+    } else {
+      addRunningTimer(entry.toStartTimerResult(), model)
+    }
+  }
+
   private fun addStoppedTimer(model: Model) {
     val workspaceId = credentialsService.currentTogglWorkspaceId()
     val projects =
@@ -510,6 +607,34 @@ class TimerWebController(
                 description = result.description?.takeIf { it.isNotBlank() },
             ),
         projectPicker = projectPicker,
+        startEditor = startEditorView(togglId = result.togglId, start = result.startTime),
     )
+  }
+
+  private fun startEditorView(togglId: Long, start: Instant): TimeEntryStartEditorView {
+    val zone = credentialsService.currentTimeZone()
+    val localStart = start.atZone(zone)
+    return TimeEntryStartEditorView(
+        togglId = togglId,
+        expectedStart = start,
+        startDate = localStart.toLocalDate(),
+        startTime = START_TIME_FORMATTER.format(localStart),
+        today = LocalDate.now(clock.withZone(zone)),
+        timeZone = zone.id,
+    )
+  }
+
+  private fun TogglTimeEntry.toStartTimerResult(): StartTimerResult =
+      StartTimerResult(
+          togglId = requireNotNull(id) { "Updated Toggl entry is missing an id" },
+          startTime = requireNotNull(start) { "Updated Toggl entry is missing a start" },
+          projectName = projectName,
+          description = description,
+          clientName = clientName,
+          projectColor = projectColor,
+      )
+
+  companion object {
+    private val START_TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
   }
 }

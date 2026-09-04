@@ -38,10 +38,24 @@
         </th:block>
       </div>
 
-      <time
-        class="running-timer-elapsed js-elapsed-time"
-        th:attr="data-started-at=${runningTimer.startTime}"
-      >--:--:--</time>
+      <div class="running-timer-elapsed-control">
+        <button
+          type="button"
+          class="running-timer-elapsed-trigger"
+          aria-label="Edit timer start time"
+          aria-haspopup="dialog"
+          th:attr="aria-controls=|running-timer-start-dialog-${runningTimer.startEditor.togglId}|"
+        >
+          <time
+            class="running-timer-elapsed js-elapsed-time"
+            th:attr="data-started-at=${runningTimer.startTime}"
+          >--:--:--</time>
+        </button>
+
+        <th:block th:with="startEditor=${runningTimer.startEditor}">
+          <dialog th:replace="~{::start-editor}"></dialog>
+        </th:block>
+      </div>
 
       <button
         type="button"
@@ -55,5 +69,138 @@
         <i class="bi bi-stop-fill" aria-hidden="true"></i>
       </button>
     </div>
+
+    <dialog
+      th:fragment="start-editor"
+      class="running-timer-start-dialog"
+      th:id="|running-timer-start-dialog-${startEditor.togglId}|"
+      th:attr="aria-labelledby=|running-timer-start-title-${startEditor.togglId}|,
+               data-open=${startEditor.open},
+               data-initial-start-date=${startEditor.startDate},
+               data-initial-start-time=${startEditor.startTime},
+               data-today=${startEditor.today},
+               data-time-zone=${startEditor.timeZone}"
+    >
+      <form
+        class="running-timer-start-form"
+        th:attr="hx-post=@{/timer/entries/{togglId}/start(togglId=${startEditor.togglId})}"
+        hx-target="#result"
+        hx-swap="outerHTML"
+        hx-disabled-elt="find button, find input"
+      >
+        <input type="hidden" name="expectedStart" th:value="${startEditor.expectedStart}" />
+        <input
+          type="hidden"
+          name="startDate"
+          class="running-timer-start-date"
+          th:id="|running-timer-start-date-${startEditor.togglId}|"
+          th:value="${startEditor.startDate}"
+        />
+
+        <div class="running-timer-start-dialog-header">
+          <div>
+            <div class="running-timer-start-kicker">Running timer</div>
+            <h3
+              class="running-timer-start-title"
+              th:id="|running-timer-start-title-${startEditor.togglId}|"
+            >
+              Adjust start time
+            </h3>
+          </div>
+          <button
+            type="button"
+            class="btn-close running-timer-start-cancel"
+            aria-label="Close"
+          ></button>
+        </div>
+
+        <div class="running-timer-start-dialog-body">
+          <div
+            th:if="${startEditor.error != null}"
+            class="alert alert-danger running-timer-start-error"
+            role="alert"
+            th:text="${startEditor.error}"
+          >
+            Enter a valid start time.
+          </div>
+
+          <fieldset class="running-timer-start-fields">
+            <legend class="visually-hidden">Start date and time</legend>
+            <div>
+              <label
+                class="form-label"
+                th:for="|running-timer-start-time-${startEditor.togglId}|"
+              >Start</label>
+              <input
+                type="text"
+                name="startTime"
+                class="form-control running-timer-start-time"
+                th:id="|running-timer-start-time-${startEditor.togglId}|"
+                th:value="${startEditor.startTime}"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="h:mm AM"
+                required
+              />
+            </div>
+            <div>
+              <label
+                class="form-label"
+                th:for="|running-timer-start-calendar-${startEditor.togglId}|"
+              >Day</label>
+              <input
+                type="text"
+                class="form-control running-timer-start-date-display"
+                th:id="|running-timer-start-calendar-${startEditor.togglId}|"
+                th:value="${startEditor.startDate.equals(startEditor.today) ? 'Today' : #temporals.format(startEditor.startDate, 'MM/dd')}"
+                readonly
+                autocomplete="off"
+              />
+            </div>
+          </fieldset>
+          <div
+            class="running-timer-start-calendar"
+            role="group"
+            aria-label="Choose start date"
+            tabindex="0"
+          ></div>
+        </div>
+
+        <div class="running-timer-start-dialog-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary running-timer-start-cancel"
+          >Cancel</button>
+          <button type="submit" class="btn btn-primary running-timer-start-confirm">
+            <span
+              class="htmx-indicator spinner-border spinner-border-sm"
+              aria-hidden="true"
+            ></span>
+            <span class="running-timer-start-confirm-label">OK</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <th:block th:fragment="start-update-response">
+      <div id="result" class="mb-2">
+        <th:block th:if="${runningTimer != null}">
+          <div th:replace="~{::result-card}" th:remove="tag"></div>
+        </th:block>
+        <th:block th:unless="${runningTimer != null}">
+          <div th:replace="~{stop-timer :: result-card}" th:remove="tag"></div>
+        </th:block>
+      </div>
+      <div hx-swap-oob="innerHTML:#timer-notifications">
+        <div
+          th:if="${timerNotification != null}"
+          class="alert alert-warning alert-dismissible fade show"
+          role="status"
+        >
+          <span th:text="${timerNotification}">The timer changed.</span>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      </div>
+    </th:block>
   </body>
 </html>

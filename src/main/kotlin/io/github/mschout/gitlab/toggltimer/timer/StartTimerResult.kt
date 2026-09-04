@@ -16,6 +16,7 @@
 package io.github.mschout.gitlab.toggltimer.timer
 
 import java.time.Instant
+import java.time.LocalDate
 
 data class StartTimerResult(
     val togglId: Long,
@@ -30,6 +31,18 @@ data class RunningTimerView(
     val startTime: Instant,
     val descriptionEditor: TimeEntryDescriptionEditorView,
     val projectPicker: TimeEntryProjectPickerView,
+    val startEditor: TimeEntryStartEditorView,
+)
+
+data class TimeEntryStartEditorView(
+    val togglId: Long,
+    val expectedStart: Instant,
+    val startDate: LocalDate,
+    val startTime: String,
+    val today: LocalDate,
+    val timeZone: String,
+    val error: String? = null,
+    val open: Boolean = false,
 )
 
 data class StoppedTimerView(val workspaceId: Long?, val projects: List<StoppedTimerProjectView>)

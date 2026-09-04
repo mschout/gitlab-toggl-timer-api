@@ -66,3 +66,6 @@ data class UpdateTimeEntryDescriptionRequest(val workspaceId: Long, val descript
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class UpdateTimeEntryProjectRequest(val workspaceId: Long, val projectId: Long)
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
+data class UpdateTimeEntryStartRequest(val workspaceId: Long, val start: Instant)

@@ -36,6 +36,8 @@ import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectService
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntrySplitView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntrySplitWorkflow
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryStartService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryStartUpdateOutcome
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryTotalsView
 import io.github.mschout.gitlab.toggltimer.timer.TimerService
 import io.github.mschout.gitlab.toggltimer.timer.TimerWebController
@@ -43,6 +45,7 @@ import io.github.mschout.gitlab.toggltimer.timer.TogglDescriptionUpdateException
 import io.github.mschout.gitlab.toggltimer.timer.TogglService
 import io.github.mschout.gitlab.toggltimer.timer.TogglTimeEntryDeletionException
 import io.github.mschout.gitlab.toggltimer.toggl.TogglProject
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.mschout.gitlab.toggltimer.user.User
 import io.github.mschout.gitlab.toggltimer.user.UserAuthIdentityRepository
@@ -52,8 +55,11 @@ import io.github.mschout.gitlab.toggltimer.user.UserSettingsRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.Optional
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
@@ -84,6 +90,7 @@ class SecurityConfigWebMvcTest(
     @Autowired val timeEntryDeletionService: TimeEntryDeletionService,
     @Autowired val timeEntrySplitWorkflow: TimeEntrySplitWorkflow,
     @Autowired val timeEntryProjectService: TimeEntryProjectService,
+    @Autowired val timeEntryStartService: TimeEntryStartService,
     @Autowired val credentialsService: CurrentUserCredentialsService,
 ) {
 
@@ -189,6 +196,8 @@ class SecurityConfigWebMvcTest(
 
     @Bean fun timeEntrySplitWorkflow(): TimeEntrySplitWorkflow = mockk(relaxed = true)
 
+    @Bean fun timeEntryStartService(): TimeEntryStartService = mockk(relaxed = true)
+
     @Bean
     fun timeEntryProjectService(): TimeEntryProjectService =
         mockk<TimeEntryProjectService>(relaxed = true).also {
@@ -201,7 +210,13 @@ class SecurityConfigWebMvcTest(
               )
         }
 
-    @Bean fun currentUserCredentialsService(): CurrentUserCredentialsService = mockk(relaxed = true)
+    @Bean
+    fun currentUserCredentialsService(): CurrentUserCredentialsService =
+        mockk<CurrentUserCredentialsService>(relaxed = true).also {
+          every { it.currentTimeZone() } returns ZoneId.of("America/Chicago")
+        }
+
+    @Bean fun clock(): Clock = Clock.fixed(Instant.parse("2026-09-03T20:00:00Z"), ZoneOffset.UTC)
 
     @Bean fun restTemplateBuilder(): RestTemplateBuilder = RestTemplateBuilder()
 
@@ -247,6 +262,12 @@ class SecurityConfigWebMvcTest(
   fun `authenticated GET timer is allowed when user has settings`() {
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
+        .andExpect(
+            content().string(containsString("/webjars/air-datepicker/3.6.0/air-datepicker.css"))
+        )
+        .andExpect(
+            content().string(containsString("/webjars/air-datepicker/3.6.0/air-datepicker.js"))
+        )
         .andExpect(content().string(containsString("/webjars/htmx.org/4.0.0/dist/htmx.min.js")))
         .andExpect(content().string(containsString("htmx:config:request")))
         .andExpect(content().string(containsString("evt.detail.ctx.request.headers[header]")))
@@ -262,6 +283,24 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
         .andExpect(content().string(containsString("class=\"running-timer-toolbar shadow-sm\"")))
         .andExpect(content().string(containsString("data-started-at=\"2026-08-27T14:30:00Z\"")))
+        .andExpect(content().string(containsString("aria-label=\"Edit timer start time\"")))
+        .andExpect(content().string(containsString("aria-haspopup=\"dialog\"")))
+        .andExpect(
+            content().string(containsString("aria-controls=\"running-timer-start-dialog-321\""))
+        )
+        .andExpect(content().string(containsString("id=\"running-timer-start-dialog-321\"")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/321/start\"")))
+        .andExpect(content().string(containsString("name=\"expectedStart\"")))
+        .andExpect(content().string(containsString("name=\"startDate\"")))
+        .andExpect(content().string(containsString("name=\"startTime\"")))
+        .andExpect(content().string(containsString("value=\"9:30 AM\"")))
+        .andExpect(content().string(containsString("data-today=\"2026-09-03\"")))
+        .andExpect(content().string(containsString(">Cancel</button>")))
+        .andExpect(content().string(containsString("running-timer-start-confirm")))
+        .andExpect(content().string(containsString("running-timer-start-confirm-label")))
+        .andExpect(content().string(containsString("showOtherMonths: false")))
+        .andExpect(content().string(containsString("fixedHeight: true")))
+        .andExpect(content().string(containsString("firstDay: 1")))
         .andExpect(content().string(containsString("<title>Home • Gitlab Toggl Timer</title>")))
         .andExpect(content().string(containsString("function formatElapsedTitle(seconds)")))
         .andExpect(content().string(containsString("value=\"Build the compact toolbar\"")))
@@ -306,6 +345,7 @@ class SecurityConfigWebMvcTest(
         )
         .andExpect(content().string(containsString("data-description=\"Rendered history entry\"")))
         .andExpect(content().string(containsString(">Split</span>")))
+        .andExpect(content().string(containsString("time-entry-split-confirm-label")))
         .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/split\"")))
         .andExpect(content().string(containsString("name=\"splitOffsetSeconds\"")))
         .andExpect(content().string(containsString("data-time-zone=\"America/Chicago\"")))
@@ -379,6 +419,64 @@ class SecurityConfigWebMvcTest(
           StartTimerRequest(workspaceId = 7L, projectId = 200L, description = "Unassigned work")
       )
     }
+  }
+
+  @Test
+  fun `authenticated start-time update replaces the timer toolbar with CSRF`() {
+    val updatedStart = Instant.parse("2026-08-27T14:15:00Z")
+    every { timeEntryStartService.updateStart(any()) } returns
+        TimeEntryStartUpdateOutcome.Saved(
+            entry =
+                TogglTimeEntry(
+                    id = 321L,
+                    workspaceId = 7L,
+                    start = updatedStart,
+                    duration = -1L,
+                    description = "Build the compact toolbar",
+                ),
+            historySynchronized = true,
+        )
+
+    mvc.perform(
+            post("/timer/entries/321/start")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .header("HX-Request", "true")
+                .param("expectedStart", "2026-08-27T14:30:00Z")
+                .param("startDate", "2026-08-27")
+                .param("startTime", "9:15 AM")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("id=\"result\"")))
+        .andExpect(content().string(containsString("data-started-at=\"$updatedStart\"")))
+        .andExpect(
+            content().string(containsString("hx-swap-oob=\"innerHTML:#timer-notifications\""))
+        )
+  }
+
+  @Test
+  fun `start-time update requires CSRF`() {
+    mvc.perform(
+            post("/timer/entries/321/start")
+                .with(user("alice@example.com").roles("USER"))
+                .param("expectedStart", "2026-08-27T14:30:00Z")
+                .param("startDate", "2026-08-27")
+                .param("startTime", "9:15 AM")
+        )
+        .andExpect(status().isForbidden)
+  }
+
+  @Test
+  fun `unauthenticated start-time update redirects to login`() {
+    mvc.perform(
+            post("/timer/entries/321/start")
+                .with(csrf())
+                .param("expectedStart", "2026-08-27T14:30:00Z")
+                .param("startDate", "2026-08-27")
+                .param("startTime", "9:15 AM")
+        )
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/login"))
   }
 
   @Test
