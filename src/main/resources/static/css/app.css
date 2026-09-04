@@ -80,6 +80,23 @@ dl.row dt {
   white-space: nowrap;
 }
 
+.running-timer-project .time-entry-project-trigger {
+  padding-block: 0.4rem;
+  padding-inline: 0.7rem 1.05rem;
+  background: color-mix(in srgb, var(--project-color) 20%, transparent);
+  border-radius: var(--bs-border-radius-pill);
+}
+
+.running-timer-project .time-entry-project-trigger > .time-entry-separator:first-child,
+.time-entry-row .time-entry-project-trigger > .time-entry-separator:first-child {
+  display: inline-block;
+  transform: scale(2);
+}
+
+.running-timer-project .time-entry-project-trigger:focus-visible {
+  border-radius: var(--bs-border-radius-pill);
+}
+
 .running-timer-elapsed {
   color: var(--bs-body-color);
   font-family: var(--bs-font-monospace);
@@ -479,6 +496,14 @@ dl.row dt {
   margin-inline: 0.35rem;
   color: var(--project-color);
   font-weight: 700;
+}
+
+.time-entry-project-name {
+  color: var(--project-color);
+}
+
+.time-entry-project-trigger > .time-entry-separator:not(:first-child) {
+  color: inherit;
 }
 
 .time-entry-project-picker {
