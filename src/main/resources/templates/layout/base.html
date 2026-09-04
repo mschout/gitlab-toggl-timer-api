@@ -2,7 +2,7 @@
 <html
   xmlns:th="http://www.thymeleaf.org"
   xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-  th:fragment="layout(title, content)"
+  th:fragment="layout(title, content, pageStyles, pageScripts)"
   lang="en"
 >
   <head>
@@ -13,7 +13,7 @@
     <meta name="_csrf_header" th:content="${_csrf.headerName}" />
     <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.8/dist/css/bootstrap.min.css}" />
     <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css}" />
-    <link rel="stylesheet" th:href="@{/webjars/air-datepicker/3.6.0/air-datepicker.css}" />
+    <th:block th:replace="${pageStyles}"></th:block>
     <link rel="stylesheet" th:href="${staticResourceUrls.appStylesheet}" />
   </head>
   <body class="d-flex flex-column min-vh-100 bg-body-tertiary">
@@ -36,8 +36,8 @@
     ></div>
 
     <script th:src="@{/webjars/bootstrap/5.3.8/dist/js/bootstrap.bundle.min.js}"></script>
-    <script th:src="@{/webjars/air-datepicker/3.6.0/air-datepicker.js}"></script>
     <script th:src="@{/webjars/htmx.org/4.0.0/dist/htmx.min.js}"></script>
     <script defer th:src="${staticResourceUrls.baseScript}"></script>
+    <th:block th:replace="${pageScripts}"></th:block>
   </body>
 </html>

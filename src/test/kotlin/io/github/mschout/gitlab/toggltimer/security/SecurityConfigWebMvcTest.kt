@@ -826,6 +826,7 @@ class SecurityConfigWebMvcTest(
     mvc.perform(get("/"))
         .andExpect(status().isOk)
         .andExpect(content().string(not(containsString("hx-post=\"/auth/keep-alive\""))))
+        .andExpect(content().string(not(containsString("/webjars/air-datepicker/"))))
   }
 
   @Test

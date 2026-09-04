@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html
   xmlns:th="http://www.thymeleaf.org"
-  th:replace="~{layout/base :: layout('Home', ~{::main})}"
+  th:replace="~{layout/base :: layout('Home', ~{::main}, ~{fragments/timer-assets :: styles}, ~{fragments/timer-assets :: scripts})}"
   lang="en"
 >
   <body>
@@ -353,7 +353,6 @@
         </div>
       </section>
 
-      <script th:fragment="timer-script" defer th:src="${staticResourceUrls.timerScript}"></script>
     </main>
   </body>
 </html>
