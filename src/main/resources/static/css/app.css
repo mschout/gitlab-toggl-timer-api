@@ -481,6 +481,14 @@ dl.row dt {
   font-weight: 700;
 }
 
+.time-entry-project-name {
+  color: var(--project-color);
+}
+
+.time-entry-project-trigger > .time-entry-separator:not(:first-child) {
+  color: inherit;
+}
+
 .time-entry-project-picker {
   display: inline-block;
   max-width: 100%;

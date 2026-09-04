@@ -16,7 +16,11 @@
         aria-haspopup="dialog"
       >
         <span class="time-entry-separator" aria-hidden="true">•</span>
-        <span th:if="${projectPicker.projectName != null}" th:text="${projectPicker.projectName}">
+        <span
+          th:if="${projectPicker.projectName != null}"
+          class="time-entry-project-name"
+          th:text="${projectPicker.projectName}"
+        >
           Project
         </span>
         <span th:if="${projectPicker.projectName == null}" class="fst-italic">Add project</span>
