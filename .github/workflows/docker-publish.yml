@@ -73,7 +73,10 @@ jobs:
           IMAGE_NAME: ${{ steps.tags.outputs.primary }}
           REGISTRY_USERNAME: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew bootBuildImage --publishImage
+        # NOTE: AOTCache currently crashes if runtime CPU doesn't have the right capabilities, so we disable it for now.
+        # See: https://github.com/adoptium/adoptium-support/issues/1507
+        # Re-enable by adding `--environment BP_JVM_AOTCACHE_ENABLED=true` here
+        run: ./gradlew bootBuildImage --publishImage --environment BP_JVM_AOTCACHE_ENABLED=true
 
       - name: Tag and push additional tag
         run: |
