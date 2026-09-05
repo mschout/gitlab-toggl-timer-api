@@ -374,6 +374,10 @@
     }
     if (target.matches('.time-entry-split-manual-input')) {
       applyManualSplit(target.closest('.time-entry-split-dialog'));
+      return;
+    }
+    if (target.matches('.stopped-timer-project-search')) {
+      filterStoppedTimerProjects(target);
     }
   });
 
@@ -399,17 +403,6 @@
     if (!target) return;
     if (target.matches && target.matches('.time-entry-split-mode-input')) {
       renderSplitDialog(target.closest('.time-entry-split-dialog'), false);
-      return;
-    }
-    if (target.matches && target.matches('.js-stopped-project')) {
-      var toolbar = target.closest('.running-timer-toolbar');
-      var selected = target.options[target.selectedIndex];
-      var projectColor = selected && selected.getAttribute('data-project-color');
-      if (toolbar && projectColor) {
-        toolbar.style.setProperty('--project-color', projectColor);
-      } else if (toolbar) {
-        toolbar.style.removeProperty('--project-color');
-      }
       return;
     }
     if (!target.id) return;
@@ -521,6 +514,13 @@
       return;
     }
 
+    var stoppedProjectOption =
+      evt.target.closest && evt.target.closest('.stopped-timer-project-option');
+    if (stoppedProjectOption) {
+      selectStoppedTimerProject(stoppedProjectOption);
+      return;
+    }
+
     var projectTrigger =
       evt.target.closest && evt.target.closest('.time-entry-project-trigger');
     if (projectTrigger) {
@@ -575,6 +575,76 @@
     if (!search) return;
     search.focus();
     htmx.trigger(search, 'project-search');
+  }
+
+  function filterStoppedTimerProjects(search) {
+    var dialog = search.closest('.stopped-timer-project-dialog');
+    if (!dialog) return;
+    var query = search.value.trim().toLowerCase();
+    var visibleCount = 0;
+    dialog.querySelectorAll('.stopped-timer-project-option').forEach(function (option) {
+      var searchableText = [
+        option.getAttribute('data-project-name'),
+        option.getAttribute('data-project-client'),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      option.hidden = query !== '' && !searchableText.includes(query);
+      if (!option.hidden) visibleCount += 1;
+    });
+    var empty = dialog.querySelector('.stopped-timer-project-results-empty');
+    if (empty) {
+      empty.classList.toggle('d-none', visibleCount !== 0);
+      empty.textContent = query
+        ? 'No matching projects.'
+        : 'No active projects in this workspace.';
+    }
+  }
+
+  function selectStoppedTimerProject(option) {
+    var picker = option.closest('.stopped-timer-project-picker');
+    if (!picker) return;
+    var projectId = option.getAttribute('data-project-id') || '';
+    var projectName = option.getAttribute('data-project-name') || '';
+    var projectClient = option.getAttribute('data-project-client') || '';
+    var projectColor = option.getAttribute('data-project-color') || '';
+    var projectInput = picker.querySelector('input[name="projectId"]');
+    var projectNameLabel = picker.querySelector('.stopped-timer-project-name');
+    var projectClientLabel = picker.querySelector('.stopped-timer-project-client');
+    var projectClientSeparator = picker.querySelector(
+      '.stopped-timer-project-client-separator'
+    );
+    var toolbar = picker.closest('.running-timer-toolbar');
+
+    if (projectInput) {
+      projectInput.value = projectId;
+      projectInput.setAttribute('value', projectId);
+    }
+    if (projectNameLabel) {
+      projectNameLabel.textContent = projectName;
+      projectNameLabel.classList.remove('fst-italic');
+    }
+    if (projectClientLabel) {
+      projectClientLabel.textContent = projectClient;
+      projectClientLabel.classList.toggle('d-none', !projectClient);
+    }
+    if (projectClientSeparator) {
+      projectClientSeparator.classList.toggle('d-none', !projectClient);
+    }
+    picker.setAttribute('data-project-color', projectColor);
+    if (toolbar && projectColor) toolbar.style.setProperty('--project-color', projectColor);
+
+    picker.querySelectorAll('.stopped-timer-project-option').forEach(function (candidate) {
+      var selected = candidate === option;
+      candidate.classList.toggle('is-selected', selected);
+      candidate.disabled = selected;
+    });
+
+    var dialog = picker.querySelector('.stopped-timer-project-dialog');
+    if (dialog) dialog.close();
+    var trigger = picker.querySelector('.time-entry-project-trigger');
+    if (trigger) trigger.focus();
   }
 
   function copyEntryDescription(button) {

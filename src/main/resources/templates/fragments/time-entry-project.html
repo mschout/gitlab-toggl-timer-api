@@ -91,6 +91,91 @@
     </div>
 
     <div
+      th:fragment="stopped-project-picker"
+      class="time-entry-project-picker stopped-timer-project-picker"
+      id="stopped-timer-project"
+    >
+      <input type="hidden" name="projectId" value="" />
+      <button
+        type="button"
+        class="time-entry-project-trigger"
+        aria-controls="stopped-timer-project-dialog"
+        aria-label="Choose project for new timer"
+        aria-haspopup="dialog"
+      >
+        <span class="time-entry-separator" aria-hidden="true">•</span>
+        <span class="time-entry-project-name stopped-timer-project-name fst-italic">
+          Add project
+        </span>
+        <span
+          class="time-entry-separator stopped-timer-project-client-separator d-none"
+          aria-hidden="true"
+        >•</span>
+        <span class="stopped-timer-project-client d-none"></span>
+      </button>
+
+      <dialog
+        class="time-entry-project-dialog stopped-timer-project-dialog"
+        id="stopped-timer-project-dialog"
+        aria-labelledby="stopped-timer-project-title"
+      >
+        <div class="time-entry-project-dialog-header">
+          <div>
+            <h4 class="time-entry-project-dialog-title" id="stopped-timer-project-title">
+              Choose a project
+            </h4>
+            <div class="small text-body-secondary">Search projects in this workspace</div>
+          </div>
+          <button
+            type="button"
+            class="btn-close time-entry-project-close"
+            aria-label="Close project picker"
+          ></button>
+        </div>
+
+        <div class="time-entry-project-search-wrap">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input
+            type="search"
+            class="form-control time-entry-project-search stopped-timer-project-search"
+            placeholder="Search projects…"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="time-entry-project-results" aria-live="polite">
+          <div
+            class="time-entry-project-results-empty stopped-timer-project-results-empty"
+            th:classappend="${not #lists.isEmpty(projects)} ? ' d-none'"
+          >No active projects in this workspace.</div>
+          <button
+            th:each="project : ${projects}"
+            type="button"
+            class="time-entry-project-option stopped-timer-project-option"
+            th:attr="data-project-id=${project.togglId},
+                     data-project-name=${project.name},
+                     data-project-client=${project.clientName},
+                     data-project-color=${project.color}"
+          >
+            <span
+              class="time-entry-project-option-color"
+              th:style="${project.color != null} ? |--option-color: ${project.color}| : null"
+              aria-hidden="true"
+            ></span>
+            <span class="time-entry-project-option-copy">
+              <span class="time-entry-project-option-name" th:text="${project.name}">Project</span>
+              <span
+                th:if="${project.clientName != null}"
+                class="time-entry-project-option-client"
+                th:text="${project.clientName}"
+              >Client</span>
+            </span>
+          </button>
+        </div>
+      </dialog>
+    </div>
+
+    <div
       th:fragment="project-results"
       th:id="|time-entry-project-results-${projectSearch.togglId}|"
       class="time-entry-project-results"

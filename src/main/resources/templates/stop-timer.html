@@ -42,24 +42,13 @@
         />
       </div>
 
-      <label class="stopped-timer-project">
-        <i class="bi bi-folder-fill" aria-hidden="true"></i>
-        <span class="visually-hidden">Project</span>
-        <select
-          name="projectId"
-          class="js-stopped-project"
-          aria-label="Project"
-          th:disabled="${stoppedTimer.workspaceId == null}"
-        >
-          <option value="">No project</option>
-          <option
-            th:each="project : ${stoppedTimer.projects}"
-            th:value="${project.togglId}"
-            th:text="${project.clientName != null} ? |${project.name} • ${project.clientName}| : ${project.name}"
-            th:attr="data-project-color=${project.color}"
-          >Project</option>
-        </select>
-      </label>
+      <div class="running-timer-project">
+        <th:block th:with="projects=${stoppedTimer.projects}">
+          <div
+            th:replace="~{fragments/time-entry-project :: stopped-project-picker}"
+          ></div>
+        </th:block>
+      </div>
 
       <time class="running-timer-elapsed" aria-label="Elapsed time">00:00:00</time>
 

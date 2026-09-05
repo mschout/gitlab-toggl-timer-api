@@ -589,8 +589,18 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("name=\"workspaceId\"")))
         .andExpect(content().string(containsString("value=\"7\"")))
         .andExpect(content().string(containsString("name=\"projectId\"")))
-        .andExpect(content().string(containsString("value=\"200\"")))
-        .andExpect(content().string(containsString("74398 - Compact timer • Courtio")))
+        .andExpect(content().string(containsString("id=\"stopped-timer-project-dialog\"")))
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "class=\"form-control time-entry-project-search stopped-timer-project-search\""
+                    )
+                )
+        )
+        .andExpect(content().string(containsString("data-project-id=\"200\"")))
+        .andExpect(content().string(containsString("74398 - Compact timer")))
+        .andExpect(content().string(containsString("Courtio")))
         .andExpect(content().string(containsString("data-project-color=\"#4C6EF5\"")))
         .andExpect(content().string(containsString(">00:00:00</time>")))
         .andExpect(content().string(containsString("hx-post=\"/timer/start\"")))

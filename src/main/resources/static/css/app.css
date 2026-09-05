@@ -308,29 +308,6 @@ dl.row dt {
   box-shadow: inset 0 -2px var(--bs-primary);
 }
 
-.stopped-timer-project {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  margin: 0;
-  color: var(--bs-secondary-color);
-}
-
-.stopped-timer-project select {
-  max-width: 15rem;
-  padding: 0.4rem 1.65rem 0.4rem 0.45rem;
-  color: inherit;
-  background-color: transparent;
-  border: 0;
-  border-radius: var(--bs-border-radius-sm);
-  outline: 0;
-  text-overflow: ellipsis;
-}
-
-.stopped-timer-project select:focus-visible {
-  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
-}
-
 .time-totals {
   margin-bottom: 1.5rem;
   padding: 0.65rem 0.9rem;
