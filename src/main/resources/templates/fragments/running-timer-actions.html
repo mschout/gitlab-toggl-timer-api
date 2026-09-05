@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <body>
+    <div
+      th:fragment="running-timer-actions"
+      class="time-entry-actions"
+      th:id="|running-timer-actions-${entryActions.togglId}|"
+    >
+      <div class="dropdown">
+        <button
+          type="button"
+          class="time-entry-actions-trigger"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="outside"
+          aria-expanded="false"
+          aria-haspopup="menu"
+          th:attr="aria-label=${entryActions.description != null} ? |Actions for running timer ${entryActions.description}| : 'Actions for running timer'"
+        >
+          <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end time-entry-actions-menu" role="menu">
+          <li role="none">
+            <button
+              type="button"
+              class="dropdown-item text-danger time-entry-delete-trigger"
+              role="menuitem"
+              th:attr="aria-controls=|running-timer-delete-dialog-${entryActions.togglId}|"
+              aria-haspopup="dialog"
+            >
+              <i class="bi bi-trash3" aria-hidden="true"></i>
+              <span>Delete</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <dialog
+        class="time-entry-delete-dialog"
+        th:id="|running-timer-delete-dialog-${entryActions.togglId}|"
+        th:attr="aria-labelledby=|running-timer-delete-title-${entryActions.togglId}|,
+                 data-open=${entryActions.open}"
+      >
+        <div class="time-entry-delete-dialog-header">
+          <div>
+            <div class="time-entry-delete-kicker">Permanent action</div>
+            <h3
+              class="time-entry-delete-title"
+              th:id="|running-timer-delete-title-${entryActions.togglId}|"
+            >
+              Delete running timer?
+            </h3>
+          </div>
+          <button
+            type="button"
+            class="btn-close time-entry-delete-close"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="time-entry-delete-dialog-body">
+          <div
+            th:if="${entryActions.error != null}"
+            class="time-entry-delete-error"
+            role="alert"
+            th:text="${entryActions.error}"
+          >
+            Could not delete this running timer. Try again.
+          </div>
+          <p
+            class="time-entry-delete-description"
+            th:text="${entryActions.description != null} ? |“${entryActions.description}” will be stopped and removed from Toggl and local history.| : 'This timer will be stopped and removed from Toggl and local history.'"
+          >
+            This timer will be stopped and removed from Toggl and local history.
+          </p>
+          <p class="time-entry-delete-warning">This cannot be undone.</p>
+        </div>
+        <div class="time-entry-delete-dialog-footer">
+          <button type="button" class="btn btn-outline-secondary time-entry-delete-close">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger time-entry-delete-confirm"
+            th:attr="hx-delete=@{/timer/running/{togglId}(togglId=${entryActions.togglId})},
+                     hx-target=|#running-timer-actions-${entryActions.togglId}|"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this"
+          >
+            <span
+              class="htmx-indicator spinner-border spinner-border-sm"
+              aria-hidden="true"
+            ></span>
+            <span class="time-entry-delete-confirm-label">Delete</span>
+          </button>
+        </div>
+      </dialog>
+    </div>
+  </body>
+</html>

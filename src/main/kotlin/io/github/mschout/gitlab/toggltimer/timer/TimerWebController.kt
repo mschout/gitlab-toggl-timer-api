@@ -369,6 +369,48 @@ class TimerWebController(
     return "timer-index :: recent-entries"
   }
 
+  @DeleteMapping("/running/{togglId}")
+  fun deleteRunningEntry(
+      @PathVariable togglId: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val actions =
+        try {
+          timeEntryDeletionService.deleteRunning(togglId)
+          null
+        } catch (exception: TogglTimeEntryDeletionException) {
+          logger.warn(exception) { "Failed to stop and delete running Toggl time entry $togglId" }
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = exception.description,
+              error = "Could not delete from Toggl. Try again.",
+              open = true,
+          )
+        } catch (exception: TimeEntryHistoryDeletionException) {
+          logger.warn(exception) {
+            "Failed to delete running Toggl time entry $togglId from Postgres"
+          }
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = exception.description,
+              error = "Deleted from Toggl, but local history could not be removed. Try again.",
+              open = true,
+          )
+        }
+
+    if (actions != null) {
+      model.addAttribute("entryActions", actions)
+      return "fragments/running-timer-actions :: running-timer-actions"
+    }
+
+    addStoppedTimer(model)
+    response.setHeader("HX-Retarget", "#result")
+    response.setHeader("HX-Reswap", "innerHTML")
+    response.setHeader("HX-Trigger", "timeEntriesChanged, timeTotalsChanged")
+    return "stop-timer :: result-card"
+  }
+
   @PostMapping("/entries/{togglId}/split")
   fun splitEntry(
       @PathVariable togglId: Long,
@@ -608,6 +650,11 @@ class TimerWebController(
             ),
         projectPicker = projectPicker,
         startEditor = startEditorView(togglId = result.togglId, start = result.startTime),
+        actions =
+            TimeEntryActionsView(
+                togglId = result.togglId,
+                description = result.description?.takeIf { it.isNotBlank() },
+            ),
     )
   }
 

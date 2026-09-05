@@ -32,6 +32,7 @@ data class RunningTimerView(
     val descriptionEditor: TimeEntryDescriptionEditorView,
     val projectPicker: TimeEntryProjectPickerView,
     val startEditor: TimeEntryStartEditorView,
+    val actions: TimeEntryActionsView,
 )
 
 data class TimeEntryStartEditorView(

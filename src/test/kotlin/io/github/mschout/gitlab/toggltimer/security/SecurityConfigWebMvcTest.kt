@@ -372,6 +372,16 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("Courtio")))
         .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
         .andExpect(content().string(containsString("aria-label=\"Stop timer\"")))
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "aria-label=\"Actions for running timer Build the compact toolbar\""
+                    )
+                )
+        )
+        .andExpect(content().string(containsString("hx-delete=\"/timer/running/321\"")))
+        .andExpect(content().string(containsString("Delete running timer?")))
         .andExpect(content().string(containsString("id=\"timer-notifications\"")))
         .andExpect(content().string(containsString("aria-live=\"polite\"")))
         .andExpect(content().string(containsString("hx-target=\"#timer-notifications\"")))
@@ -565,6 +575,8 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString(">00:00:00</time>")))
         .andExpect(content().string(containsString("hx-post=\"/timer/start\"")))
         .andExpect(content().string(containsString("aria-label=\"Start timer\"")))
+        .andExpect(content().string(containsString("class=\"running-timer-actions-slot\"")))
+        .andExpect(content().string(not(containsString("bi-three-dots-vertical"))))
         .andExpect(content().string(not(containsString("aria-label=\"Start timer\" disabled"))))
   }
 
@@ -664,6 +676,26 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("Recent time entries")))
 
     verify(exactly = 1) { timeEntryDeletionService.delete(123L) }
+  }
+
+  @Test
+  fun `authenticated DELETE running entry replaces it with the stopped timer`() {
+    mvc.perform(
+            delete("/timer/running/321").with(user("alice@example.com").roles("USER")).with(csrf())
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("aria-label=\"Stopped timer\"")))
+        .andExpect(header().string("HX-Retarget", "#result"))
+        .andExpect(header().string("HX-Reswap", "innerHTML"))
+        .andExpect(header().string("HX-Trigger", "timeEntriesChanged, timeTotalsChanged"))
+
+    verify(exactly = 1) { timeEntryDeletionService.deleteRunning(321L) }
+  }
+
+  @Test
+  fun `DELETE running entry requires CSRF`() {
+    mvc.perform(delete("/timer/running/321").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isForbidden)
   }
 
   @Test

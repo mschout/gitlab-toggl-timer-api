@@ -42,16 +42,26 @@ class TimeEntryDeletionService(
 ) {
 
   fun delete(togglId: Long) {
+    delete(togglId = togglId, stopIfRunning = false)
+  }
+
+  fun deleteRunning(togglId: Long) {
+    delete(togglId = togglId, stopIfRunning = true)
+  }
+
+  private fun delete(togglId: Long, stopIfRunning: Boolean) {
     val userId = credentialsService.currentUserId()
     val entry =
         timeEntryRepository.findByTogglIdAndUserId(togglId = togglId, userId = userId)
             ?: throw TimeEntryNotFoundException(togglId)
     val description = entry.description?.takeIf(String::isNotBlank)
+    val client = togglClientFactory.forApiKey(credentialsService.requireTogglApiKey())
 
     try {
-      togglClientFactory
-          .forApiKey(credentialsService.requireTogglApiKey())
-          .deleteTimeEntry(workspaceId = entry.workspaceId, timeEntryId = togglId)
+      if (stopIfRunning && client.getCurrentTimeEntry()?.id == togglId) {
+        client.stopTimeEntry(workspaceId = entry.workspaceId, timeEntryId = togglId)
+      }
+      client.deleteTimeEntry(workspaceId = entry.workspaceId, timeEntryId = togglId)
     } catch (exception: HttpClientErrorException) {
       if (exception.statusCode != HttpStatus.NOT_FOUND) {
         throw TogglTimeEntryDeletionException(togglId, description, exception)

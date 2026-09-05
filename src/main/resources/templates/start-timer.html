@@ -67,6 +67,14 @@
       >
         <i class="bi bi-stop-fill" aria-hidden="true"></i>
       </button>
+
+      <div class="running-timer-actions-slot">
+        <th:block th:with="entryActions=${runningTimer.actions}">
+          <div
+            th:replace="~{fragments/running-timer-actions :: running-timer-actions}"
+          ></div>
+        </th:block>
+      </div>
     </div>
 
     <dialog

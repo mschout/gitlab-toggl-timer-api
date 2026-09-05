@@ -535,6 +535,65 @@ class TimerWebControllerTest {
   }
 
   @Test
+  fun `running delete replaces the timer bar with stopped state and refreshes history`() {
+    every { timeEntryDeletionService.deleteRunning(123L) } returns Unit
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view = controller.deleteRunningEntry(togglId = 123L, model = model, response = response)
+
+    view shouldBe "stop-timer :: result-card"
+    model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = null, projects = emptyList())
+    response.getHeader("HX-Retarget") shouldBe "#result"
+    response.getHeader("HX-Reswap") shouldBe "innerHTML"
+    response.getHeader("HX-Trigger") shouldBe "timeEntriesChanged, timeTotalsChanged"
+  }
+
+  @Test
+  fun `running delete reopens confirmation when Toggl fails`() {
+    every { timeEntryDeletionService.deleteRunning(123L) } throws
+        TogglTimeEntryDeletionException(123L, "In progress", RuntimeException("down"))
+    val model = ExtendedModelMap()
+
+    val view =
+        controller.deleteRunningEntry(
+            togglId = 123L,
+            model = model,
+            response = MockHttpServletResponse(),
+        )
+
+    view shouldBe "fragments/running-timer-actions :: running-timer-actions"
+    model["entryActions"] shouldBe
+        TimeEntryActionsView(
+            togglId = 123L,
+            description = "In progress",
+            error = "Could not delete from Toggl. Try again.",
+            open = true,
+        )
+  }
+
+  @Test
+  fun `running delete distinguishes a local history failure`() {
+    every { timeEntryDeletionService.deleteRunning(123L) } throws
+        TimeEntryHistoryDeletionException(123L, "In progress", RuntimeException("database down"))
+    val model = ExtendedModelMap()
+
+    controller.deleteRunningEntry(
+        togglId = 123L,
+        model = model,
+        response = MockHttpServletResponse(),
+    )
+
+    model["entryActions"] shouldBe
+        TimeEntryActionsView(
+            togglId = 123L,
+            description = "In progress",
+            error = "Deleted from Toggl, but local history could not be removed. Try again.",
+            open = true,
+        )
+  }
+
+  @Test
   fun `delete leaves inaccessible entries as not found`() {
     every { timeEntryDeletionService.delete(999L) } throws TimeEntryNotFoundException(999L)
 
@@ -717,6 +776,7 @@ class TimerWebControllerTest {
                       today = LocalDate.parse("2026-09-03"),
                       timeZone = "America/Chicago",
                   ),
+              actions = TimeEntryActionsView(togglId = 123L, description = "in progress"),
           )
     }
   }
@@ -936,6 +996,7 @@ class TimerWebControllerTest {
                       today = LocalDate.parse("2026-09-03"),
                       timeZone = "America/Chicago",
                   ),
+              actions = TimeEntryActionsView(togglId = 123L, description = "tracking"),
           )
     }
     verify { timerService.startTimer(expectedRequest) }
@@ -1146,6 +1207,7 @@ class TimerWebControllerTest {
                     today = LocalDate.parse("2026-09-03"),
                     timeZone = "America/Chicago",
                 ),
+            actions = TimeEntryActionsView(togglId = 123L, description = null),
         )
   }
 
