@@ -38,6 +38,8 @@ import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectPickerView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchResultView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectSearchView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryProjectService
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryRestartOutcome
+import io.github.mschout.gitlab.toggltimer.timer.TimeEntryRestartService
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntrySplitView
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntrySplitWorkflow
 import io.github.mschout.gitlab.toggltimer.timer.TimeEntryStartService
@@ -111,6 +113,7 @@ class SecurityConfigWebMvcTest(
     @Autowired val timeEntrySplitWorkflow: TimeEntrySplitWorkflow,
     @Autowired val timeEntryProjectService: TimeEntryProjectService,
     @Autowired val timeEntryStartService: TimeEntryStartService,
+    @Autowired val timeEntryRestartService: TimeEntryRestartService,
     @Autowired val credentialsService: CurrentUserCredentialsService,
 ) {
 
@@ -221,6 +224,8 @@ class SecurityConfigWebMvcTest(
         }
 
     @Bean fun timeEntryStartService(): TimeEntryStartService = mockk(relaxed = true)
+
+    @Bean fun timeEntryRestartService(): TimeEntryRestartService = mockk(relaxed = true)
 
     @Bean
     fun timeEntryProjectService(): TimeEntryProjectService =
@@ -415,6 +420,15 @@ class SecurityConfigWebMvcTest(
         )
         .andExpect(content().string(containsString("hx-get=\"/timer/entries/123/projects\"")))
         .andExpect(content().string(containsString("0:48:02")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/entries/123/restart\"")))
+        .andExpect(content().string(containsString("hx-trigger=\"restart\"")))
+        .andExpect(
+            content()
+                .string(
+                    containsString("aria-label=\"Start a new timer for Rendered history entry\"")
+                )
+        )
+        .andExpect(content().string(containsString("time-entry-restart-spinner")))
         .andExpect(
             content().string(containsString("aria-label=\"Actions for Rendered history entry\""))
         )
@@ -662,6 +676,43 @@ class SecurityConfigWebMvcTest(
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("value=\"Updated\"")))
         .andExpect(content().string(not(containsString("time-entry-description-error"))))
+  }
+
+  @Test
+  fun `authenticated POST restart is allowed with CSRF and refreshes timer state`() {
+    every { timeEntryRestartService.restart(123L) } returns
+        TimeEntryRestartOutcome.Started(
+            StartTimerResult(
+                togglId = 987L,
+                startTime = Instant.parse("2026-09-05T16:00:00Z"),
+                projectName = "74393 - Indiana",
+                description = "Rendered history entry",
+            )
+        )
+    every { timeEntryProjectService.currentPicker(987L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 987L,
+            projectName = "74393 - Indiana",
+            clientName = "Inforuptcy",
+            projectColor = "#4C6EF5",
+        )
+
+    mvc.perform(
+            post("/timer/entries/123/restart")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("Rendered history entry")))
+        .andExpect(header().string("HX-Retarget", "#result"))
+        .andExpect(header().string("HX-Reswap", "outerHTML"))
+        .andExpect(header().string("HX-Trigger", "timeEntriesChanged, timeTotalsChanged"))
+  }
+
+  @Test
+  fun `POST restart requires CSRF`() {
+    mvc.perform(post("/timer/entries/123/restart").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isForbidden)
   }
 
   @Test

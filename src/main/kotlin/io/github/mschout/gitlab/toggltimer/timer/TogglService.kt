@@ -158,6 +158,78 @@ class TogglService(
     }
   }
 
+  /** Stops any running timer and starts a new entry from the supplied historical metadata. */
+  fun restartTimer(project: TogglProject?, request: RestartTimerRequest): TimeEntryRestartOutcome {
+    val client = togglClient()
+    val current =
+        try {
+          client.getCurrentTimeEntry()
+        } catch (exception: Exception) {
+          logger.warn(exception) { "Failed to check the current Toggl timer before restarting" }
+          return TimeEntryRestartOutcome.StopFailed(
+              "Could not check the current Toggl timer. Nothing was changed."
+          )
+        }
+
+    var timerStateChanged = false
+    if (current != null && current.duration < 0) {
+      val workspaceId = current.workspaceId
+      val entryId = current.id
+      if (workspaceId == null || entryId == null) {
+        return TimeEntryRestartOutcome.StopFailed(
+            "The current Toggl timer could not be stopped. Nothing was changed."
+        )
+      }
+      val stopped =
+          try {
+            client.stopTimeEntry(workspaceId, entryId)
+          } catch (exception: Exception) {
+            logger.warn(exception) { "Failed to stop Toggl time entry $entryId before restarting" }
+            return TimeEntryRestartOutcome.StopFailed(
+                "Could not stop the current Toggl timer. Nothing was changed."
+            )
+          }
+      shadowWriteTimeEntry(stopped)
+      timerStateChanged = true
+    }
+
+    val start = Instant.now()
+    val newEntry =
+        TogglTimeEntry(
+            workspaceId = request.workspaceId,
+            projectId = request.projectId,
+            start = start,
+            description = request.description,
+            duration = -1L,
+            createdWith = "Gitlab Toggl Timer",
+        )
+    val created =
+        try {
+          client.createTimeEntry(request.workspaceId, newEntry)
+        } catch (exception: Exception) {
+          logger.warn(exception) { "Failed to restart Toggl timer from a recent entry" }
+          return TimeEntryRestartOutcome.StartFailed(
+              message =
+                  if (timerStateChanged) {
+                    "The previous timer was stopped, but the selected timer could not start."
+                  } else {
+                    "The selected timer could not start."
+                  },
+              timerStateChanged = timerStateChanged,
+          )
+        }
+
+    shadowWriteProject(request.workspaceId, project)
+    shadowWriteTimeEntry(created)
+    return TimeEntryRestartOutcome.Started(
+        created.toRunningTimerResult(
+            fallbackStart = start,
+            project = project,
+            fallbackDescription = request.description,
+        )
+    )
+  }
+
   fun getCurrentRunningTimer(): StartTimerResult? {
     val client = togglClient()
     val current = client.getCurrentTimeEntry() ?: return null

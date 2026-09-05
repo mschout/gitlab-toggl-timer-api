@@ -72,6 +72,7 @@ data class TimeEntryActionsView(
     val split: TimeEntrySplitView? = null,
     val splitDisabledReason: String? = null,
     val deleteDisabledReason: String? = null,
+    val restartDisabledReason: String? = null,
     val splitStatus: String? = null,
     val splitPolling: Boolean = false,
     val splitNeedsReview: Boolean = false,
@@ -261,6 +262,9 @@ class TimeEntryHistoryService(
                         .takeIf { splitInProgress },
                 deleteDisabledReason =
                     "Finish reconciling this split before deleting the entry."
+                        .takeIf { splitInProgress },
+                restartDisabledReason =
+                    "Finish reconciling this split before restarting the entry."
                         .takeIf { splitInProgress },
             ),
         timeRange = "${TIME_FORMATTER.format(localStart)} – ${TIME_FORMATTER.format(localStop)}",
