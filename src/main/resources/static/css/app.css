@@ -960,6 +960,21 @@ dl.row dt {
   border-top: var(--bs-border-width) solid var(--bs-border-color-translucent);
 }
 
+.time-entry-delete-confirm {
+  position: relative;
+}
+
+.time-entry-delete-confirm .spinner-border {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+.time-entry-delete-confirm.htmx-request .time-entry-delete-confirm-label {
+  visibility: hidden;
+}
+
 .time-entry-empty-state {
   display: flex;
   align-items: center;
