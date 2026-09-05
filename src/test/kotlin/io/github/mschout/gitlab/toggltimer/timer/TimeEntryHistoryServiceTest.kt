@@ -235,6 +235,8 @@ class TimeEntryHistoryServiceTest {
     actions.splitDisabledReason shouldBe
         "Finish reconciling this split before splitting the entry again."
     actions.deleteDisabledReason shouldBe "Finish reconciling this split before deleting the entry."
+    actions.restartDisabledReason shouldBe
+        "Finish reconciling this split before restarting the entry."
   }
 
   @Test

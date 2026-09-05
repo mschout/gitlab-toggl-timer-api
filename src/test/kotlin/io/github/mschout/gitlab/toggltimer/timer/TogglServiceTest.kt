@@ -34,6 +34,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.mockk.verifyOrder
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.jupiter.api.BeforeEach
@@ -61,6 +62,113 @@ class TogglServiceTest {
     every { projectColorSelector.select() } returns "#ef4444"
     service =
         TogglService(togglClientFactory, credentialsService, togglSyncService, projectColorSelector)
+  }
+
+  @Test
+  fun `restartTimer stops the current timer before creating and synchronizing the replacement`() {
+    val current =
+        TogglTimeEntry(
+            id = 321L,
+            workspaceId = 8L,
+            start = Instant.parse("2026-09-05T11:00:00Z"),
+            duration = -1L,
+        )
+    val stopped = current.copy(stop = Instant.parse("2026-09-05T12:00:00Z"), duration = 3_600L)
+    val project = TogglProject(id = 99L, workspaceId = 7L, name = "Project", color = "#4C6EF5")
+    val request = RestartTimerRequest(7L, 99L, "Selected work")
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.getCurrentTimeEntry() } returns current
+    every { togglClient.stopTimeEntry(8L, 321L) } returns stopped
+    every { togglClient.createTimeEntry(7L, capture(captured)) } answers
+        {
+          captured.captured.copy(id = 555L)
+        }
+
+    val outcome = service.restartTimer(project, request) as TimeEntryRestartOutcome.Started
+
+    outcome.timer.togglId shouldBe 555L
+    outcome.timer.projectName shouldBe "Project"
+    outcome.timer.description shouldBe "Selected work"
+    captured.captured.projectId shouldBe 99L
+    captured.captured.duration shouldBe -1L
+    verifyOrder {
+      togglClient.getCurrentTimeEntry()
+      togglClient.stopTimeEntry(8L, 321L)
+      togglSyncService.upsertTimeEntry(42L, stopped)
+      togglClient.createTimeEntry(7L, any())
+      togglSyncService.upsertProject(7L, project)
+      togglSyncService.upsertTimeEntry(42L, match { it.id == 555L })
+    }
+  }
+
+  @Test
+  fun `restartTimer creates a projectless blank timer when nothing is running`() {
+    val request = RestartTimerRequest(7L, null, null)
+    val captured = slot<TogglTimeEntry>()
+    every { togglClient.getCurrentTimeEntry() } returns null
+    every { togglClient.createTimeEntry(7L, capture(captured)) } answers
+        {
+          captured.captured.copy(id = 555L)
+        }
+
+    service.restartTimer(null, request) shouldBe
+        TimeEntryRestartOutcome.Started(
+            StartTimerResult(
+                togglId = 555L,
+                startTime = requireNotNull(captured.captured.start),
+                projectName = null,
+                description = null,
+            )
+        )
+
+    captured.captured.projectId.shouldBeNull()
+    captured.captured.description.shouldBeNull()
+    verify(exactly = 0) { togglClient.stopTimeEntry(any(), any()) }
+  }
+
+  @Test
+  fun `restartTimer does not create a replacement when stopping fails`() {
+    every { togglClient.getCurrentTimeEntry() } returns
+        TogglTimeEntry(id = 321L, workspaceId = 8L, duration = -1L)
+    every { togglClient.stopTimeEntry(8L, 321L) } throws RuntimeException("down")
+
+    service.restartTimer(null, RestartTimerRequest(7L, null, "Work")) shouldBe
+        TimeEntryRestartOutcome.StopFailed(
+            "Could not stop the current Toggl timer. Nothing was changed."
+        )
+
+    verify(exactly = 0) { togglClient.createTimeEntry(any(), any()) }
+  }
+
+  @Test
+  fun `restartTimer reports a changed stopped state when replacement creation fails`() {
+    val current = TogglTimeEntry(id = 321L, workspaceId = 8L, duration = -1L)
+    val stopped = current.copy(duration = 30L, stop = Instant.parse("2026-09-05T12:00:00Z"))
+    every { togglClient.getCurrentTimeEntry() } returns current
+    every { togglClient.stopTimeEntry(8L, 321L) } returns stopped
+    every { togglClient.createTimeEntry(7L, any()) } throws RuntimeException("down")
+
+    service.restartTimer(null, RestartTimerRequest(7L, null, "Work")) shouldBe
+        TimeEntryRestartOutcome.StartFailed(
+            message = "The previous timer was stopped, but the selected timer could not start.",
+            timerStateChanged = true,
+        )
+
+    verify { togglSyncService.upsertTimeEntry(42L, stopped) }
+  }
+
+  @Test
+  fun `restartTimer reports an unchanged stopped state when initial creation fails`() {
+    every { togglClient.getCurrentTimeEntry() } returns null
+    every { togglClient.createTimeEntry(7L, any()) } throws RuntimeException("down")
+
+    service.restartTimer(null, RestartTimerRequest(7L, null, "Work")) shouldBe
+        TimeEntryRestartOutcome.StartFailed(
+            message = "The selected timer could not start.",
+            timerStateChanged = false,
+        )
+
+    verify(exactly = 0) { togglClient.stopTimeEntry(any(), any()) }
   }
 
   @Test

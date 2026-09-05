@@ -393,11 +393,17 @@ dl.row dt {
 .time-entry-row {
   --project-color: var(--bs-border-color);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 5.5rem 2rem;
+  grid-template-columns: minmax(0, 1fr) auto 5.5rem 2rem 2rem;
   align-items: baseline;
   gap: 0.75rem 1.25rem;
   padding: 0.85rem 1rem 0.85rem 0.85rem;
   border-inline-start: 0.25rem solid var(--project-color);
+  transition: background-color 120ms ease;
+}
+
+.time-entry-row:hover,
+.time-entry-row:focus-within {
+  background: var(--bs-tertiary-bg);
 }
 
 .time-entry-row + .time-entry-row {
@@ -677,6 +683,82 @@ dl.row dt {
   justify-self: end;
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.time-entry-restart-trigger {
+  position: relative;
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  align-self: center;
+  justify-self: end;
+  padding: 0;
+  place-items: center;
+  color: var(--bs-secondary-color);
+  background: transparent;
+  border: 0;
+  border-radius: var(--bs-border-radius-sm);
+  font-size: 1.25rem;
+  line-height: 1;
+  opacity: 0;
+  transition: color 120ms ease, background-color 120ms ease, opacity 120ms ease;
+}
+
+.time-entry-row:hover .time-entry-restart-trigger,
+.time-entry-row:focus-within .time-entry-restart-trigger {
+  opacity: 1;
+}
+
+.time-entry-restart-trigger:not(:disabled):hover,
+.time-entry-restart-trigger:not(:disabled):focus-visible {
+  color: var(--bs-body-color);
+  background: var(--bs-secondary-bg);
+}
+
+.time-entry-restart-trigger:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--bs-primary) 25%, transparent);
+  outline-offset: 1px;
+}
+
+.time-entry-restart-trigger[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0;
+}
+
+.time-entry-row:hover .time-entry-restart-trigger[aria-disabled='true'],
+.time-entry-row:focus-within .time-entry-restart-trigger[aria-disabled='true'] {
+  opacity: 0.45;
+}
+
+.time-entry-restart-spinner {
+  position: absolute;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-width: 0.12rem;
+}
+
+.time-entry-restart-trigger.htmx-request .time-entry-restart-icon,
+.time-entry-restart-trigger.is-restart-pending .time-entry-restart-icon {
+  visibility: hidden;
+}
+
+.time-entry-restart-trigger.is-restart-pending .time-entry-restart-spinner {
+  opacity: 1;
+}
+
+.time-entry-restart-trigger.htmx-request,
+.time-entry-restart-trigger.is-restart-pending {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .time-entry-restart-trigger {
+    opacity: 1;
+  }
+
+  .time-entry-restart-trigger[aria-disabled='true'] {
+    opacity: 0.45;
+  }
 }
 
 .time-entry-actions {
@@ -1039,7 +1121,7 @@ dl.row dt {
   }
 
   .time-entry-row {
-    grid-template-columns: minmax(0, 1fr) auto 2rem;
+    grid-template-columns: minmax(0, 1fr) auto 2rem 2rem;
     gap: 0.25rem 0.75rem;
   }
 
@@ -1056,6 +1138,11 @@ dl.row dt {
   }
 
   .time-entry-actions {
+    grid-column: 4;
+    grid-row: 2;
+  }
+
+  .time-entry-restart-trigger {
     grid-column: 3;
     grid-row: 2;
   }

@@ -54,6 +54,7 @@ class TimerWebController(
     private val timeEntryHistoryService: TimeEntryHistoryService,
     private val timeEntryDescriptionService: TimeEntryDescriptionService,
     private val timeEntryStartService: TimeEntryStartService,
+    private val timeEntryRestartService: TimeEntryRestartService,
     private val timeEntryProjectService: TimeEntryProjectService,
     private val timeEntryDeletionService: TimeEntryDeletionService,
     private val timeEntrySplitWorkflow: TimeEntrySplitWorkflow,
@@ -302,6 +303,44 @@ class TimerWebController(
       }
     }
 
+    return "start-timer :: start-update-response"
+  }
+
+  @PostMapping("/entries/{togglId}/restart")
+  fun restartEntry(
+      @PathVariable togglId: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val outcome = timeEntryRestartService.restart(togglId)
+    val notification =
+        when (outcome) {
+          is TimeEntryRestartOutcome.Started -> {
+            addRunningTimer(outcome.timer, model)
+            null
+          }
+          is TimeEntryRestartOutcome.Rejected -> {
+            addCurrentTimer(model)
+            outcome.message
+          }
+          is TimeEntryRestartOutcome.StopFailed -> {
+            addCurrentTimer(model)
+            outcome.message
+          }
+          is TimeEntryRestartOutcome.StartFailed -> {
+            if (outcome.timerStateChanged) addStoppedTimer(model) else addCurrentTimer(model)
+            outcome.message
+          }
+        }
+    model.addAttribute("timerNotification", notification)
+    response.setHeader("HX-Retarget", "#result")
+    response.setHeader("HX-Reswap", "outerHTML")
+    if (
+        outcome is TimeEntryRestartOutcome.Started ||
+            outcome is TimeEntryRestartOutcome.StartFailed && outcome.timerStateChanged
+    ) {
+      response.setHeader("HX-Trigger", "timeEntriesChanged, timeTotalsChanged")
+    }
     return "start-timer :: start-update-response"
   }
 
@@ -748,6 +787,14 @@ class TimerWebController(
     } else {
       addRunningTimer(entry.toStartTimerResult(), model)
     }
+  }
+
+  private fun addCurrentTimer(model: Model) {
+    val running =
+        runCatching { togglService.getCurrentRunningTimer() }
+            .onFailure { logger.warn(it) { "Failed to refresh the current Toggl timer" } }
+            .getOrNull()
+    if (running == null) addStoppedTimer(model) else addRunningTimer(running, model)
   }
 
   private fun addStoppedTimer(model: Model) {
