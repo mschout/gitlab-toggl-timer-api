@@ -956,6 +956,10 @@
     var ctx = evt.detail && evt.detail.ctx;
     var tgt = ctx && ctx.target;
     if (typeof tgt === 'string') tgt = document.querySelector(tgt);
+    // HTMX keeps the original target in ctx after an outerHTML replacement.
+    if (tgt && !tgt.isConnected && tgt.id) {
+      tgt = document.getElementById(tgt.id);
+    }
     startElapsedTimers();
     initializeStartEditors(tgt || document);
     if (tgt && tgt.id === 'result' && restoreStartEditorFocusAfterSwap) {
