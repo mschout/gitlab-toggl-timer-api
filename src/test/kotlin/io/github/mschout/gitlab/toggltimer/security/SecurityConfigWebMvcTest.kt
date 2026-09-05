@@ -86,6 +86,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.xpath
 import org.springframework.web.servlet.resource.ResourceUrlProvider
 
 @WebMvcTest(
@@ -595,7 +596,14 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("hx-post=\"/timer/start\"")))
         .andExpect(content().string(containsString("aria-label=\"Start timer\"")))
         .andExpect(content().string(containsString("class=\"running-timer-actions-slot\"")))
-        .andExpect(content().string(not(containsString("bi-three-dots-vertical"))))
+        .andExpect(content().string(containsString("bi-three-dots-vertical")))
+        .andExpect(content().string(containsString("aria-label=\"Timer actions unavailable\"")))
+        .andExpect(
+            content().string(containsString("title=\"Start the timer to use timer actions\""))
+        )
+        .andExpect(
+            xpath("//button[@aria-label='Timer actions unavailable' and @disabled]").exists()
+        )
         .andExpect(content().string(not(containsString("aria-label=\"Start timer\" disabled"))))
   }
 

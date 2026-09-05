@@ -724,10 +724,15 @@ dl.row dt {
   border-radius: var(--bs-border-radius-sm);
 }
 
-.time-entry-actions-trigger:hover,
+.time-entry-actions-trigger:not(:disabled):hover,
 .time-entry-actions-trigger[aria-expanded='true'] {
   color: var(--bs-body-color);
   background: var(--bs-tertiary-bg);
+}
+
+.time-entry-actions-trigger:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .time-entry-actions-trigger:focus-visible {
