@@ -46,7 +46,7 @@ dl.row dt {
 .running-timer-toolbar {
   --project-color: var(--bs-border-color);
   display: grid;
-  grid-template-columns: minmax(10rem, 2fr) minmax(9rem, 1fr) auto auto;
+  grid-template-columns: minmax(10rem, 1fr) fit-content(33.333%) auto auto;
   align-items: center;
   gap: 0.75rem 1rem;
   min-height: 4rem;
@@ -85,6 +85,10 @@ dl.row dt {
   padding-inline: 0.7rem 1.05rem;
   background: color-mix(in srgb, var(--project-color) 20%, transparent);
   border-radius: var(--bs-border-radius-pill);
+}
+
+.running-timer-project .time-entry-project-picker {
+  width: fit-content;
 }
 
 .running-timer-project .time-entry-project-trigger > .time-entry-separator:first-child,
