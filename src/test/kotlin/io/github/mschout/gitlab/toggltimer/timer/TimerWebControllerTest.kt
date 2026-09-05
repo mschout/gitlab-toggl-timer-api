@@ -477,7 +477,8 @@ class TimerWebControllerTest {
         )
     every { timeEntrySplitWorkflow.split(any()) } returns
         SplitTimeEntryOutcome.Rejected("This entry changed in Toggl.")
-    every { timeEntryHistoryService.splitView(123L, start, stop, 1_200L, any()) } returns splitView
+    every { timeEntryHistoryService.splitView(123L, start, stop, 1_200L, any(), true) } returns
+        splitView
     val model = ExtendedModelMap()
 
     val view =
@@ -546,6 +547,96 @@ class TimerWebControllerTest {
     model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = null, projects = emptyList())
     response.getHeader("HX-Retarget") shouldBe "#result"
     response.getHeader("HX-Reswap") shouldBe "innerHTML"
+    response.getHeader("HX-Trigger") shouldBe "timeEntriesChanged, timeTotalsChanged"
+  }
+
+  @Test
+  fun `running split dialog uses a fresh authoritative snapshot`() {
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val snapshotEnd = Instant.parse("2026-09-03T15:00:00Z")
+    val splitView =
+        TimeEntrySplitView(
+            togglId = 123L,
+            expectedStart = start,
+            expectedStop = snapshotEnd,
+            durationSeconds = 3_600L,
+            splitOffsetSeconds = 1_800L,
+            timeZone = "America/Chicago",
+            startEpochMilliseconds = start.toEpochMilli(),
+            startLocalSecondOfDay = 32_400,
+            startOffsetSeconds = -18_000,
+            stopOffsetSeconds = -18_000,
+            open = true,
+            running = true,
+        )
+    every { timeEntrySplitWorkflow.prepareRunning(123L) } returns
+        RunningTimeEntrySplitPreparation.Ready(
+            RunningTimeEntrySplitSnapshot(123L, start, snapshotEnd)
+        )
+    every {
+      timeEntryHistoryService.splitView(
+          togglId = 123L,
+          start = start,
+          stop = snapshotEnd,
+          offset = null,
+          error = null,
+          open = true,
+          running = true,
+      )
+    } returns splitView
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view = controller.runningSplitDialog(togglId = 123L, model = model, response = response)
+
+    view shouldBe "fragments/running-timer-actions :: running-timer-actions"
+    (model["entryActions"] as TimeEntryActionsView).split shouldBeSameInstanceAs splitView
+  }
+
+  @Test
+  fun `stale running split dialog request refreshes the authoritative timer`() {
+    val changedStart = Instant.parse("2026-09-03T14:45:00Z")
+    every { timeEntrySplitWorkflow.prepareRunning(123L) } returns
+        RunningTimeEntrySplitPreparation.Rejected("The running timer changed.", null)
+    every { togglService.getCurrentRunningTimer() } returns
+        StartTimerResult(456L, changedStart, "Project", "New timer")
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view = controller.runningSplitDialog(123L, model, response)
+
+    view shouldBe "start-timer :: start-update-response"
+    (model["runningTimer"] as RunningTimerView).actions.togglId shouldBe 456L
+    model["timerNotification"] shouldBe "The running timer changed."
+    response.getHeader("HX-Retarget") shouldBe "#result"
+  }
+
+  @Test
+  fun `running split success refreshes the toolbar history and totals`() {
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val snapshotEnd = Instant.parse("2026-09-03T15:00:00Z")
+    val split = Instant.parse("2026-09-03T14:30:00Z")
+    val command = SplitRunningTimeEntryCommand(123L, start, snapshotEnd, 1_800L)
+    every { timeEntrySplitWorkflow.splitRunning(command) } returns SplitTimeEntryOutcome.Completed
+    every { togglService.getCurrentRunningTimer() } returns
+        StartTimerResult(123L, split, "Project", "Review issue")
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view =
+        controller.splitRunningEntry(
+            togglId = 123L,
+            expectedStart = start,
+            snapshotEnd = snapshotEnd,
+            splitOffsetSeconds = 1_800L,
+            model = model,
+            response = response,
+        )
+
+    view shouldBe "start-timer :: start-update-response"
+    (model["runningTimer"] as RunningTimerView).startTime shouldBe split
+    response.getHeader("HX-Retarget") shouldBe "#result"
+    response.getHeader("HX-Reswap") shouldBe "outerHTML"
     response.getHeader("HX-Trigger") shouldBe "timeEntriesChanged, timeTotalsChanged"
   }
 

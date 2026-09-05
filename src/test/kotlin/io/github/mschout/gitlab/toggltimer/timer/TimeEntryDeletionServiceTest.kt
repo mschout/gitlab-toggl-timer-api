@@ -40,6 +40,7 @@ class TimeEntryDeletionServiceTest {
   private val timeEntryRepository = mockk<TimeEntryRepository>()
   private val togglClientFactory = mockk<TogglClientFactory>()
   private val credentialsService = mockk<CurrentUserCredentialsService>()
+  private val splitOperationRepository = mockk<TimeEntrySplitOperationRepository>()
   private val togglClient = mockk<TogglClient>()
   private lateinit var service: TimeEntryDeletionService
 
@@ -48,7 +49,14 @@ class TimeEntryDeletionServiceTest {
     every { credentialsService.currentUserId() } returns 42L
     every { credentialsService.requireTogglApiKey() } returns "api-key"
     every { togglClientFactory.forApiKey("api-key") } returns togglClient
-    service = TimeEntryDeletionService(timeEntryRepository, togglClientFactory, credentialsService)
+    every { splitOperationRepository.findByUserIdAndOriginalTogglId(42L, any()) } returns null
+    service =
+        TimeEntryDeletionService(
+            timeEntryRepository,
+            togglClientFactory,
+            credentialsService,
+            splitOperationRepository,
+        )
   }
 
   @Test
@@ -171,6 +179,17 @@ class TimeEntryDeletionServiceTest {
 
     verify(exactly = 0) { togglClient.deleteTimeEntry(any(), any()) }
     verify(exactly = 0) { timeEntryRepository.delete(any()) }
+  }
+
+  @Test
+  fun `unfinished split prevents deleting the original entry`() {
+    every { splitOperationRepository.findByUserIdAndOriginalTogglId(42L, 123L) } returns
+        mockk<TimeEntrySplitOperation>()
+
+    shouldThrow<TimeEntrySplitInProgressException> { service.delete(123L) }
+
+    verify(exactly = 0) { timeEntryRepository.findByTogglIdAndUserId(any(), any()) }
+    verify(exactly = 0) { togglClientFactory.forApiKey(any()) }
   }
 
   private fun entry() =

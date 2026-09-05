@@ -33,6 +33,7 @@ data class RunningTimerView(
     val projectPicker: TimeEntryProjectPickerView,
     val startEditor: TimeEntryStartEditorView,
     val actions: TimeEntryActionsView,
+    val splitEnableAt: Long = startTime.plusSeconds(2).toEpochMilli(),
 )
 
 data class TimeEntryStartEditorView(

@@ -34,11 +34,15 @@ class TogglTimeEntryDeletionException(togglId: Long, description: String?, cause
 class TimeEntryHistoryDeletionException(togglId: Long, description: String?, cause: Throwable) :
     TimeEntryDeletionException(togglId, description, cause)
 
+class TimeEntrySplitInProgressException(val togglId: Long) :
+    IllegalStateException("Time entry $togglId has an unfinished split operation")
+
 @Service
 class TimeEntryDeletionService(
     private val timeEntryRepository: TimeEntryRepository,
     private val togglClientFactory: TogglClientFactory,
     private val credentialsService: CurrentUserCredentialsService,
+    private val splitOperationRepository: TimeEntrySplitOperationRepository,
 ) {
 
   fun delete(togglId: Long) {
@@ -51,6 +55,9 @@ class TimeEntryDeletionService(
 
   private fun delete(togglId: Long, stopIfRunning: Boolean) {
     val userId = credentialsService.currentUserId()
+    if (splitOperationRepository.findByUserIdAndOriginalTogglId(userId, togglId) != null) {
+      throw TimeEntrySplitInProgressException(togglId)
+    }
     val entry =
         timeEntryRepository.findByTogglIdAndUserId(togglId = togglId, userId = userId)
             ?: throw TimeEntryNotFoundException(togglId)

@@ -111,6 +111,18 @@
       padElapsedPart(remainingSeconds);
   }
 
+  function updateRunningSplitEligibility() {
+    document
+      .querySelectorAll('.running-timer-split-trigger[data-enable-at]')
+      .forEach(function (trigger) {
+        var enableAt = Number(trigger.getAttribute('data-enable-at'));
+        if (!Number.isFinite(enableAt) || Date.now() < enableAt) return;
+        trigger.disabled = false;
+        trigger.removeAttribute('aria-describedby');
+        trigger.removeAttribute('data-enable-at');
+      });
+  }
+
   function formatTotalTime(seconds) {
     var hours = Math.floor(seconds / 3600);
     var minutes = Math.floor((seconds % 3600) / 60);
@@ -152,6 +164,7 @@
     }
     var timers = document.querySelectorAll('.js-elapsed-time');
     timers.forEach(renderElapsedTime);
+    updateRunningSplitEligibility();
     renderTimeTotals();
     renderPageTitle(timers[0]);
     if (!timers.length) return;
@@ -164,6 +177,7 @@
         return;
       }
       currentTimers.forEach(renderElapsedTime);
+      updateRunningSplitEligibility();
       renderTimeTotals();
       renderPageTitle(currentTimers[0]);
     }, 1000);

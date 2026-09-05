@@ -69,7 +69,9 @@
       </button>
 
       <div class="running-timer-actions-slot">
-        <th:block th:with="entryActions=${runningTimer.actions}">
+        <th:block
+          th:with="entryActions=${runningTimer.actions}, runningTimerSplitEnableAt=${runningTimer.splitEnableAt}"
+        >
           <div
             th:replace="~{fragments/running-timer-actions :: running-timer-actions}"
           ></div>

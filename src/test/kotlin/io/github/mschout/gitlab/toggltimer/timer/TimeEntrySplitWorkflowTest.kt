@@ -27,6 +27,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -59,6 +60,7 @@ class TimeEntrySplitWorkflowTest {
     every { credentialsService.currentUserId() } returns 42L
     every { credentialsService.requireTogglApiKey() } returns "api-key"
     every { clientFactory.forApiKey("api-key") } returns client
+    every { operationRepository.findByUserIdAndOriginalTogglId(any(), any()) } returns null
   }
 
   @Test
@@ -78,6 +80,34 @@ class TimeEntrySplitWorkflowTest {
     }
 
     verify(exactly = 0) { clientFactory.forApiKey(any()) }
+  }
+
+  @Test
+  fun `prepares a running split from a fresh clock snapshot`() {
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    every { timeEntryRepository.findByTogglIdAndUserId(123L, 42L) } returns
+        localEntry(stop = null, duration = -start.epochSecond)
+    every { client.getCurrentTimeEntry() } returns runningEntry(123L, start)
+
+    workflow.prepareRunning(123L) shouldBe
+        RunningTimeEntrySplitPreparation.Ready(
+            RunningTimeEntrySplitSnapshot(togglId = 123L, start = start, snapshotEnd = now)
+        )
+  }
+
+  @Test
+  fun `preparing a running split rejects a changed start`() {
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val changed = runningEntry(123L, start.plusSeconds(30))
+    every { timeEntryRepository.findByTogglIdAndUserId(123L, 42L) } returns
+        localEntry(stop = null, duration = -start.epochSecond)
+    every { client.getCurrentTimeEntry() } returns changed
+
+    workflow.prepareRunning(123L) shouldBe
+        RunningTimeEntrySplitPreparation.Rejected(
+            "The running timer changed. Reopen Split from the current timer.",
+            changed,
+        )
   }
 
   @Test
@@ -129,7 +159,7 @@ class TimeEntrySplitWorkflowTest {
         )
 
     outcome shouldBe SplitTimeEntryOutcome.Completed
-    verify {
+    verifyOrder {
       client.createStoppedTimeEntry(
           7L,
           CreateStoppedTimeEntryRequest(
@@ -163,7 +193,206 @@ class TimeEntrySplitWorkflowTest {
     }
   }
 
-  private fun localEntry(stop: Instant) =
+  @Test
+  fun `running split creates a stopped first segment and moves the original start`() {
+    val operationId = UUID.randomUUID()
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val split = Instant.parse("2026-09-03T14:30:00Z")
+    val snapshotEnd = Instant.parse("2026-09-03T15:00:00Z")
+    val entry = localEntry(stop = null, duration = -1L)
+    val operation =
+        TimeEntrySplitOperation(
+            userId = 42L,
+            originalTogglId = 123L,
+            workspaceId = 7L,
+            projectId = 8L,
+            description = "Review issue",
+            originalStart = start,
+            originalStop = null,
+            splitAt = split,
+            billable = true,
+            tags = listOf("review"),
+            createdWith = "Gitlab Toggl Timer",
+            kind = TimeEntrySplitKind.RUNNING,
+            id = operationId,
+        )
+    val original = runningEntry(123L, start)
+    val first = remoteEntry(201L, start, split, 1_800L)
+    val updatedOriginal = runningEntry(123L, split)
+    every { timeEntryRepository.findByTogglIdAndUserId(123L, 42L) } returns entry
+    every { operationRepository.findByUserIdAndOriginalTogglId(42L, 123L) } returns null
+    every { operationRepository.saveAndFlush(any()) } returns operation
+    every { operationRepository.claim(operationId, now, any()) } returns 1
+    every { operationRepository.findById(operationId) } returns Optional.of(operation)
+    every { client.getCurrentTimeEntry() } returns original
+    every { client.getTimeEntries(any(), any(), true) } returns emptyList()
+    every { client.createStoppedTimeEntry(7L, any()) } returns first
+    every { client.getTimeEntry(123L) } returnsMany listOf(original, updatedOriginal)
+    every { client.updateTimeEntryStart(7L, 123L, any()) } returns updatedOriginal
+    every { client.getTimeEntry(201L) } returns first
+    every { persistenceService.completeRunning(operationId, first, updatedOriginal) } returns Unit
+
+    val outcome =
+        workflow.splitRunning(
+            SplitRunningTimeEntryCommand(
+                togglId = 123L,
+                expectedStart = start,
+                snapshotEnd = snapshotEnd,
+                splitOffsetSeconds = 1_800L,
+            )
+        )
+
+    outcome shouldBe SplitTimeEntryOutcome.Completed
+    verifyOrder {
+      client.createStoppedTimeEntry(
+          7L,
+          CreateStoppedTimeEntryRequest(
+              workspaceId = 7L,
+              projectId = 8L,
+              start = start,
+              stop = split,
+              description = "Review issue",
+              duration = 1_800L,
+              billable = true,
+              tags = listOf("review"),
+              createdWith = "Gitlab Toggl Timer",
+          ),
+      )
+      client.updateTimeEntryStart(
+          workspaceId = 7L,
+          timeEntryId = 123L,
+          request =
+              io.github.mschout.gitlab.toggltimer.toggl.UpdateTimeEntryStartRequest(
+                  workspaceId = 7L,
+                  start = split,
+              ),
+      )
+      persistenceService.completeRunning(operationId, first, updatedOriginal)
+    }
+  }
+
+  @Test
+  fun `stopping before the start update removes the first segment and preserves the original`() {
+    val operationId = UUID.randomUUID()
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val split = Instant.parse("2026-09-03T14:30:00Z")
+    val stopped = remoteEntry(123L, start, now, 3_600L)
+    val operation =
+        runningOperation(operationId, start, split).also {
+          it.firstChildTogglId = 201L
+          it.phase = TimeEntrySplitPhase.UPDATING_ORIGINAL_START
+        }
+    every { operationRepository.claim(operationId, now, any()) } returns 1
+    every { operationRepository.findById(operationId) } returns Optional.of(operation)
+    every { operationRepository.saveAndFlush(operation) } returns operation
+    every { operationRepository.delete(operation) } returns Unit
+    every { client.getTimeEntry(123L) } returns stopped
+    every { client.deleteTimeEntry(7L, 201L) } returns Unit
+
+    val outcome = workflow.resume(operationId, "api-key")
+
+    outcome shouldBe
+        SplitTimeEntryOutcome.Rejected(
+            "The timer was stopped before the split could be applied. The original was preserved."
+        )
+    verify(exactly = 0) { client.updateTimeEntryStart(any(), any(), any()) }
+    verifyOrder {
+      client.getTimeEntry(123L)
+      client.deleteTimeEntry(7L, 201L)
+      operationRepository.delete(operation)
+    }
+  }
+
+  @Test
+  fun `stopping after the start update completes with two stopped entries`() {
+    val operationId = UUID.randomUUID()
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val split = Instant.parse("2026-09-03T14:30:00Z")
+    val operation =
+        runningOperation(operationId, start, split).also {
+          it.firstChildTogglId = 201L
+          it.phase = TimeEntrySplitPhase.ORIGINAL_START_UPDATED
+        }
+    val first = remoteEntry(201L, start, split, 1_800L)
+    val stoppedOriginal = remoteEntry(123L, split, now, 1_800L)
+    every { operationRepository.claim(operationId, now, any()) } returns 1
+    every { operationRepository.findById(operationId) } returns Optional.of(operation)
+    every { client.getTimeEntry(201L) } returns first
+    every { client.getTimeEntry(123L) } returns stoppedOriginal
+    every { persistenceService.completeRunning(operationId, first, stoppedOriginal) } returns Unit
+
+    workflow.resume(operationId, "api-key") shouldBe SplitTimeEntryOutcome.Completed
+
+    verify { persistenceService.completeRunning(operationId, first, stoppedOriginal) }
+  }
+
+  @Test
+  fun `retry reconciles an ambiguous original start update without updating twice`() {
+    val operationId = UUID.randomUUID()
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val split = Instant.parse("2026-09-03T14:30:00Z")
+    val operation =
+        runningOperation(operationId, start, split).also {
+          it.firstChildTogglId = 201L
+          it.phase = TimeEntrySplitPhase.UPDATING_ORIGINAL_START
+        }
+    val first = remoteEntry(201L, start, split, 1_800L)
+    val updatedOriginal = runningEntry(123L, split)
+    every { operationRepository.claim(operationId, now, any()) } returns 1
+    every { operationRepository.findById(operationId) } returns Optional.of(operation)
+    every { operationRepository.saveAndFlush(operation) } returns operation
+    every { client.getTimeEntry(123L) } returnsMany listOf(updatedOriginal, updatedOriginal)
+    every { client.getTimeEntry(201L) } returns first
+    every { persistenceService.completeRunning(operationId, first, updatedOriginal) } returns Unit
+
+    workflow.resume(operationId, "api-key") shouldBe SplitTimeEntryOutcome.Completed
+
+    verify(exactly = 0) { client.updateTimeEntryStart(any(), any(), any()) }
+  }
+
+  @Test
+  fun `unexpected original start enters needs review without deleting tracked time`() {
+    val operationId = UUID.randomUUID()
+    val start = Instant.parse("2026-09-03T14:00:00Z")
+    val split = Instant.parse("2026-09-03T14:30:00Z")
+    val operation =
+        runningOperation(operationId, start, split).also {
+          it.firstChildTogglId = 201L
+          it.phase = TimeEntrySplitPhase.UPDATING_ORIGINAL_START
+        }
+    every { operationRepository.claim(operationId, now, any()) } returns 1
+    every { operationRepository.findById(operationId) } returns Optional.of(operation)
+    every { operationRepository.saveAndFlush(operation) } returns operation
+    every { client.getTimeEntry(123L) } returns runningEntry(123L, start.plusSeconds(30))
+
+    workflow.resume(operationId, "api-key") shouldBe
+        SplitTimeEntryOutcome.NeedsReview(
+            operationId,
+            "The running timer start changed unexpectedly in Toggl.",
+        )
+
+    operation.phase shouldBe TimeEntrySplitPhase.NEEDS_REVIEW
+    verify(exactly = 0) { client.deleteTimeEntry(any(), any()) }
+  }
+
+  private fun runningOperation(operationId: UUID, start: Instant, split: Instant) =
+      TimeEntrySplitOperation(
+          userId = 42L,
+          originalTogglId = 123L,
+          workspaceId = 7L,
+          projectId = 8L,
+          description = "Review issue",
+          originalStart = start,
+          originalStop = null,
+          splitAt = split,
+          billable = true,
+          tags = listOf("review"),
+          createdWith = "Gitlab Toggl Timer",
+          kind = TimeEntrySplitKind.RUNNING,
+          id = operationId,
+      )
+
+  private fun localEntry(stop: Instant?, duration: Long = 3_600L) =
       TimeEntry(
           togglId = 123L,
           userId = 42L,
@@ -172,7 +401,20 @@ class TimeEntrySplitWorkflowTest {
           description = "Review issue",
           start = Instant.parse("2026-09-03T14:00:00Z"),
           stop = stop,
-          duration = 3_600L,
+          duration = duration,
+          billable = true,
+          tags = listOf("review"),
+          createdWith = "Gitlab Toggl Timer",
+      )
+
+  private fun runningEntry(id: Long, start: Instant) =
+      TogglTimeEntry(
+          id = id,
+          workspaceId = 7L,
+          projectId = 8L,
+          start = start,
+          description = "Review issue",
+          duration = -start.epochSecond,
           billable = true,
           tags = listOf("review"),
           createdWith = "Gitlab Toggl Timer",

@@ -5,6 +5,10 @@
       th:fragment="running-timer-actions"
       class="time-entry-actions"
       th:id="|running-timer-actions-${entryActions.togglId}|"
+      th:attr="hx-get=${entryActions.splitPolling} ? @{/timer/running/{togglId}/split/status(togglId=${entryActions.togglId})} : null,
+               hx-trigger=${entryActions.splitPolling} ? 'every 5s' : null,
+               hx-target=${entryActions.splitPolling} ? |#running-timer-actions-${entryActions.togglId}| : null,
+               hx-swap=${entryActions.splitPolling} ? 'outerHTML' : null"
     >
       <div class="dropdown">
         <button
@@ -22,8 +26,37 @@
           <li role="none">
             <button
               type="button"
+              class="dropdown-item time-entry-split-trigger running-timer-split-trigger"
+              role="menuitem"
+              th:disabled="${entryActions.splitDisabledReason != null}"
+              th:attr="aria-controls=|time-entry-split-dialog-${entryActions.togglId}|,
+                       aria-describedby=${entryActions.splitDisabledReason != null} ? |running-timer-split-disabled-${entryActions.togglId}| : null,
+                       data-enable-at=${entryActions.splitStatus == null and entryActions.splitDisabledReason != null} ? ${runningTimerSplitEnableAt} : null,
+                       hx-get=@{/timer/running/{togglId}/split(togglId=${entryActions.togglId})},
+                       hx-target=|#running-timer-actions-${entryActions.togglId}|"
+              hx-swap="outerHTML"
+              aria-haspopup="dialog"
+            >
+              <i class="bi bi-scissors" aria-hidden="true"></i>
+              <span
+                th:text="${entryActions.splitNeedsReview} ? 'Split needs review' : (${entryActions.splitStatus != null} ? 'Split recovering…' : 'Split')"
+              >Split</span>
+            </button>
+            <span
+              th:if="${entryActions.splitDisabledReason != null}"
+              class="visually-hidden"
+              th:id="|running-timer-split-disabled-${entryActions.togglId}|"
+              th:text="${entryActions.splitDisabledReason}"
+            >Split is unavailable.</span>
+          </li>
+          <li role="separator"><hr class="dropdown-divider" /></li>
+          <li role="none">
+            <button
+              type="button"
               class="dropdown-item text-danger time-entry-delete-trigger"
               role="menuitem"
+              th:disabled="${entryActions.deleteDisabledReason != null}"
+              th:title="${entryActions.deleteDisabledReason}"
               th:attr="aria-controls=|running-timer-delete-dialog-${entryActions.togglId}|"
               aria-haspopup="dialog"
             >
@@ -93,6 +126,10 @@
           </button>
         </div>
       </dialog>
+
+      <th:block th:if="${entryActions.split != null}" th:with="split=${entryActions.split}">
+        <dialog th:replace="~{fragments/time-entry-split :: split-dialog}"></dialog>
+      </th:block>
     </div>
   </body>
 </html>

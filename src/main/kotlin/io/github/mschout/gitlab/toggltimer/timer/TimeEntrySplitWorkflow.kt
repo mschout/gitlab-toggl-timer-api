@@ -21,6 +21,7 @@ import io.github.mschout.gitlab.toggltimer.toggl.CreateStoppedTimeEntryRequest
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
 import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
+import io.github.mschout.gitlab.toggltimer.toggl.UpdateTimeEntryStartRequest
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import java.time.Clock
 import java.time.Duration
@@ -37,6 +38,32 @@ data class SplitTimeEntryCommand(
     val expectedStart: Instant,
     val expectedStop: Instant,
     val splitOffsetSeconds: Long,
+)
+
+data class SplitRunningTimeEntryCommand(
+    val togglId: Long,
+    val expectedStart: Instant,
+    val snapshotEnd: Instant,
+    val splitOffsetSeconds: Long,
+)
+
+data class RunningTimeEntrySplitSnapshot(
+    val togglId: Long,
+    val start: Instant,
+    val snapshotEnd: Instant,
+)
+
+sealed interface RunningTimeEntrySplitPreparation {
+  data class Ready(val snapshot: RunningTimeEntrySplitSnapshot) : RunningTimeEntrySplitPreparation
+
+  data class Rejected(val message: String, val currentEntry: TogglTimeEntry?) :
+      RunningTimeEntrySplitPreparation
+}
+
+data class TimeEntrySplitOperationStatus(
+    val pending: Boolean,
+    val needsReview: Boolean,
+    val message: String,
 )
 
 sealed interface SplitTimeEntryOutcome {
@@ -95,6 +122,116 @@ class TimeEntrySplitWorkflow(
     return resume(operation.id ?: error("Persisted split operation has no ID"), apiKey())
   }
 
+  fun prepareRunning(togglId: Long): RunningTimeEntrySplitPreparation {
+    val userId = credentialsService.currentUserId()
+    val localEntry =
+        timeEntryRepository.findByTogglIdAndUserId(togglId, userId)
+            ?: throw TimeEntryNotFoundException(togglId)
+    val current = togglClientFactory.forApiKey(apiKey()).getCurrentTimeEntry()
+    if (operationRepository.findByUserIdAndOriginalTogglId(userId, togglId) != null) {
+      return RunningTimeEntrySplitPreparation.Rejected(
+          "This split is already being reconciled.",
+          current,
+      )
+    }
+    if (
+        localEntry.stop != null ||
+            localEntry.duration >= 0 ||
+            current == null ||
+            current.id != togglId ||
+            current.start != localEntry.start ||
+            current.workspaceId != localEntry.workspaceId ||
+            current.duration >= 0
+    ) {
+      return RunningTimeEntrySplitPreparation.Rejected(
+          "The running timer changed. Reopen Split from the current timer.",
+          current,
+      )
+    }
+    val snapshotEnd = clock.instant()
+    if (Duration.between(localEntry.start, snapshotEnd).seconds < 2) {
+      return RunningTimeEntrySplitPreparation.Rejected(
+          "The timer must run for at least two seconds before it can be split.",
+          current,
+      )
+    }
+    return RunningTimeEntrySplitPreparation.Ready(
+        RunningTimeEntrySplitSnapshot(togglId, localEntry.start, snapshotEnd)
+    )
+  }
+
+  fun splitRunning(command: SplitRunningTimeEntryCommand): SplitTimeEntryOutcome {
+    val userId = credentialsService.currentUserId()
+    val entry =
+        timeEntryRepository.findByTogglIdAndUserId(command.togglId, userId)
+            ?: throw TimeEntryNotFoundException(command.togglId)
+    require(entry.stop == null && entry.duration < 0) { "This entry is no longer running." }
+    require(entry.start == command.expectedStart) {
+      "The running timer changed. Reopen Split from the current timer."
+    }
+    require(!command.snapshotEnd.isAfter(clock.instant())) { "The split window is invalid." }
+    val splitAt =
+        requireValidOffset(command.expectedStart, command.snapshotEnd, command.splitOffsetSeconds)
+
+    val existing = operationRepository.findByUserIdAndOriginalTogglId(userId, command.togglId)
+    if (existing != null) {
+      if (
+          existing.kind != TimeEntrySplitKind.RUNNING ||
+              existing.originalStart != command.expectedStart ||
+              existing.splitAt != splitAt
+      ) {
+        return SplitTimeEntryOutcome.Rejected(
+            "A different split is already being recovered for this entry."
+        )
+      }
+      return resume(existing.id ?: error("Persisted split operation has no ID"), apiKey())
+    }
+
+    val client = togglClientFactory.forApiKey(apiKey())
+    val current = client.getCurrentTimeEntry()
+    if (
+        current == null ||
+            current.id != command.togglId ||
+            current.start != command.expectedStart ||
+            current.workspaceId != entry.workspaceId ||
+            current.duration >= 0
+    ) {
+      return SplitTimeEntryOutcome.Rejected(
+          "The running timer changed. Reopen Split from the current timer."
+      )
+    }
+    val operation = createRunningOperation(userId, current, splitAt)
+    if (
+        operation.kind != TimeEntrySplitKind.RUNNING ||
+            operation.originalStart != command.expectedStart ||
+            operation.splitAt != splitAt
+    ) {
+      return SplitTimeEntryOutcome.Rejected(
+          "A different split is already being recovered for this entry."
+      )
+    }
+    return resume(operation.id ?: error("Persisted split operation has no ID"), apiKey())
+  }
+
+  fun operationStatus(togglId: Long): TimeEntrySplitOperationStatus? {
+    val operation =
+        operationRepository.findByUserIdAndOriginalTogglId(
+            credentialsService.currentUserId(),
+            togglId,
+        ) ?: return null
+    val needsReview = operation.phase == TimeEntrySplitPhase.NEEDS_REVIEW
+    return TimeEntrySplitOperationStatus(
+        pending = !needsReview,
+        needsReview = needsReview,
+        message =
+            if (needsReview) {
+              operation.lastError ?: "This split needs review before it can continue safely."
+            } else {
+              "Split recovery is in progress."
+            },
+    )
+  }
+
   fun resume(operationId: UUID, apiKey: String): SplitTimeEntryOutcome {
     val now = clock.instant()
     if (operationRepository.claim(operationId, now, now.plus(LEASE_DURATION)) == 0) {
@@ -116,18 +253,24 @@ class TimeEntrySplitWorkflow(
           if (outcome != null) return outcome
         }
         TimeEntrySplitPhase.FIRST_CREATED ->
-            transition(operation, TimeEntrySplitPhase.CREATING_SECOND)
+            transition(
+                operation,
+                if (operation.kind == TimeEntrySplitKind.RUNNING) {
+                  TimeEntrySplitPhase.UPDATING_ORIGINAL_START
+                } else {
+                  TimeEntrySplitPhase.CREATING_SECOND
+                },
+            )
         TimeEntrySplitPhase.CREATING_SECOND -> {
           val outcome = createOrRecoverChild(operation, client, first = false)
           if (outcome != null) return outcome
         }
         TimeEntrySplitPhase.CHILDREN_CREATED -> {
+          val originalStop = requireNotNull(operation.originalStop)
           val original = getTimeEntry(client, operation.originalTogglId)
           if (original == null) {
             transition(operation, TimeEntrySplitPhase.ORIGINAL_DELETED)
-          } else if (
-              original.start != operation.originalStart || original.stop != operation.originalStop
-          ) {
+          } else if (original.start != operation.originalStart || original.stop != originalStop) {
             return compensate(
                 operation,
                 client,
@@ -138,11 +281,11 @@ class TimeEntrySplitWorkflow(
           }
         }
         TimeEntrySplitPhase.DELETING_ORIGINAL -> {
+          val originalStop = requireNotNull(operation.originalStop)
           val original = getTimeEntry(client, operation.originalTogglId)
           if (
               original != null &&
-                  (original.start != operation.originalStart ||
-                      original.stop != operation.originalStop)
+                  (original.start != operation.originalStart || original.stop != originalStop)
           ) {
             return compensate(
                 operation,
@@ -181,6 +324,34 @@ class TimeEntrySplitWorkflow(
           }
           return try {
             persistenceService.complete(operationId, first, second)
+            SplitTimeEntryOutcome.Completed
+          } catch (exception: Exception) {
+            pending(operation, exception)
+          }
+        }
+        TimeEntrySplitPhase.UPDATING_ORIGINAL_START -> {
+          val outcome = updateOrRecoverRunningOriginal(operation, client)
+          if (outcome != null) return outcome
+        }
+        TimeEntrySplitPhase.ORIGINAL_START_UPDATED -> {
+          val reconciled =
+              try {
+                Pair(
+                    operation.firstChildTogglId?.let { getTimeEntry(client, it) },
+                    getTimeEntry(client, operation.originalTogglId),
+                )
+              } catch (exception: Exception) {
+                return pending(operation, exception)
+              }
+          val (first, original) = reconciled
+          if (first == null || original == null || original.start != operation.splitAt) {
+            return needsReview(
+                operation,
+                "The running timer start changed, but its split segment could not be reconciled.",
+            )
+          }
+          return try {
+            persistenceService.completeRunning(requireNotNull(operation.id), first, original)
             SplitTimeEntryOutcome.Completed
           } catch (exception: Exception) {
             pending(operation, exception)
@@ -254,6 +425,36 @@ class TimeEntrySplitWorkflow(
     }
   }
 
+  private fun createRunningOperation(
+      userId: Long,
+      remote: TogglTimeEntry,
+      splitAt: Instant,
+  ): TimeEntrySplitOperation {
+    val operation =
+        TimeEntrySplitOperation(
+            userId = userId,
+            originalTogglId = requireNotNull(remote.id),
+            workspaceId = requireNotNull(remote.workspaceId),
+            projectId = remote.projectId,
+            taskId = remote.taskId,
+            description = remote.description,
+            originalStart = requireNotNull(remote.start),
+            originalStop = null,
+            splitAt = splitAt,
+            billable = remote.billable ?: false,
+            tags = remote.tags.orEmpty(),
+            createdWith = remote.createdWith?.takeIf(String::isNotBlank) ?: CREATED_WITH,
+            kind = TimeEntrySplitKind.RUNNING,
+            nextAttemptAt = clock.instant(),
+        )
+    return try {
+      operationRepository.saveAndFlush(operation)
+    } catch (exception: DataIntegrityViolationException) {
+      operationRepository.findByUserIdAndOriginalTogglId(userId, requireNotNull(remote.id))
+          ?: throw exception
+    }
+  }
+
   private fun createOrRecoverChild(
       operation: TimeEntrySplitOperation,
       client: TogglClient,
@@ -304,7 +505,7 @@ class TimeEntrySplitWorkflow(
       first: Boolean,
   ): CreateStoppedTimeEntryRequest {
     val start = if (first) operation.originalStart else operation.splitAt
-    val stop = if (first) operation.splitAt else operation.originalStop
+    val stop = if (first) operation.splitAt else requireNotNull(operation.originalStop)
     return CreateStoppedTimeEntryRequest(
         workspaceId = operation.workspaceId,
         projectId = operation.projectId,
@@ -327,7 +528,7 @@ class TimeEntrySplitWorkflow(
       client
           .getTimeEntries(
               startDate = operation.originalStart.minusSeconds(1).toString(),
-              endDate = operation.originalStop.plusSeconds(1).toString(),
+              endDate = (operation.originalStop ?: operation.splitAt).plusSeconds(1).toString(),
               meta = true,
           )
           .filter { it.matches(request) }
@@ -342,6 +543,69 @@ class TimeEntrySplitWorkflow(
           duration == request.duration &&
           (billable ?: false) == request.billable &&
           tags.orEmpty().toSet() == request.tags.toSet()
+
+  private fun updateOrRecoverRunningOriginal(
+      operation: TimeEntrySplitOperation,
+      client: TogglClient,
+  ): SplitTimeEntryOutcome? {
+    val original =
+        try {
+          getTimeEntry(client, operation.originalTogglId)
+        } catch (exception: Exception) {
+          return pending(operation, exception)
+        } ?: return needsReview(operation, "The running timer no longer exists in Toggl.")
+    if (original.start == operation.splitAt) {
+      transition(operation, TimeEntrySplitPhase.ORIGINAL_START_UPDATED)
+      return null
+    }
+    if (original.start != operation.originalStart) {
+      return needsReview(operation, "The running timer start changed unexpectedly in Toggl.")
+    }
+    if (original.stop != null || original.duration >= 0) {
+      return compensate(
+          operation,
+          client,
+          "The timer was stopped before the split could be applied. The original was preserved.",
+      )
+    }
+    val current =
+        try {
+          client.getCurrentTimeEntry()
+        } catch (exception: Exception) {
+          return pending(operation, exception)
+        }
+    if (current?.id != operation.originalTogglId || current.start != operation.originalStart) {
+      return needsReview(operation, "A different timer is now running in Toggl.")
+    }
+    try {
+      val updated =
+          client.updateTimeEntryStart(
+              workspaceId = operation.workspaceId,
+              timeEntryId = operation.originalTogglId,
+              request =
+                  UpdateTimeEntryStartRequest(
+                      workspaceId = operation.workspaceId,
+                      start = operation.splitAt,
+                  ),
+          )
+      if (updated.start != operation.splitAt) {
+        return needsReview(operation, "Toggl returned an unexpected running timer start.")
+      }
+      transition(operation, TimeEntrySplitPhase.ORIGINAL_START_UPDATED)
+      return null
+    } catch (exception: HttpClientErrorException) {
+      if (exception.statusCode.is4xxClientError) {
+        return compensate(
+            operation,
+            client,
+            "Toggl rejected the running timer split. The original was preserved.",
+        )
+      }
+      return pending(operation, exception)
+    } catch (exception: Exception) {
+      return pending(operation, exception)
+    }
+  }
 
   private fun compensate(
       operation: TimeEntrySplitOperation,
