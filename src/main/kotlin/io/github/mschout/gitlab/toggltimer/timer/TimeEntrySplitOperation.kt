@@ -36,11 +36,18 @@ enum class TimeEntrySplitPhase {
   FIRST_CREATED,
   CREATING_SECOND,
   CHILDREN_CREATED,
+  UPDATING_ORIGINAL_START,
+  ORIGINAL_START_UPDATED,
   DELETING_ORIGINAL,
   ORIGINAL_DELETED,
   CLEANING_SECOND,
   CLEANING_FIRST,
   NEEDS_REVIEW,
+}
+
+enum class TimeEntrySplitKind {
+  COMPLETED,
+  RUNNING,
 }
 
 @Entity
@@ -68,8 +75,8 @@ class TimeEntrySplitOperation(
     @Column(name = "original_start", nullable = false, updatable = false)
     val originalStart: Instant,
 
-    @Column(name = "original_stop", nullable = false, updatable = false)
-    val originalStop: Instant,
+    @Column(name = "original_stop", updatable = false)
+    val originalStop: Instant? = null,
 
     @Column(name = "split_at", nullable = false, updatable = false)
     val splitAt: Instant,
@@ -83,6 +90,10 @@ class TimeEntrySplitOperation(
 
     @Column(name = "created_with", nullable = false, updatable = false)
     val createdWith: String,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "operation_kind", nullable = false, updatable = false)
+    val kind: TimeEntrySplitKind = TimeEntrySplitKind.COMPLETED,
 
     @Column(name = "first_child_toggl_id")
     var firstChildTogglId: Long? = null,

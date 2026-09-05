@@ -18,6 +18,9 @@ package io.github.mschout.gitlab.toggltimer.security
 import io.github.mschout.gitlab.toggltimer.home.HomeController
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
 import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
+import io.github.mschout.gitlab.toggltimer.timer.RunningTimeEntrySplitPreparation
+import io.github.mschout.gitlab.toggltimer.timer.RunningTimeEntrySplitSnapshot
+import io.github.mschout.gitlab.toggltimer.timer.SplitRunningTimeEntryCommand
 import io.github.mschout.gitlab.toggltimer.timer.SplitTimeEntryCommand
 import io.github.mschout.gitlab.toggltimer.timer.SplitTimeEntryOutcome
 import io.github.mschout.gitlab.toggltimer.timer.StartTimerRequest
@@ -83,6 +86,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.xpath
 import org.springframework.web.servlet.resource.ResourceUrlProvider
 
 @WebMvcTest(
@@ -210,7 +214,11 @@ class SecurityConfigWebMvcTest(
 
     @Bean fun timeEntryDeletionService(): TimeEntryDeletionService = mockk(relaxed = true)
 
-    @Bean fun timeEntrySplitWorkflow(): TimeEntrySplitWorkflow = mockk(relaxed = true)
+    @Bean
+    fun timeEntrySplitWorkflow(): TimeEntrySplitWorkflow =
+        mockk<TimeEntrySplitWorkflow>(relaxed = true).also {
+          every { it.operationStatus(any()) } returns null
+        }
 
     @Bean fun timeEntryStartService(): TimeEntryStartService = mockk(relaxed = true)
 
@@ -372,6 +380,18 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString("Courtio")))
         .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
         .andExpect(content().string(containsString("aria-label=\"Stop timer\"")))
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "aria-label=\"Actions for running timer Build the compact toolbar\""
+                    )
+                )
+        )
+        .andExpect(content().string(containsString("hx-get=\"/timer/running/321/split\"")))
+        .andExpect(content().string(containsString("running-timer-split-trigger")))
+        .andExpect(content().string(containsString("hx-delete=\"/timer/running/321\"")))
+        .andExpect(content().string(containsString("Delete running timer?")))
         .andExpect(content().string(containsString("id=\"timer-notifications\"")))
         .andExpect(content().string(containsString("aria-live=\"polite\"")))
         .andExpect(content().string(containsString("hx-target=\"#timer-notifications\"")))
@@ -439,7 +459,7 @@ class SecurityConfigWebMvcTest(
     every { timerService.startTimer(any()) } returns
         StartTimerResult(
             togglId = 654L,
-            startTime = Instant.parse("2026-08-27T15:00:00Z"),
+            startTime = Instant.parse("2026-09-03T19:59:59Z"),
             projectName = null,
             description = "Unassigned work",
         )
@@ -466,7 +486,17 @@ class SecurityConfigWebMvcTest(
         .andExpect(
             content().string(containsString("aria-controls=\"time-entry-project-dialog-654\""))
         )
-        .andExpect(content().string(containsString("data-started-at=\"2026-08-27T15:00:00Z\"")))
+        .andExpect(content().string(containsString("data-started-at=\"2026-09-03T19:59:59Z\"")))
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "class=\"dropdown-item time-entry-split-trigger running-timer-split-trigger\""
+                    )
+                )
+        )
+        .andExpect(content().string(containsString("disabled=\"disabled\"")))
+        .andExpect(content().string(containsString("data-enable-at=\"1788465601000\"")))
         .andExpect(content().string(containsString("hx-post=\"/timer/stop\"")))
 
     verify {
@@ -565,6 +595,15 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(containsString(">00:00:00</time>")))
         .andExpect(content().string(containsString("hx-post=\"/timer/start\"")))
         .andExpect(content().string(containsString("aria-label=\"Start timer\"")))
+        .andExpect(content().string(containsString("class=\"running-timer-actions-slot\"")))
+        .andExpect(content().string(containsString("bi-three-dots-vertical")))
+        .andExpect(content().string(containsString("aria-label=\"Timer actions unavailable\"")))
+        .andExpect(
+            content().string(containsString("title=\"Start the timer to use timer actions\""))
+        )
+        .andExpect(
+            xpath("//button[@aria-label='Timer actions unavailable' and @disabled]").exists()
+        )
         .andExpect(content().string(not(containsString("aria-label=\"Start timer\" disabled"))))
   }
 
@@ -667,6 +706,26 @@ class SecurityConfigWebMvcTest(
   }
 
   @Test
+  fun `authenticated DELETE running entry replaces it with the stopped timer`() {
+    mvc.perform(
+            delete("/timer/running/321").with(user("alice@example.com").roles("USER")).with(csrf())
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("aria-label=\"Stopped timer\"")))
+        .andExpect(header().string("HX-Retarget", "#result"))
+        .andExpect(header().string("HX-Reswap", "innerHTML"))
+        .andExpect(header().string("HX-Trigger", "timeEntriesChanged, timeTotalsChanged"))
+
+    verify(exactly = 1) { timeEntryDeletionService.deleteRunning(321L) }
+  }
+
+  @Test
+  fun `DELETE running entry requires CSRF`() {
+    mvc.perform(delete("/timer/running/321").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isForbidden)
+  }
+
+  @Test
   fun `authenticated POST split is allowed with CSRF`() {
     val start = Instant.parse("2026-08-26T17:36:00Z")
     val stop = Instant.parse("2026-08-26T18:24:02Z")
@@ -699,6 +758,73 @@ class SecurityConfigWebMvcTest(
                 .param("splitOffsetSeconds", "1441")
         )
         .andExpect(status().isForbidden)
+  }
+
+  @Test
+  fun `authenticated GET running split renders a fresh shared dialog`() {
+    val start = Instant.parse("2026-09-03T19:00:00Z")
+    val snapshotEnd = Instant.parse("2026-09-03T20:00:00Z")
+    every { timeEntrySplitWorkflow.prepareRunning(321L) } returns
+        RunningTimeEntrySplitPreparation.Ready(
+            RunningTimeEntrySplitSnapshot(321L, start, snapshotEnd)
+        )
+    every {
+      timeEntryHistoryService.splitView(
+          togglId = 321L,
+          start = start,
+          stop = snapshotEnd,
+          offset = null,
+          error = null,
+          open = true,
+          running = true,
+      )
+    } returns
+        TimeEntrySplitView(
+            togglId = 321L,
+            expectedStart = start,
+            expectedStop = snapshotEnd,
+            durationSeconds = 3_600L,
+            splitOffsetSeconds = 1_800L,
+            timeZone = "America/Chicago",
+            startEpochMilliseconds = start.toEpochMilli(),
+            startLocalSecondOfDay = 50_400,
+            startOffsetSeconds = -18_000,
+            stopOffsetSeconds = -18_000,
+            open = true,
+            running = true,
+        )
+
+    mvc.perform(get("/timer/running/321/split").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("data-open=\"true\"")))
+        .andExpect(content().string(containsString("hx-post=\"/timer/running/321/split\"")))
+        .andExpect(content().string(containsString("name=\"snapshotEnd\"")))
+        .andExpect(content().string(containsString("value=\"1800\"")))
+  }
+
+  @Test
+  fun `authenticated POST running split preserves current timer and refreshes history`() {
+    val start = Instant.parse("2026-09-03T19:00:00Z")
+    val snapshotEnd = Instant.parse("2026-09-03T20:00:00Z")
+    every {
+      timeEntrySplitWorkflow.splitRunning(
+          SplitRunningTimeEntryCommand(321L, start, snapshotEnd, 1_800L)
+      )
+    } returns SplitTimeEntryOutcome.Completed
+
+    mvc.perform(
+            post("/timer/running/321/split")
+                .with(user("alice@example.com").roles("USER"))
+                .with(csrf())
+                .param("expectedStart", start.toString())
+                .param("snapshotEnd", snapshotEnd.toString())
+                .param("splitOffsetSeconds", "1800")
+        )
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("running-timer-toolbar")))
+        .andExpect(header().string("HX-Retarget", "#result"))
+        .andExpect(header().string("HX-Reswap", "outerHTML"))
+        .andExpect(header().string("HX-Trigger", "timeEntriesChanged, timeTotalsChanged"))
   }
 
   @Test

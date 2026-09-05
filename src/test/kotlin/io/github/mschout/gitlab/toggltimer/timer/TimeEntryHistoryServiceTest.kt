@@ -43,6 +43,7 @@ class TimeEntryHistoryServiceTest {
   private val projectRepository = mockk<ProjectRepository>()
   private val clientRepository = mockk<ClientRepository>()
   private val credentialsService = mockk<CurrentUserCredentialsService>()
+  private val splitOperationRepository = mockk<TimeEntrySplitOperationRepository>()
   private val clock = Clock.fixed(Instant.parse("2026-08-26T17:00:00Z"), ZoneOffset.UTC)
   private lateinit var service: TimeEntryHistoryService
 
@@ -50,12 +51,15 @@ class TimeEntryHistoryServiceTest {
   fun setUp() {
     every { credentialsService.currentUserId() } returns 42L
     every { credentialsService.currentTimeZone() } returns ZoneId.of("America/Chicago")
+    every { splitOperationRepository.findAllByUserIdAndOriginalTogglIdIn(any(), any()) } returns
+        emptyList()
     service =
         TimeEntryHistoryService(
             timeEntryRepository,
             projectRepository,
             clientRepository,
             credentialsService,
+            splitOperationRepository,
             clock,
         )
   }
@@ -189,6 +193,48 @@ class TimeEntryHistoryServiceTest {
     }
     verify(exactly = 0) { projectRepository.findAllByTogglIdIn(any()) }
     verify(exactly = 0) { clientRepository.findAllByTogglIdIn(any()) }
+  }
+
+  @Test
+  fun `stopped original keeps split and delete disabled while recovery is unfinished`() {
+    val stopped =
+        entry(
+            togglId = 123L,
+            start = "2026-08-26T15:00:00Z",
+            stop = "2026-08-26T16:00:00Z",
+            duration = 3_600L,
+            description = "Stopped during recovery",
+        )
+    every { timeEntryRepository.findCompletedInRange(any(), any(), any()) } returns listOf(stopped)
+    every { timeEntryRepository.existsCompletedBefore(any(), any()) } returns false
+    every {
+      splitOperationRepository.findAllByUserIdAndOriginalTogglIdIn(42L, listOf(123L))
+    } returns
+        listOf(
+            TimeEntrySplitOperation(
+                userId = 42L,
+                originalTogglId = 123L,
+                workspaceId = 7L,
+                originalStart = stopped.start,
+                splitAt = stopped.start.plusSeconds(1_800L),
+                billable = false,
+                tags = emptyList(),
+                createdWith = "Gitlab Toggl Timer",
+                kind = TimeEntrySplitKind.RUNNING,
+            )
+        )
+
+    val actions = service.initialPage().groups.single().entries.single().actions
+
+    actions.split shouldBe
+        service.splitView(
+            togglId = 123L,
+            start = stopped.start,
+            stop = requireNotNull(stopped.stop),
+        )
+    actions.splitDisabledReason shouldBe
+        "Finish reconciling this split before splitting the entry again."
+    actions.deleteDisabledReason shouldBe "Finish reconciling this split before deleting the entry."
   }
 
   @Test

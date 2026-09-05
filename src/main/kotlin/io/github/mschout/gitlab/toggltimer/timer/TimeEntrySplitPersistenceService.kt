@@ -37,4 +37,11 @@ class TimeEntrySplitPersistenceService(
         ?.let(timeEntryRepository::delete)
     operationRepository.delete(operation)
   }
+
+  @Transactional
+  fun completeRunning(operationId: UUID, first: TogglTimeEntry, original: TogglTimeEntry) {
+    val operation = operationRepository.findById(operationId).orElseThrow()
+    togglSyncService.upsertTimeEntries(operation.userId, listOf(first, original))
+    operationRepository.delete(operation)
+  }
 }

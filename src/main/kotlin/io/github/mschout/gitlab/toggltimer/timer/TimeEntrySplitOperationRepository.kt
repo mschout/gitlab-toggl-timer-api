@@ -27,6 +27,11 @@ import org.springframework.transaction.annotation.Transactional
 interface TimeEntrySplitOperationRepository : JpaRepository<TimeEntrySplitOperation, UUID> {
   fun findByUserIdAndOriginalTogglId(userId: Long, originalTogglId: Long): TimeEntrySplitOperation?
 
+  fun findAllByUserIdAndOriginalTogglIdIn(
+      userId: Long,
+      originalTogglIds: Collection<Long>,
+  ): List<TimeEntrySplitOperation>
+
   @Query(
       """
       SELECT

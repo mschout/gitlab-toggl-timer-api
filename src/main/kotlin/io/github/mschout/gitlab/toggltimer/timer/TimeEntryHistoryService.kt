@@ -70,6 +70,11 @@ data class TimeEntryActionsView(
     val error: String? = null,
     val open: Boolean = false,
     val split: TimeEntrySplitView? = null,
+    val splitDisabledReason: String? = null,
+    val deleteDisabledReason: String? = null,
+    val splitStatus: String? = null,
+    val splitPolling: Boolean = false,
+    val splitNeedsReview: Boolean = false,
 )
 
 data class TimeEntrySplitView(
@@ -85,6 +90,7 @@ data class TimeEntrySplitView(
     val stopOffsetSeconds: Int,
     val error: String? = null,
     val open: Boolean = false,
+    val running: Boolean = false,
 )
 
 @Service
@@ -94,6 +100,7 @@ class TimeEntryHistoryService(
     private val projectRepository: ProjectRepository,
     private val clientRepository: ClientRepository,
     private val credentialsService: CurrentUserCredentialsService,
+    private val splitOperationRepository: TimeEntrySplitOperationRepository,
     private val clock: Clock,
 ) {
 
@@ -170,6 +177,12 @@ class TimeEntryHistoryService(
         )
     val projectsByTogglId = loadProjects(entries)
     val clientsByTogglId = loadClients(projectsByTogglId.values)
+    val splitOperationIds =
+        if (entries.isEmpty()) emptySet()
+        else
+            splitOperationRepository
+                .findAllByUserIdAndOriginalTogglIdIn(userId, entries.map { it.togglId })
+                .mapTo(mutableSetOf()) { it.originalTogglId }
     val groups =
         entries
             .groupBy { it.start.atZone(zone).toLocalDate() }
@@ -181,7 +194,12 @@ class TimeEntryHistoryService(
                       dayEntries.map { entry ->
                         val project = entry.projectId?.let(projectsByTogglId::get)
                         val client = project?.togglClientId?.let(clientsByTogglId::get)
-                        entry.toView(project = project, clientName = client?.name, zone = zone)
+                        entry.toView(
+                            project = project,
+                            clientName = client?.name,
+                            zone = zone,
+                            splitInProgress = entry.togglId in splitOperationIds,
+                        )
                       },
               )
             }
@@ -216,6 +234,7 @@ class TimeEntryHistoryService(
       project: Project?,
       clientName: String?,
       zone: ZoneId,
+      splitInProgress: Boolean,
   ): RecentTimeEntryView {
     val localStart = start.atZone(zone)
     val localStop = requireNotNull(stop).atZone(zone)
@@ -237,6 +256,12 @@ class TimeEntryHistoryService(
                 togglId = togglId,
                 description = description?.takeIf { it.isNotBlank() },
                 split = splitView(zone),
+                splitDisabledReason =
+                    "Finish reconciling this split before splitting the entry again."
+                        .takeIf { splitInProgress },
+                deleteDisabledReason =
+                    "Finish reconciling this split before deleting the entry."
+                        .takeIf { splitInProgress },
             ),
         timeRange = "${TIME_FORMATTER.format(localStart)} – ${TIME_FORMATTER.format(localStop)}",
         durationFormatted = formatDuration(duration),
@@ -247,8 +272,10 @@ class TimeEntryHistoryService(
       togglId: Long,
       start: Instant,
       stop: Instant,
-      offset: Long,
-      error: String,
+      offset: Long? = null,
+      error: String? = null,
+      open: Boolean = false,
+      running: Boolean = false,
   ): TimeEntrySplitView =
       buildSplitView(
           togglId = togglId,
@@ -257,7 +284,8 @@ class TimeEntryHistoryService(
           zone = credentialsService.currentTimeZone(),
           offset = offset,
           error = error,
-          open = true,
+          open = open,
+          running = running,
       ) ?: error("A split error view requires a splittable interval")
 
   private fun TimeEntry.splitView(zone: ZoneId): TimeEntrySplitView? =
@@ -271,6 +299,7 @@ class TimeEntryHistoryService(
       offset: Long? = null,
       error: String? = null,
       open: Boolean = false,
+      running: Boolean = false,
   ): TimeEntrySplitView? {
     val entryStop = stop ?: return null
     val durationSeconds = Duration.between(start, entryStop).seconds
@@ -289,6 +318,7 @@ class TimeEntryHistoryService(
         stopOffsetSeconds = entryStop.atZone(zone).offset.totalSeconds,
         error = error,
         open = open,
+        running = running,
     )
   }
 

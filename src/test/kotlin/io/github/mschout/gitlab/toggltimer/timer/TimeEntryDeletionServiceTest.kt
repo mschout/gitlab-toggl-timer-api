@@ -19,6 +19,7 @@ import io.github.mschout.gitlab.toggltimer.project.TimeEntry
 import io.github.mschout.gitlab.toggltimer.project.TimeEntryRepository
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClient
 import io.github.mschout.gitlab.toggltimer.toggl.TogglClientFactory
+import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
@@ -39,6 +40,7 @@ class TimeEntryDeletionServiceTest {
   private val timeEntryRepository = mockk<TimeEntryRepository>()
   private val togglClientFactory = mockk<TogglClientFactory>()
   private val credentialsService = mockk<CurrentUserCredentialsService>()
+  private val splitOperationRepository = mockk<TimeEntrySplitOperationRepository>()
   private val togglClient = mockk<TogglClient>()
   private lateinit var service: TimeEntryDeletionService
 
@@ -47,7 +49,14 @@ class TimeEntryDeletionServiceTest {
     every { credentialsService.currentUserId() } returns 42L
     every { credentialsService.requireTogglApiKey() } returns "api-key"
     every { togglClientFactory.forApiKey("api-key") } returns togglClient
-    service = TimeEntryDeletionService(timeEntryRepository, togglClientFactory, credentialsService)
+    every { splitOperationRepository.findByUserIdAndOriginalTogglId(42L, any()) } returns null
+    service =
+        TimeEntryDeletionService(
+            timeEntryRepository,
+            togglClientFactory,
+            credentialsService,
+            splitOperationRepository,
+        )
   }
 
   @Test
@@ -120,6 +129,67 @@ class TimeEntryDeletionServiceTest {
     failure.togglId shouldBe 123L
     failure.description shouldBe "Review merge request"
     verify(exactly = 1) { togglClient.deleteTimeEntry(7L, 123L) }
+  }
+
+  @Test
+  fun `running deletion stops the matching timer before deleting it from Toggl and Postgres`() {
+    val entry = entry().apply { duration = -1L }
+    every { timeEntryRepository.findByTogglIdAndUserId(123L, 42L) } returns entry
+    every { togglClient.getCurrentTimeEntry() } returns
+        TogglTimeEntry(id = 123L, workspaceId = 7L, duration = -1L)
+    every { togglClient.stopTimeEntry(7L, 123L) } returns
+        TogglTimeEntry(id = 123L, workspaceId = 7L, duration = 60L)
+    justRun { togglClient.deleteTimeEntry(7L, 123L) }
+    justRun { timeEntryRepository.delete(entry) }
+
+    service.deleteRunning(123L)
+
+    verifyOrder {
+      togglClient.getCurrentTimeEntry()
+      togglClient.stopTimeEntry(workspaceId = 7L, timeEntryId = 123L)
+      togglClient.deleteTimeEntry(workspaceId = 7L, timeEntryId = 123L)
+      timeEntryRepository.delete(entry)
+    }
+  }
+
+  @Test
+  fun `running deletion does not stop a replacement timer`() {
+    val entry = entry().apply { duration = -1L }
+    every { timeEntryRepository.findByTogglIdAndUserId(123L, 42L) } returns entry
+    every { togglClient.getCurrentTimeEntry() } returns
+        TogglTimeEntry(id = 999L, workspaceId = 7L, duration = -1L)
+    justRun { togglClient.deleteTimeEntry(7L, 123L) }
+    justRun { timeEntryRepository.delete(entry) }
+
+    service.deleteRunning(123L)
+
+    verify(exactly = 0) { togglClient.stopTimeEntry(any(), any()) }
+    verify(exactly = 1) { togglClient.deleteTimeEntry(7L, 123L) }
+  }
+
+  @Test
+  fun `stop failure leaves Toggl entry and Postgres history untouched`() {
+    val entry = entry().apply { duration = -1L }
+    every { timeEntryRepository.findByTogglIdAndUserId(123L, 42L) } returns entry
+    every { togglClient.getCurrentTimeEntry() } returns
+        TogglTimeEntry(id = 123L, workspaceId = 7L, duration = -1L)
+    every { togglClient.stopTimeEntry(7L, 123L) } throws RuntimeException("Toggl down")
+
+    shouldThrow<TogglTimeEntryDeletionException> { service.deleteRunning(123L) }
+
+    verify(exactly = 0) { togglClient.deleteTimeEntry(any(), any()) }
+    verify(exactly = 0) { timeEntryRepository.delete(any()) }
+  }
+
+  @Test
+  fun `unfinished split prevents deleting the original entry`() {
+    every { splitOperationRepository.findByUserIdAndOriginalTogglId(42L, 123L) } returns
+        mockk<TimeEntrySplitOperation>()
+
+    shouldThrow<TimeEntrySplitInProgressException> { service.delete(123L) }
+
+    verify(exactly = 0) { timeEntryRepository.findByTogglIdAndUserId(any(), any()) }
+    verify(exactly = 0) { togglClientFactory.forApiKey(any()) }
   }
 
   private fun entry() =

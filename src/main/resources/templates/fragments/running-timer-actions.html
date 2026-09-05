@@ -2,9 +2,13 @@
 <html xmlns:th="http://www.thymeleaf.org">
   <body>
     <div
-      th:fragment="entry-actions"
+      th:fragment="running-timer-actions"
       class="time-entry-actions"
-      th:id="|time-entry-actions-${entryActions.togglId}|"
+      th:id="|running-timer-actions-${entryActions.togglId}|"
+      th:attr="hx-get=${entryActions.splitPolling} ? @{/timer/running/{togglId}/split/status(togglId=${entryActions.togglId})} : null,
+               hx-trigger=${entryActions.splitPolling} ? 'every 5s' : null,
+               hx-target=${entryActions.splitPolling} ? |#running-timer-actions-${entryActions.togglId}| : null,
+               hx-swap=${entryActions.splitPolling} ? 'outerHTML' : null"
     >
       <div class="dropdown">
         <button
@@ -14,7 +18,7 @@
           data-bs-auto-close="outside"
           aria-expanded="false"
           aria-haspopup="menu"
-          th:attr="aria-label=${entryActions.description != null} ? |Actions for ${entryActions.description}| : 'Actions for untitled time entry'"
+          th:attr="aria-label=${entryActions.description != null} ? |Actions for running timer ${entryActions.description}| : 'Actions for running timer'"
         >
           <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
         </button>
@@ -22,33 +26,26 @@
           <li role="none">
             <button
               type="button"
-              class="dropdown-item time-entry-copy-description"
-              role="menuitem"
-              th:disabled="${entryActions.description == null}"
-              th:attr="data-description=${entryActions.description}"
-            >
-              <i class="bi bi-copy" aria-hidden="true"></i>
-              <span class="time-entry-copy-label">Copy description</span>
-            </button>
-          </li>
-          <li th:if="${entryActions.split != null}" role="none">
-            <button
-              type="button"
-              class="dropdown-item time-entry-split-trigger"
+              class="dropdown-item time-entry-split-trigger running-timer-split-trigger"
               role="menuitem"
               th:disabled="${entryActions.splitDisabledReason != null}"
-              th:title="${entryActions.splitDisabledReason}"
               th:attr="aria-controls=|time-entry-split-dialog-${entryActions.togglId}|,
-                       aria-describedby=${entryActions.splitDisabledReason != null} ? |time-entry-split-disabled-${entryActions.togglId}| : null"
+                       aria-describedby=${entryActions.splitDisabledReason != null} ? |running-timer-split-disabled-${entryActions.togglId}| : null,
+                       data-enable-at=${entryActions.splitStatus == null and entryActions.splitDisabledReason != null} ? ${runningTimerSplitEnableAt} : null,
+                       hx-get=@{/timer/running/{togglId}/split(togglId=${entryActions.togglId})},
+                       hx-target=|#running-timer-actions-${entryActions.togglId}|"
+              hx-swap="outerHTML"
               aria-haspopup="dialog"
             >
               <i class="bi bi-scissors" aria-hidden="true"></i>
-              <span>Split</span>
+              <span
+                th:text="${entryActions.splitNeedsReview} ? 'Split needs review' : (${entryActions.splitStatus != null} ? 'Split recovering…' : 'Split')"
+              >Split</span>
             </button>
             <span
               th:if="${entryActions.splitDisabledReason != null}"
               class="visually-hidden"
-              th:id="|time-entry-split-disabled-${entryActions.togglId}|"
+              th:id="|running-timer-split-disabled-${entryActions.togglId}|"
               th:text="${entryActions.splitDisabledReason}"
             >Split is unavailable.</span>
           </li>
@@ -60,7 +57,7 @@
               role="menuitem"
               th:disabled="${entryActions.deleteDisabledReason != null}"
               th:title="${entryActions.deleteDisabledReason}"
-              th:attr="aria-controls=|time-entry-delete-dialog-${entryActions.togglId}|"
+              th:attr="aria-controls=|running-timer-delete-dialog-${entryActions.togglId}|"
               aria-haspopup="dialog"
             >
               <i class="bi bi-trash3" aria-hidden="true"></i>
@@ -70,14 +67,10 @@
         </ul>
       </div>
 
-      <th:block th:if="${entryActions.split != null}" th:with="split=${entryActions.split}">
-        <dialog th:replace="~{fragments/time-entry-split :: split-dialog}"></dialog>
-      </th:block>
-
       <dialog
         class="time-entry-delete-dialog"
-        th:id="|time-entry-delete-dialog-${entryActions.togglId}|"
-        th:attr="aria-labelledby=|time-entry-delete-title-${entryActions.togglId}|,
+        th:id="|running-timer-delete-dialog-${entryActions.togglId}|"
+        th:attr="aria-labelledby=|running-timer-delete-title-${entryActions.togglId}|,
                  data-open=${entryActions.open}"
       >
         <div class="time-entry-delete-dialog-header">
@@ -85,9 +78,9 @@
             <div class="time-entry-delete-kicker">Permanent action</div>
             <h3
               class="time-entry-delete-title"
-              th:id="|time-entry-delete-title-${entryActions.togglId}|"
+              th:id="|running-timer-delete-title-${entryActions.togglId}|"
             >
-              Delete time entry?
+              Delete running timer?
             </h3>
           </div>
           <button
@@ -103,13 +96,13 @@
             role="alert"
             th:text="${entryActions.error}"
           >
-            Could not delete this time entry. Try again.
+            Could not delete this running timer. Try again.
           </div>
           <p
             class="time-entry-delete-description"
-            th:text="${entryActions.description != null} ? |“${entryActions.description}” will be removed from Toggl and local history.| : 'This time entry will be removed from Toggl and local history.'"
+            th:text="${entryActions.description != null} ? |“${entryActions.description}” will be stopped and removed from Toggl and local history.| : 'This timer will be stopped and removed from Toggl and local history.'"
           >
-            This time entry will be removed from Toggl and local history.
+            This timer will be stopped and removed from Toggl and local history.
           </p>
           <p class="time-entry-delete-warning">This cannot be undone.</p>
         </div>
@@ -120,8 +113,8 @@
           <button
             type="button"
             class="btn btn-danger time-entry-delete-confirm"
-            th:attr="hx-delete=@{/timer/entries/{togglId}(togglId=${entryActions.togglId})},
-                     hx-target=|#time-entry-actions-${entryActions.togglId}|"
+            th:attr="hx-delete=@{/timer/running/{togglId}(togglId=${entryActions.togglId})},
+                     hx-target=|#running-timer-actions-${entryActions.togglId}|"
             hx-swap="outerHTML"
             hx-disabled-elt="this"
           >
@@ -133,6 +126,10 @@
           </button>
         </div>
       </dialog>
+
+      <th:block th:if="${entryActions.split != null}" th:with="split=${entryActions.split}">
+        <dialog th:replace="~{fragments/time-entry-split :: split-dialog}"></dialog>
+      </th:block>
     </div>
   </body>
 </html>

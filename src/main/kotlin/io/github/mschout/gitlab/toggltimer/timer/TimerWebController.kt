@@ -24,6 +24,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -355,6 +356,12 @@ class TimerWebController(
               error = "Deleted from Toggl, but local history could not be removed. Try again.",
               open = true,
           )
+        } catch (exception: TimeEntrySplitInProgressException) {
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = null,
+              deleteDisabledReason = "Finish reconciling this split before deleting the entry.",
+          )
         }
 
     if (actions != null) {
@@ -367,6 +374,187 @@ class TimerWebController(
     response.setHeader("HX-Reswap", "outerHTML")
     response.setHeader("HX-Trigger", "timeTotalsChanged")
     return "timer-index :: recent-entries"
+  }
+
+  @DeleteMapping("/running/{togglId}")
+  fun deleteRunningEntry(
+      @PathVariable togglId: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val actions =
+        try {
+          timeEntryDeletionService.deleteRunning(togglId)
+          null
+        } catch (exception: TogglTimeEntryDeletionException) {
+          logger.warn(exception) { "Failed to stop and delete running Toggl time entry $togglId" }
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = exception.description,
+              error = "Could not delete from Toggl. Try again.",
+              open = true,
+          )
+        } catch (exception: TimeEntryHistoryDeletionException) {
+          logger.warn(exception) {
+            "Failed to delete running Toggl time entry $togglId from Postgres"
+          }
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = exception.description,
+              error = "Deleted from Toggl, but local history could not be removed. Try again.",
+              open = true,
+          )
+        } catch (exception: TimeEntrySplitInProgressException) {
+          val message = "Finish reconciling this split before deleting the entry."
+          TimeEntryActionsView(
+              togglId = togglId,
+              description = null,
+              splitDisabledReason = message,
+              deleteDisabledReason = message,
+              splitStatus = message,
+          )
+        }
+
+    if (actions != null) {
+      model.addAttribute("entryActions", actions)
+      return "fragments/running-timer-actions :: running-timer-actions"
+    }
+
+    addStoppedTimer(model)
+    response.setHeader("HX-Retarget", "#result")
+    response.setHeader("HX-Reswap", "innerHTML")
+    response.setHeader("HX-Trigger", "timeEntriesChanged, timeTotalsChanged")
+    return "stop-timer :: result-card"
+  }
+
+  @GetMapping("/running/{togglId}/split")
+  fun runningSplitDialog(
+      @PathVariable togglId: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val preparation = timeEntrySplitWorkflow.prepareRunning(togglId)
+    if (preparation is RunningTimeEntrySplitPreparation.Rejected) {
+      return refreshCurrentTimerAfterSplit(
+          model = model,
+          response = response,
+          notification = preparation.message,
+      )
+    }
+    val snapshot = (preparation as RunningTimeEntrySplitPreparation.Ready).snapshot
+    val actions =
+        TimeEntryActionsView(
+            togglId = togglId,
+            description = null,
+            split =
+                timeEntryHistoryService.splitView(
+                    togglId = togglId,
+                    start = snapshot.start,
+                    stop = snapshot.snapshotEnd,
+                    open = true,
+                    running = true,
+                ),
+        )
+    model.addAttribute("runningTimerSplitEnableAt", snapshot.start.plusSeconds(2).toEpochMilli())
+    model.addAttribute("entryActions", actions)
+    return "fragments/running-timer-actions :: running-timer-actions"
+  }
+
+  @PostMapping("/running/{togglId}/split")
+  fun splitRunningEntry(
+      @PathVariable togglId: Long,
+      @RequestParam expectedStart: Instant,
+      @RequestParam snapshotEnd: Instant,
+      @RequestParam splitOffsetSeconds: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val outcome =
+        try {
+          timeEntrySplitWorkflow.splitRunning(
+              SplitRunningTimeEntryCommand(
+                  togglId = togglId,
+                  expectedStart = expectedStart,
+                  snapshotEnd = snapshotEnd,
+                  splitOffsetSeconds = splitOffsetSeconds,
+              )
+          )
+        } catch (exception: IllegalArgumentException) {
+          SplitTimeEntryOutcome.Rejected(
+              exception.message ?: "Choose a valid split point inside this time entry."
+          )
+        }
+
+    if (outcome == SplitTimeEntryOutcome.Completed || outcome is SplitTimeEntryOutcome.Rejected) {
+      return refreshCurrentTimerAfterSplit(
+          model = model,
+          response = response,
+          notification = (outcome as? SplitTimeEntryOutcome.Rejected)?.message,
+      )
+    }
+
+    val message =
+        when (outcome) {
+          is SplitTimeEntryOutcome.RecoveryPending -> outcome.message
+          is SplitTimeEntryOutcome.NeedsReview -> outcome.message
+          SplitTimeEntryOutcome.Completed,
+          is SplitTimeEntryOutcome.Rejected -> error("Handled above")
+        }
+    val split =
+        timeEntryHistoryService.splitView(
+            togglId = togglId,
+            start = expectedStart,
+            stop = snapshotEnd,
+            offset = splitOffsetSeconds,
+            error = message,
+            open = true,
+            running = true,
+        )
+    model.addAttribute(
+        "entryActions",
+        TimeEntryActionsView(
+            togglId = togglId,
+            description = null,
+            split = split,
+            splitDisabledReason = message,
+            deleteDisabledReason = message,
+            splitStatus = message,
+            splitPolling = outcome is SplitTimeEntryOutcome.RecoveryPending,
+            splitNeedsReview = outcome is SplitTimeEntryOutcome.NeedsReview,
+        ),
+    )
+    model.addAttribute("runningTimerSplitEnableAt", null)
+    return "fragments/running-timer-actions :: running-timer-actions"
+  }
+
+  @GetMapping("/running/{togglId}/split/status")
+  fun runningSplitStatus(
+      @PathVariable togglId: Long,
+      model: Model,
+      response: HttpServletResponse,
+  ): String {
+    val status = timeEntrySplitWorkflow.operationStatus(togglId)
+    if (status == null) {
+      return refreshCurrentTimerAfterSplit(
+          model = model,
+          response = response,
+          notification = "The running timer split finished.",
+      )
+    }
+    model.addAttribute(
+        "entryActions",
+        TimeEntryActionsView(
+            togglId = togglId,
+            description = null,
+            splitDisabledReason = status.message,
+            deleteDisabledReason = status.message,
+            splitStatus = status.message,
+            splitPolling = status.pending,
+            splitNeedsReview = status.needsReview,
+        ),
+    )
+    model.addAttribute("runningTimerSplitEnableAt", null)
+    return "fragments/running-timer-actions :: running-timer-actions"
   }
 
   @PostMapping("/entries/{togglId}/split")
@@ -416,6 +604,7 @@ class TimerWebController(
             stop = expectedStop,
             offset = splitOffsetSeconds,
             error = message,
+            open = true,
         )
     model.addAttribute(
         "entryActions",
@@ -575,6 +764,23 @@ class TimerWebController(
     )
   }
 
+  private fun refreshCurrentTimerAfterSplit(
+      model: Model,
+      response: HttpServletResponse,
+      notification: String?,
+  ): String {
+    val running =
+        runCatching { togglService.getCurrentRunningTimer() }
+            .onFailure { logger.warn(it) { "Failed to refresh current Toggl timer after split" } }
+            .getOrNull()
+    if (running == null) addStoppedTimer(model) else addRunningTimer(running, model)
+    model.addAttribute("timerNotification", notification)
+    response.setHeader("HX-Retarget", "#result")
+    response.setHeader("HX-Reswap", "outerHTML")
+    response.setHeader("HX-Trigger", "timeEntriesChanged, timeTotalsChanged")
+    return "start-timer :: start-update-response"
+  }
+
   private fun runningTimerView(result: StartTimerResult): RunningTimerView {
     val fallbackPicker =
         TimeEntryProjectPickerView(
@@ -598,6 +804,13 @@ class TimerWebController(
                   projectColor = picker.projectColor ?: fallbackPicker.projectColor,
               )
             } ?: fallbackPicker
+    val splitStatus =
+        runCatching { timeEntrySplitWorkflow.operationStatus(result.togglId) }.getOrNull()
+    val splitDisabledReason =
+        splitStatus?.message
+            ?: RUNNING_SPLIT_TOO_SHORT_MESSAGE.takeIf {
+              Duration.between(result.startTime, clock.instant()).seconds < 2
+            }
 
     return RunningTimerView(
         startTime = result.startTime,
@@ -608,6 +821,17 @@ class TimerWebController(
             ),
         projectPicker = projectPicker,
         startEditor = startEditorView(togglId = result.togglId, start = result.startTime),
+        actions =
+            TimeEntryActionsView(
+                togglId = result.togglId,
+                description = result.description?.takeIf { it.isNotBlank() },
+                splitDisabledReason = splitDisabledReason,
+                deleteDisabledReason = splitStatus?.message,
+                splitStatus = splitStatus?.message,
+                splitPolling = splitStatus?.pending == true,
+                splitNeedsReview = splitStatus?.needsReview == true,
+            ),
+        splitEnableAt = result.startTime.plusSeconds(2).toEpochMilli(),
     )
   }
 
@@ -636,5 +860,7 @@ class TimerWebController(
 
   companion object {
     private val START_TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+    private const val RUNNING_SPLIT_TOO_SHORT_MESSAGE =
+        "The timer must run for at least two seconds before it can be split."
   }
 }
