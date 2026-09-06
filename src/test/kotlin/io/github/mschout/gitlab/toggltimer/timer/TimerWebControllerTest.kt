@@ -49,6 +49,7 @@ class TimerWebControllerTest {
   private lateinit var timeEntryHistoryService: TimeEntryHistoryService
   private lateinit var timeEntryDescriptionService: TimeEntryDescriptionService
   private lateinit var timeEntryStartService: TimeEntryStartService
+  private lateinit var timeEntryRestartService: TimeEntryRestartService
   private lateinit var timeEntryProjectService: TimeEntryProjectService
   private lateinit var timeEntryDeletionService: TimeEntryDeletionService
   private lateinit var timeEntrySplitWorkflow: TimeEntrySplitWorkflow
@@ -62,6 +63,7 @@ class TimerWebControllerTest {
     timeEntryHistoryService = mockk()
     timeEntryDescriptionService = mockk()
     timeEntryStartService = mockk()
+    timeEntryRestartService = mockk()
     timeEntryProjectService = mockk()
     timeEntryDeletionService = mockk()
     timeEntrySplitWorkflow = mockk()
@@ -87,6 +89,7 @@ class TimerWebControllerTest {
             timeEntryHistoryService,
             timeEntryDescriptionService,
             timeEntryStartService,
+            timeEntryRestartService,
             timeEntryProjectService,
             timeEntryDeletionService,
             timeEntrySplitWorkflow,
@@ -1377,6 +1380,77 @@ class TimerWebControllerTest {
       model["workspaces"] shouldBe emptyList<TogglWorkspace>()
     }
     verify(exactly = 0) { timerService.startTimer(any()) }
+  }
+
+  @Test
+  fun `restart entry renders the new running timer and refreshes dependent sections`() {
+    val started =
+        StartTimerResult(
+            togglId = 555L,
+            startTime = Instant.parse("2026-09-05T16:00:00Z"),
+            projectName = "Project",
+            description = "Restarted work",
+        )
+    every { timeEntryRestartService.restart(123L) } returns TimeEntryRestartOutcome.Started(started)
+    every { timeEntryProjectService.currentPicker(555L) } returns
+        TimeEntryProjectPickerView(
+            togglId = 555L,
+            projectName = "Project",
+            clientName = null,
+            projectColor = null,
+        )
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    val view = controller.restartEntry(123L, model, response)
+
+    assertSoftly {
+      view shouldBe "start-timer :: start-update-response"
+      (model["runningTimer"] as RunningTimerView).descriptionEditor.description shouldBe
+          "Restarted work"
+      model["timerNotification"].shouldBeNull()
+      response.getHeader("HX-Retarget") shouldBe "#result"
+      response.getHeader("HX-Reswap") shouldBe "outerHTML"
+      response.getHeader("HX-Trigger") shouldBe "timeEntriesChanged, timeTotalsChanged"
+    }
+  }
+
+  @Test
+  fun `rejected restart preserves the current timer and shows a warning`() {
+    every { timeEntryRestartService.restart(123L) } returns
+        TimeEntryRestartOutcome.Rejected("The original project is no longer active.")
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    controller.restartEntry(123L, model, response)
+
+    assertSoftly {
+      model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = null, projects = emptyList())
+      model["timerNotification"] shouldBe "The original project is no longer active."
+      response.getHeader("HX-Trigger").shouldBeNull()
+    }
+    verify { togglService.getCurrentRunningTimer() }
+  }
+
+  @Test
+  fun `failed start after stopping renders stopped state and refreshes history`() {
+    every { timeEntryRestartService.restart(123L) } returns
+        TimeEntryRestartOutcome.StartFailed(
+            message = "The previous timer was stopped, but the selected timer could not start.",
+            timerStateChanged = true,
+        )
+    val model = ExtendedModelMap()
+    val response = MockHttpServletResponse()
+
+    controller.restartEntry(123L, model, response)
+
+    assertSoftly {
+      model["stoppedTimer"] shouldBe StoppedTimerView(workspaceId = null, projects = emptyList())
+      model["timerNotification"] shouldBe
+          "The previous timer was stopped, but the selected timer could not start."
+      response.getHeader("HX-Trigger") shouldBe "timeEntriesChanged, timeTotalsChanged"
+    }
+    verify(exactly = 0) { togglService.getCurrentRunningTimer() }
   }
 
   @Test

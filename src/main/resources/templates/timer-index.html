@@ -319,6 +319,32 @@
                 <time class="time-entry-range" th:text="${entry.timeRange}">12:36 PM – 1:24 PM</time>
                 <span class="time-entry-duration" th:text="${entry.durationFormatted}">0:48:02</span>
                 <th:block th:with="entryActions=${entry.actions}">
+                  <button
+                    type="button"
+                    class="time-entry-restart-trigger"
+                    th:title="${entryActions.restartDisabledReason ?: 'Start a new timer from this entry'}"
+                    th:attr="hx-post=@{/timer/entries/{togglId}/restart(togglId=${entryActions.togglId})},
+                             aria-label=${entryActions.description != null} ? |Start a new timer for ${entryActions.description}| : 'Start a new timer from this untitled entry',
+                             aria-disabled=${entryActions.restartDisabledReason != null},
+                             aria-describedby=${entryActions.restartDisabledReason != null} ? |time-entry-restart-disabled-${entryActions.togglId}| : null"
+                    hx-trigger="restart"
+                    hx-target="#result"
+                    hx-swap="outerHTML"
+                    hx-disabled-elt="this"
+                    hx-indicator="this"
+                  >
+                    <span
+                      class="time-entry-restart-spinner htmx-indicator spinner-border spinner-border-sm"
+                      aria-hidden="true"
+                    ></span>
+                    <i class="time-entry-restart-icon bi bi-play-fill" aria-hidden="true"></i>
+                  </button>
+                  <span
+                    th:if="${entryActions.restartDisabledReason != null}"
+                    class="visually-hidden"
+                    th:id="|time-entry-restart-disabled-${entryActions.togglId}|"
+                    th:text="${entryActions.restartDisabledReason}"
+                  >Restart is unavailable.</span>
                   <div th:replace="~{fragments/time-entry-actions :: entry-actions}"></div>
                 </th:block>
               </article>

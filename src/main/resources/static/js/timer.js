@@ -427,6 +427,14 @@
   });
 
   document.addEventListener('click', function (evt) {
+    var restartTrigger =
+      evt.target.closest && evt.target.closest('.time-entry-restart-trigger');
+    if (restartTrigger) {
+      evt.preventDefault();
+      requestEntryRestart(restartTrigger);
+      return;
+    }
+
     var startTrigger =
       evt.target.closest && evt.target.closest('.running-timer-elapsed-trigger');
     if (startTrigger) {
@@ -868,6 +876,33 @@
     htmx.trigger(input, 'description-save');
   }
 
+  function setRestartPending(button, pending) {
+    if (!button) return;
+    button.classList.toggle('is-restart-pending', pending);
+    button.disabled = pending;
+  }
+
+  function requestEntryRestart(button) {
+    if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+    var row = button.closest('.time-entry-row');
+    var input = row && row.querySelector('.time-entry-description-editor');
+    var wrapper = input && input.closest('.time-entry-description-wrapper');
+    var dirty =
+      input &&
+      !input.readOnly &&
+      input.dataset.originalValue !== undefined &&
+      input.value !== input.dataset.originalValue;
+    var hasSaveError = wrapper && wrapper.querySelector('.time-entry-description-error');
+    var saving = input && input.dataset.submitting === 'true';
+    if (dirty || hasSaveError || saving) {
+      button.dataset.restartAfterDescription = 'true';
+      setRestartPending(button, true);
+      if (!saving) submitDescriptionEdit(input);
+      return;
+    }
+    htmx.trigger(button, 'restart');
+  }
+
   document.addEventListener(
     'focus',
     function (evt) {
@@ -1012,6 +1047,13 @@
     }
     if (!input.matches('.time-entry-description-editor')) return;
     if (successful) return;
+    var restartRow = input.closest('.time-entry-row');
+    var restartButton =
+      restartRow && restartRow.querySelector('.time-entry-restart-trigger');
+    if (restartButton && restartButton.dataset.restartAfterDescription === 'true') {
+      delete restartButton.dataset.restartAfterDescription;
+      setRestartPending(restartButton, false);
+    }
     input.dataset.submitting = 'false';
     input.readOnly = false;
     var wrapper = input.closest('.time-entry-description-wrapper');
@@ -1086,6 +1128,22 @@
       descriptionInput.getAttribute('data-editing') === 'true'
     ) {
       beginDescriptionEdit(descriptionInput);
+    }
+    var descriptionWrapper =
+      tgt && tgt.matches && tgt.matches('.time-entry-description-wrapper')
+        ? tgt
+        : tgt && tgt.querySelector && tgt.querySelector('.time-entry-description-wrapper');
+    if (descriptionWrapper) {
+      var descriptionRow = descriptionWrapper.closest('.time-entry-row');
+      var pendingRestart =
+        descriptionRow && descriptionRow.querySelector('.time-entry-restart-trigger');
+      if (pendingRestart && pendingRestart.dataset.restartAfterDescription === 'true') {
+        delete pendingRestart.dataset.restartAfterDescription;
+        setRestartPending(pendingRestart, false);
+        if (!descriptionWrapper.querySelector('.time-entry-description-error')) {
+          htmx.trigger(pendingRestart, 'restart');
+        }
+      }
     }
     var projectPicker =
       tgt && tgt.matches && tgt.matches('.time-entry-project-picker')
