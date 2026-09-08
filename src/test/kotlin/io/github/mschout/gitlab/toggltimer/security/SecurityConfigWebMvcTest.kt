@@ -16,6 +16,7 @@
 package io.github.mschout.gitlab.toggltimer.security
 
 import io.github.mschout.gitlab.toggltimer.home.HomeController
+import io.github.mschout.gitlab.toggltimer.mfa.MfaChallengeController
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
 import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
 import io.github.mschout.gitlab.toggltimer.timer.RunningTimeEntrySplitPreparation
@@ -55,8 +56,10 @@ import io.github.mschout.gitlab.toggltimer.toggl.TogglTimeEntry
 import io.github.mschout.gitlab.toggltimer.user.CurrentUserCredentialsService
 import io.github.mschout.gitlab.toggltimer.user.User
 import io.github.mschout.gitlab.toggltimer.user.UserAuthIdentityRepository
+import io.github.mschout.gitlab.toggltimer.user.UserProfileService
 import io.github.mschout.gitlab.toggltimer.user.UserRepository
 import io.github.mschout.gitlab.toggltimer.user.UserSettings
+import io.github.mschout.gitlab.toggltimer.user.UserSettingsController
 import io.github.mschout.gitlab.toggltimer.user.UserSettingsRepository
 import io.mockk.every
 import io.mockk.mockk
@@ -71,6 +74,8 @@ import org.hamcrest.Matchers.allOf
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.restclient.RestTemplateBuilder
 import org.springframework.boot.test.context.TestConfiguration
@@ -78,9 +83,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.http.HttpHeaders
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
+import org.springframework.test.util.XpathExpectationsHelper
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultMatcher
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -93,7 +102,13 @@ import org.springframework.web.servlet.resource.ResourceUrlProvider
 
 @WebMvcTest(
     controllers =
-        [HomeController::class, TimerWebController::class, SessionKeepAliveController::class],
+        [
+            HomeController::class,
+            TimerWebController::class,
+            SessionKeepAliveController::class,
+            UserSettingsController::class,
+            MfaChallengeController::class,
+        ],
     properties =
         [
             "spring.web.resources.cache.cachecontrol.cache-public=true",
@@ -102,7 +117,12 @@ import org.springframework.web.servlet.resource.ResourceUrlProvider
             "spring.web.resources.chain.strategy.content.paths=/css/**,/js/**",
         ],
 )
-@Import(SecurityConfig::class, AuthConfiguration::class, SecurityConfigWebMvcTest.MockBeans::class)
+@Import(
+    SecurityConfig::class,
+    AuthConfiguration::class,
+    SecurityConfigWebMvcTest.MockBeans::class,
+    UserProfileService::class,
+)
 class SecurityConfigWebMvcTest(
     @Autowired val mvc: MockMvc,
     @Autowired val resourceUrlProvider: ResourceUrlProvider,
@@ -243,6 +263,8 @@ class SecurityConfigWebMvcTest(
     fun currentUserCredentialsService(): CurrentUserCredentialsService =
         mockk<CurrentUserCredentialsService>(relaxed = true).also {
           every { it.currentTimeZone() } returns ZoneId.of("America/Chicago")
+          every { it.currentUserOrNull() } returns configuredUser
+          every { it.currentSettings() } returns configuredSettings
         }
 
     @Bean fun clock(): Clock = Clock.fixed(Instant.parse("2026-09-03T20:00:00Z"), ZoneOffset.UTC)
@@ -278,6 +300,108 @@ class SecurityConfigWebMvcTest(
     @Bean fun preMfaGuardFilter(): PreMfaGuardFilter = PreMfaGuardFilter()
 
     @Bean fun mfaService(): MfaService = mockk(relaxed = true)
+  }
+
+  // The surrounding pages use HTML entities and boolean attributes; only the navbar is
+  // XML-compatible.
+  private fun navbarXpath(expression: String, count: Int = 1): ResultMatcher =
+      ResultMatcher { result ->
+        val html = result.response.contentAsString
+        val navbar = html.substring(html.indexOf("<nav"), html.indexOf("</nav>") + 6)
+        XpathExpectationsHelper(expression, null)
+            .assertNodeCount(navbar.toByteArray(Charsets.UTF_8), "UTF-8", count)
+      }
+
+  @ParameterizedTest
+  @ValueSource(strings = ["/", "/timer", "/settings"])
+  fun `shared pages render the account menu`(path: String) {
+    mvc.perform(get(path).with(user("alice@example.com")))
+        .andExpect(status().isOk)
+        .andExpect(navbarXpath("//button[@id='userMenuToggle']"))
+        .andExpect(navbarXpath("//nav//form[@action='/logout']//input[@name='_csrf']"))
+  }
+
+  @Test
+  fun `user awaiting MFA can still access logout from the account menu`() {
+    val principal =
+        org.springframework.security.core.userdetails.User.withUsername("alice@example.com")
+            .password("unused")
+            .roles("USER")
+            .build()
+    val pending = PreMfaAuthenticationToken(principal, principal.authorities)
+    mvc.perform(get("/login/mfa").with(authentication(pending)))
+        .andExpect(status().isOk)
+        .andExpect(navbarXpath("//button[@id='userMenuToggle']"))
+        .andExpect(navbarXpath("//nav//form[@action='/logout']"))
+    mvc.perform(post("/logout").with(authentication(pending)).with(csrf()))
+        .andExpect(redirectedUrl("/"))
+  }
+
+  @Test
+  fun `OIDC navbar shows profile and moves account actions into the avatar menu`() {
+    mvc.perform(
+            get("/")
+                .with(
+                    oidcLogin().idToken {
+                      it.claim("email", "alice@example.com")
+                          .claim("name", "Alice Example")
+                          .claim("picture", "https://example.com/alice.png")
+                    }
+                )
+        )
+        .andExpect(status().isOk)
+        .andExpect(navbarXpath("//button[@id='userMenuToggle']"))
+        .andExpect(navbarXpath("//div[@id='primaryNav']//button[@id='userMenuToggle']", count = 0))
+        .andExpect(
+            navbarXpath("//ul[@aria-labelledby='userMenuToggle']//div[text()='alice@example.com']")
+        )
+        .andExpect(
+            navbarXpath("//ul[@aria-labelledby='userMenuToggle']//div[text()='Alice Example']")
+        )
+        .andExpect(
+            navbarXpath(
+                "//nav//img[@data-avatar-primary='https://example.com/alice.png']",
+                count = 2,
+            )
+        )
+        .andExpect(navbarXpath("//nav//a[@href='/settings']", count = 1))
+        .andExpect(navbarXpath("//div[@id='primaryNav']//a[@href='/settings']", count = 0))
+        .andExpect(
+            navbarXpath(
+                "//ul[@aria-labelledby='userMenuToggle']/li[last()]/form[@action='/logout' and @method='post']"
+            )
+        )
+        .andExpect(navbarXpath("//nav//form[@action='/logout']//input[@name='_csrf']"))
+  }
+
+  @Test
+  fun `local user navbar uses Gravatar and omits an unavailable full name`() {
+    mvc.perform(get("/").with(user("alice@example.com")))
+        .andExpect(status().isOk)
+        .andExpect(navbarXpath("//nav//img[@data-avatar-gravatar]", count = 2))
+        .andExpect(navbarXpath("//nav//img[@data-avatar-primary]", count = 0))
+        .andExpect(navbarXpath("//div[@class='user-menu-identity']/div", count = 1))
+        .andExpect(
+            navbarXpath("//div[@class='user-menu-identity']/div[text()='alice@example.com']")
+        )
+  }
+
+  @Test
+  fun `anonymous navbar retains sign in without an account menu`() {
+    mvc.perform(get("/"))
+        .andExpect(status().isOk)
+        .andExpect(navbarXpath("//button[@id='userMenuToggle']", count = 0))
+        .andExpect(navbarXpath("//nav//a[@href='/login']"))
+        .andExpect(navbarXpath("//nav//a[@href='/settings']", count = 0))
+        .andExpect(navbarXpath("//nav//form[@action='/logout']", count = 0))
+  }
+
+  @Test
+  fun `logout requires CSRF and redirects home on success`() {
+    mvc.perform(post("/logout").with(user("alice@example.com"))).andExpect(status().isForbidden)
+    mvc.perform(post("/logout").with(user("alice@example.com")).with(csrf()))
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrl("/"))
   }
 
   @Test
