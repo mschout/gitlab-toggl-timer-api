@@ -1,5 +1,6 @@
 .envrc
 CLAUDE.md
+node_modules/
 
 ## Kotlin ##
 .kotlin/

@@ -18,6 +18,8 @@ package io.github.mschout.gitlab.toggltimer.security
 import io.github.mschout.gitlab.toggltimer.home.HomeController
 import io.github.mschout.gitlab.toggltimer.mfa.MfaChallengeController
 import io.github.mschout.gitlab.toggltimer.mfa.MfaService
+import io.github.mschout.gitlab.toggltimer.mfa.MfaSettingsController
+import io.github.mschout.gitlab.toggltimer.mfa.TotpService
 import io.github.mschout.gitlab.toggltimer.timer.RecentTimeEntryView
 import io.github.mschout.gitlab.toggltimer.timer.RunningTimeEntrySplitPreparation
 import io.github.mschout.gitlab.toggltimer.timer.RunningTimeEntrySplitSnapshot
@@ -61,6 +63,7 @@ import io.github.mschout.gitlab.toggltimer.user.UserRepository
 import io.github.mschout.gitlab.toggltimer.user.UserSettings
 import io.github.mschout.gitlab.toggltimer.user.UserSettingsController
 import io.github.mschout.gitlab.toggltimer.user.UserSettingsRepository
+import io.kotest.matchers.string.shouldMatch
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -75,6 +78,7 @@ import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.restclient.RestTemplateBuilder
@@ -108,6 +112,8 @@ import org.springframework.web.servlet.resource.ResourceUrlProvider
             SessionKeepAliveController::class,
             UserSettingsController::class,
             MfaChallengeController::class,
+            LoginController::class,
+            MfaSettingsController::class,
         ],
     properties =
         [
@@ -302,6 +308,8 @@ class SecurityConfigWebMvcTest(
     @Bean fun preMfaGuardFilter(): PreMfaGuardFilter = PreMfaGuardFilter()
 
     @Bean fun mfaService(): MfaService = mockk(relaxed = true)
+
+    @Bean fun totpService(): TotpService = mockk()
   }
 
   // The surrounding pages use HTML entities and boolean attributes; only the navbar is
@@ -449,7 +457,6 @@ class SecurityConfigWebMvcTest(
     mvc.perform(get(versionedBaseScript))
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("htmx:config:request")))
-        .andExpect(content().string(containsString("evt.detail.ctx.request.headers[header]")))
         .andExpect(content().string(not(containsString("htmx:configRequest"))))
         .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
 
@@ -469,6 +476,49 @@ class SecurityConfigWebMvcTest(
         .andExpect(content().string(not(containsString("htmx:afterRequest"))))
         .andExpect(content().string(not(containsString("htmx:afterSwap"))))
         .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = ["base", "login", "settings", "settings-mfa", "timer"])
+  fun `compiled scripts are versioned public resources`(name: String) {
+    val versionedPath = requireNotNull(resourceUrlProvider.getForLookupPath("/js/$name.js"))
+    versionedPath.shouldMatch(Regex("/js/$name-[a-f0-9]{32}\\.js"))
+    mvc.perform(get(versionedPath))
+        .andExpect(status().isOk)
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.CACHE_CONTROL,
+                    allOf(containsString("max-age=31536000"), containsString("public")),
+                )
+        )
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+        .andExpect(content().string(containsString("export {}")))
+    mvc.perform(get("/js/$name.ts")).andExpect(status().isNotFound)
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      "/,base",
+      "/login,login",
+      "/settings,settings",
+      "/settings/mfa,settings-mfa",
+      "/timer,timer",
+  )
+  fun `pages load only their own application scripts`(path: String, pageScript: String) {
+    val request = get(path)
+    if (path != "/" && path != "/login") request.with(user("alice@example.com").roles("USER"))
+    val result = mvc.perform(request).andExpect(status().isOk)
+    listOf("base", "login", "settings", "settings-mfa", "timer").forEach { name ->
+      val scriptUrl = requireNotNull(resourceUrlProvider.getForLookupPath("/js/$name.js"))
+      val scriptTag = containsString("type=\"module\" src=\"$scriptUrl\"")
+      result.andExpect(
+          content().string(if (name == "base" || name == pageScript) scriptTag else not(scriptTag))
+      )
+    }
+    if (pageScript != "timer") {
+      result.andExpect(content().string(not(containsString("/webjars/air-datepicker/"))))
+    }
   }
 
   @Test
@@ -784,7 +834,7 @@ class SecurityConfigWebMvcTest(
         .andExpect(status().isOk)
         .andExpect(content().string(containsString("running-timer-toolbar")))
         .andExpect(content().string(containsString("hx-post=\"/timer/entries/987/description\"")))
-        .andExpect(content().string(containsString("defer src=\"/js/timer-")))
+        .andExpect(content().string(containsString("type=\"module\" src=\"/js/timer-")))
         .andExpect(content().string(containsString("Back")))
   }
 

@@ -1,6 +1,8 @@
+import com.github.gradle.node.npm.task.NpmTask
 import org.springframework.boot.gradle.tasks.bundling.BootBuildImage
 
 plugins {
+  alias(libs.plugins.node)
   alias(libs.plugins.mschout.conventions)
   alias(libs.plugins.kotlin.jpa)
   alias(libs.plugins.kotlin.spring)
@@ -53,6 +55,36 @@ dependencies {
 }
 
 tasks.test { useJUnitPlatform() }
+
+node {
+  version = libs.versions.node.get()
+  download = true
+  npmInstallCommand = "ci"
+}
+
+val typeScriptResources = layout.buildDirectory.dir("generated-resources/typescript")
+val compileTypeScript =
+    tasks.register<NpmTask>("compileTypeScript") {
+      group = "build"
+      description = "Type-check and compile browser scripts (supports --continuous)."
+      dependsOn(tasks.npmInstall)
+      args = listOf("run", "build")
+      inputs
+          .files(fileTree("src/main/typescript") { include("**/*.ts") })
+          .withPathSensitivity(PathSensitivity.RELATIVE)
+      inputs
+          .files("tsconfig.json", "package.json", "package-lock.json")
+          .withPathSensitivity(PathSensitivity.RELATIVE)
+      inputs.property("nodeVersion", libs.versions.node)
+      outputs.dir(typeScriptResources)
+      // tsc does not remove output for deleted or renamed sources. This task owns the directory.
+      val outputDirectory = typeScriptResources
+      doFirst { outputDirectory.get().asFile.deleteRecursively() }
+    }
+
+sourceSets.main { output.dir(mapOf("builtBy" to compileTypeScript), typeScriptResources) }
+
+tasks.check { dependsOn(compileTypeScript) }
 
 tasks.named<BootBuildImage>("bootBuildImage") {
   imageName = providers.environmentVariable("IMAGE_NAME").orElse("mschout/gitlab-toggl-timer").get()

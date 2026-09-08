@@ -1,26 +1,32 @@
 document.body.addEventListener('htmx:config:request', function (evt) {
-  var token = document.querySelector('meta[name="_csrf"]').content;
-  var header = document.querySelector('meta[name="_csrf_header"]').content;
+  const token =
+    document.querySelector<HTMLMetaElement>('meta[name="_csrf"]')?.content;
+  const header = document.querySelector<HTMLMetaElement>(
+    'meta[name="_csrf_header"]',
+  )?.content;
   if (token && header) {
     evt.detail.ctx.request.headers[header] = token;
   }
 });
 
-function scheduleAutoDismissAlerts(root) {
-  if (!root || !root.querySelectorAll) return;
-  var alerts = [];
-  if (root.matches && root.matches('[data-auto-dismiss-after]')) alerts.push(root);
-  root.querySelectorAll('[data-auto-dismiss-after]').forEach(function (alert) {
-    alerts.push(alert);
-  });
+function scheduleAutoDismissAlerts(root: Document | Element | null) {
+  if (!root) return;
+  const alerts: HTMLElement[] = [];
+  if (root instanceof HTMLElement && root.matches('[data-auto-dismiss-after]'))
+    alerts.push(root);
+  root
+    .querySelectorAll<HTMLElement>('[data-auto-dismiss-after]')
+    .forEach(function (alert) {
+      alerts.push(alert);
+    });
   alerts.forEach(function (alert) {
     if (alert.dataset.autoDismissScheduled === 'true') return;
-    var delay = Number.parseInt(alert.dataset.autoDismissAfter, 10);
+    const delay = Number.parseInt(alert.dataset.autoDismissAfter ?? '', 10);
     if (!Number.isFinite(delay) || delay < 0) return;
     alert.dataset.autoDismissScheduled = 'true';
     window.setTimeout(function () {
       if (!alert.isConnected) return;
-      bootstrap.Alert.getOrCreateInstance(alert).close();
+      window.bootstrap.Alert.getOrCreateInstance(alert).close();
     }, delay);
   });
 }
@@ -30,31 +36,36 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 document.body.addEventListener('htmx:after:swap', function (evt) {
-  var ctx = evt.detail && evt.detail.ctx;
-  var target = ctx && ctx.target;
+  const ctx = evt.detail && evt.detail.ctx;
+  let target: Element | string | null = ctx.target;
   if (typeof target === 'string') target = document.querySelector(target);
   scheduleAutoDismissAlerts(target || document);
 });
 
 // Load one candidate for both avatars, so their fallback state stays in sync.
 function initializeUserAvatars() {
-  var avatars = Array.from(
-    document.querySelectorAll('[data-avatar-primary], [data-avatar-gravatar]'),
+  const avatars = Array.from(
+    document.querySelectorAll<HTMLImageElement>(
+      '[data-avatar-primary], [data-avatar-gravatar]',
+    ),
   );
-  if (!avatars.length) return;
-  var candidates = [
-    avatars[0].dataset.avatarPrimary,
-    avatars[0].dataset.avatarGravatar,
-  ].filter(function (url, index, urls) {
-    return url && urls.indexOf(url) === index;
+  const firstAvatar = avatars[0];
+  if (!firstAvatar) return;
+  const candidates = [
+    firstAvatar.dataset.avatarPrimary,
+    firstAvatar.dataset.avatarGravatar,
+  ].filter(function (url, index, urls): url is string {
+    return (
+      typeof url === 'string' && url.length > 0 && urls.indexOf(url) === index
+    );
   });
 
   function tryNext() {
-    var url = candidates.shift();
+    const url = candidates.shift();
     if (!url) return;
-    var image = new Image();
-    var settled = false;
-    function complete(success) {
+    const image = new Image();
+    let settled = false;
+    const complete = (success: boolean) => {
       if (settled) return;
       settled = true;
       if (!success) {
@@ -72,7 +83,7 @@ function initializeUserAvatars() {
         if (avatar.complete && avatar.naturalWidth > 0)
           avatar.classList.remove('d-none');
       });
-    }
+    };
     image.referrerPolicy = 'no-referrer';
     image.onload = function () {
       complete(true);

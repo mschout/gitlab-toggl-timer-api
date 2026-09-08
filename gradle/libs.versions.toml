@@ -1,4 +1,6 @@
 [versions]
+nodePlugin = "7.1.0"
+node = "24.20.0"
 airDatepicker = "3.6.0"
 bootstrap = "5.3.8"
 bootstrapIcons = "1.13.1"
@@ -56,6 +58,7 @@ webjars-bootstrap-icons = { module = "org.webjars.npm:bootstrap-icons", version.
 webjars-htmx = { module = "org.webjars.npm:htmx.org", version.ref = "htmx" }
 
 [plugins]
+node = { id = "com.github.node-gradle.node", version.ref = "nodePlugin" }
 kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
 mschout-conventions = { id = "io.github.mschout.all-conventions", version.ref = "mschoutConventions" }
