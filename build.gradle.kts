@@ -62,12 +62,34 @@ node {
   npmInstallCommand = "ci"
 }
 
+val formatTypeScript =
+    tasks.register<NpmTask>("formatTypeScript") {
+      group = "formatting"
+      description = "Format TypeScript sources with oxfmt."
+      dependsOn(tasks.npmInstall)
+      args = listOf("run", "fmt")
+    }
+
+val checkTypeScriptFormatting =
+    tasks.register<NpmTask>("checkTypeScriptFormatting") {
+      group = "verification"
+      description = "Check TypeScript formatting with oxfmt without changing files."
+      dependsOn(tasks.npmInstall)
+      mustRunAfter(formatTypeScript)
+      args = listOf("run", "fmt:check")
+    }
+
+tasks.named("spotlessApply") { dependsOn(formatTypeScript) }
+
+tasks.named("spotlessCheck") { dependsOn(checkTypeScriptFormatting) }
+
 val typeScriptResources = layout.buildDirectory.dir("generated-resources/typescript")
 val compileTypeScript =
     tasks.register<NpmTask>("compileTypeScript") {
       group = "build"
       description = "Type-check and compile browser scripts (supports --continuous)."
       dependsOn(tasks.npmInstall)
+      mustRunAfter(formatTypeScript)
       args = listOf("run", "build")
       inputs
           .files(fileTree("src/main/typescript") { include("**/*.ts") })

@@ -53,6 +53,12 @@ type-only package references in `.d.ts` files. Keep runtime imports between entr
 runtime modules would require revisiting bundling and asset URL versioning. Enable your editor's TypeScript 7
 language server and use the workspace compiler.
 
+Format TypeScript (including declarations) with `./gradlew formatTypeScript`; check without changing files with
+`./gradlew checkTypeScriptFormatting`. Both use the pinned oxfmt version and Gradle-managed Node. The existing
+`./gradlew spotlessApply` and `./gradlew spotlessCheck` commands include TypeScript, and formatting errors fail
+tests and `build` through Spotless. With npm dependencies installed, `npm run fmt` and `npm run fmt:check` provide
+the same TypeScript-only operations. `.oxfmtrc.json` preserves the existing 80-column, single-quote style.
+
 To update npm dependencies, update `package.json` and its lockfile together. Keep `htmx.org` and `air-datepicker`
 versions aligned with `gradle/libs.versions.toml` and the WebJar URLs in templates. Gradle uses `npm ci`, including the
 compiler's platform-specific optional dependency. Node and npm packages are not packaged in the application image.
