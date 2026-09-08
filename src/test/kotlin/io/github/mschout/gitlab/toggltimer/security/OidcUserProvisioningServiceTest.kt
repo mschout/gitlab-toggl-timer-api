@@ -27,10 +27,10 @@ import io.mockk.verify
 import java.util.Optional
 import org.junit.jupiter.api.Test
 
-class CustomOidcUserServiceTest {
+class OidcUserProvisioningServiceTest {
   private val userRepo = mockk<UserRepository>()
   private val identityRepo = mockk<UserAuthIdentityRepository>()
-  private val service = CustomOidcUserService(userRepo, identityRepo)
+  private val service = OidcUserProvisioningService(userRepo, identityRepo)
 
   init {
     every { identityRepo.save(any<UserAuthIdentity>()) } answers { firstArg() }
