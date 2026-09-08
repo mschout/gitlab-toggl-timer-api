@@ -287,7 +287,9 @@ class SecurityConfigWebMvcTest(
 
     @Bean
     fun customOidcUserService(): CustomOidcUserService =
-        CustomOidcUserService(userRepository(), userAuthIdentityRepository())
+        CustomOidcUserService(
+            OidcUserProvisioningService(userRepository(), userAuthIdentityRepository())
+        )
 
     @Bean
     fun customUserDetailsService(): CustomUserDetailsService =
