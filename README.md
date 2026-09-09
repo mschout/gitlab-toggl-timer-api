@@ -22,6 +22,47 @@ If you want to compile this outside of Docker, you need Java 25.
 wire the datasource automatically — you do not need to set `DB_*` env vars locally. The `OIDC_*` and `APP_ENCRYPTION_*`
 variables are still required. The container is stopped when the app exits.
 
+## TypeScript
+
+Application browser code lives in `src/main/typescript`. Gradle downloads Node 24 and uses the locked TypeScript 7
+compiler; a system Node installation is not required. WebJars still supply Bootstrap, HTMX, and Air Datepicker at
+runtime. Their npm dependencies are used only for type declarations.
+
+`./gradlew build`, `bootRun`, `bootJar`, and `bootBuildImage` automatically compile the scripts. Output goes to
+`build/generated-resources/typescript/static/js`, registered as a generated resource directory on the main classpath.
+Do not edit or commit generated JavaScript. Type errors fail the build. Unchanged builds skip both compilation and
+dependency installation; compiler runs remove stale output from renamed or deleted source files.
+
+For development, run these in separate terminals:
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=dev'
+./gradlew compileTypeScript --continuous
+```
+
+Refresh the browser after the watcher reports a successful build. The `dev` profile disables template and resource
+caching, including browser caching, so Spring computes fresh content-hashed script URLs after edits. Production keeps
+the existing content hashing and long-lived caching. This is a compiler watcher, without a frontend development server.
+Use Gradle-delegated builds/run configurations in your IDE (or run `bootRun` through its Gradle panel) so compilation
+and the generated resource classpath are included before launch.
+
+Scripts are independent ES modules loaded with `type="module"`, which defers execution automatically and keeps
+top-level declarations private to each file. `moduleDetection: force` makes every `.ts` file a module without an IIFE
+wrapper or a handwritten `export {}` marker. Access WebJar libraries through their typed `window` globals; put
+type-only package references in `.d.ts` files. Keep runtime imports between entry files out of this setup: shared
+runtime modules would require revisiting bundling and asset URL versioning. Enable your editor's TypeScript 7
+language server and use the workspace compiler.
+
+Format TypeScript (including declarations) with `./gradlew formatTypeScript`; check without changing files with
+`./gradlew checkTypeScriptFormatting`. Both use the pinned oxfmt version and Gradle-managed Node. The existing
+`./gradlew spotlessApply` and `./gradlew spotlessCheck` commands include TypeScript, and formatting errors fail
+tests and `build` through Spotless. With npm dependencies installed, `npm run fmt` and `npm run fmt:check` provide
+the same TypeScript-only operations. `.oxfmtrc.json` preserves the existing 80-column, single-quote style.
+
+To update npm dependencies, update `package.json` and its lockfile together. Keep `htmx.org` and `air-datepicker`
+versions aligned with `gradle/libs.versions.toml` and the WebJar URLs in templates. Gradle uses `npm ci`, including the
+compiler's platform-specific optional dependency. Node and npm packages are not packaged in the application image.
+
 # How to run it
 
 1. Clone the repo.

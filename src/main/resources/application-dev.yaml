@@ -1,0 +1,11 @@
+spring:
+  thymeleaf:
+    cache: false
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          cache-public: false
+          no-store: true
+      chain:
+        cache: false

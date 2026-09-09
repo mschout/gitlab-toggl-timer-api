@@ -86,7 +86,7 @@
       </section>
 
       <script th:src="@{/login/webauthn.js}"></script>
-      <script defer th:src="${staticResourceUrls.loginScript}"></script>
+      <script type="module" th:src="${staticResourceUrls.loginScript}"></script>
     </main>
   </body>
 </html>

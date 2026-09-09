@@ -37,7 +37,7 @@
 
     <script th:src="@{/webjars/bootstrap/5.3.8/dist/js/bootstrap.bundle.min.js}"></script>
     <script th:src="@{/webjars/htmx.org/4.0.0/dist/htmx.min.js}"></script>
-    <script defer th:src="${staticResourceUrls.baseScript}"></script>
+    <script type="module" th:src="${staticResourceUrls.baseScript}"></script>
     <th:block th:replace="${pageScripts}"></th:block>
   </body>
 </html>
