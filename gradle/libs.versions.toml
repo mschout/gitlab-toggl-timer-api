@@ -18,7 +18,7 @@ springDependencyManagement = "1.1.7"
 springSecurityWebauthn = "7.1.1"
 springdoc = "3.1.1"
 testcontainers = "1.21.4"
-phTotp = "2.0.0"
+phTotp = "2.1.0"
 
 [libraries]
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
