@@ -4,12 +4,12 @@
     <link
       th:fragment="styles"
       rel="stylesheet"
-      th:href="@{/webjars/air-datepicker/3.6.0/air-datepicker.css}"
+      th:href="${staticResourceUrls.airDatepickerStylesheet}"
     />
   </head>
   <body>
     <th:block th:fragment="scripts">
-      <script th:src="@{/webjars/air-datepicker/3.6.0/air-datepicker.js}"></script>
+      <script th:src="${staticResourceUrls.airDatepickerScript}"></script>
       <script type="module" th:src="${staticResourceUrls.timerScript}"></script>
     </th:block>
   </body>

@@ -67,6 +67,7 @@ import io.kotest.matchers.string.shouldMatch
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.net.URI
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -103,6 +104,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirec
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.xpath
 import org.springframework.web.servlet.resource.ResourceUrlProvider
+import org.webjars.WebJarVersionLocator
 
 @WebMvcTest(
     controllers =
@@ -499,6 +501,59 @@ class SecurityConfigWebMvcTest(
 
   @ParameterizedTest
   @CsvSource(
+      "bootstrap,dist/css/bootstrap.min.css,href",
+      "bootstrap,dist/js/bootstrap.bundle.min.js,src",
+      "bootstrap-icons,font/bootstrap-icons.min.css,href",
+      "htmx.org,dist/htmx.min.js,src",
+      "air-datepicker,air-datepicker.css,href",
+      "air-datepicker,air-datepicker.js,src",
+  )
+  fun `WebJar assets render the installed version and allow anonymous cached requests`(
+      webJarName: String,
+      assetPath: String,
+      attribute: String,
+  ) {
+    val version = requireNotNull(WebJarVersionLocator().version(webJarName))
+    val assetUrl = "/webjars/$webJarName/$version/$assetPath"
+
+    mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
+        .andExpect(status().isOk)
+        .andExpect(content().string(containsString("$attribute=\"$assetUrl\"")))
+
+    mvc.perform(get(assetUrl))
+        .andExpect(status().isOk)
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.CACHE_CONTROL,
+                    allOf(containsString("max-age=31536000"), containsString("public")),
+                )
+        )
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+  }
+
+  @Test
+  fun `bootstrap icons stylesheet references an anonymously accessible font`() {
+    val version = requireNotNull(WebJarVersionLocator().version("bootstrap-icons"))
+    val stylesheetUrl = "/webjars/bootstrap-icons/$version/font/bootstrap-icons.min.css"
+    val stylesheet =
+        mvc.perform(get(stylesheetUrl))
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+    val fontReference =
+        requireNotNull(Regex("url\\([\"']?([^\"')]+\\.woff2[^\"')]*)[\"']?\\)").find(stylesheet))
+            .groupValues[1]
+    val fontUrl = URI.create(stylesheetUrl).resolve(fontReference).toString()
+
+    mvc.perform(get(fontUrl))
+        .andExpect(status().isOk)
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+  }
+
+  @ParameterizedTest
+  @CsvSource(
       "/,base",
       "/login,login",
       "/settings,settings",
@@ -525,13 +580,6 @@ class SecurityConfigWebMvcTest(
   fun `authenticated GET timer is allowed when user has settings`() {
     mvc.perform(get("/timer").with(user("alice@example.com").roles("USER")))
         .andExpect(status().isOk)
-        .andExpect(
-            content().string(containsString("/webjars/air-datepicker/3.6.0/air-datepicker.css"))
-        )
-        .andExpect(
-            content().string(containsString("/webjars/air-datepicker/3.6.0/air-datepicker.js"))
-        )
-        .andExpect(content().string(containsString("/webjars/htmx.org/4.0.0/dist/htmx.min.js")))
         .andExpect(content().string(containsString("hx-post=\"/auth/keep-alive\"")))
         .andExpect(content().string(containsString("class=\"running-timer-toolbar shadow-sm\"")))
         .andExpect(content().string(containsString("data-started-at=\"2026-08-27T14:30:00Z\"")))

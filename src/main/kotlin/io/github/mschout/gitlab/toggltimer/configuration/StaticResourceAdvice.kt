@@ -26,6 +26,16 @@ class StaticResourceAdvice(private val resourceUrlProvider: ResourceUrlProvider)
   @ModelAttribute("staticResourceUrls")
   fun staticResourceUrls(request: HttpServletRequest): StaticResourceUrls =
       StaticResourceUrls(
+          bootstrapStylesheet =
+              resourceUrl(request, "/webjars/bootstrap/dist/css/bootstrap.min.css"),
+          bootstrapIconsStylesheet =
+              resourceUrl(request, "/webjars/bootstrap-icons/font/bootstrap-icons.min.css"),
+          bootstrapScript =
+              resourceUrl(request, "/webjars/bootstrap/dist/js/bootstrap.bundle.min.js"),
+          htmxScript = resourceUrl(request, "/webjars/htmx.org/dist/htmx.min.js"),
+          airDatepickerStylesheet =
+              resourceUrl(request, "/webjars/air-datepicker/air-datepicker.css"),
+          airDatepickerScript = resourceUrl(request, "/webjars/air-datepicker/air-datepicker.js"),
           appStylesheet = resourceUrl(request, "/css/app.css"),
           baseScript = resourceUrl(request, "/js/base.js"),
           loginScript = resourceUrl(request, "/js/login.js"),
@@ -44,6 +54,12 @@ class StaticResourceAdvice(private val resourceUrlProvider: ResourceUrlProvider)
 }
 
 data class StaticResourceUrls(
+    val bootstrapStylesheet: String,
+    val bootstrapIconsStylesheet: String,
+    val bootstrapScript: String,
+    val htmxScript: String,
+    val airDatepickerStylesheet: String,
+    val airDatepickerScript: String,
     val appStylesheet: String,
     val baseScript: String,
     val loginScript: String,

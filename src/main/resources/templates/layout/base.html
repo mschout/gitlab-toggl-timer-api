@@ -11,8 +11,8 @@
     <title th:text="|${title} • Gitlab Toggl Timer|">Gitlab Toggl Timer</title>
     <meta name="_csrf" th:content="${_csrf.token}" />
     <meta name="_csrf_header" th:content="${_csrf.headerName}" />
-    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.8/dist/css/bootstrap.min.css}" />
-    <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css}" />
+    <link rel="stylesheet" th:href="${staticResourceUrls.bootstrapStylesheet}" />
+    <link rel="stylesheet" th:href="${staticResourceUrls.bootstrapIconsStylesheet}" />
     <th:block th:replace="${pageStyles}"></th:block>
     <link rel="stylesheet" th:href="${staticResourceUrls.appStylesheet}" />
   </head>
@@ -35,8 +35,8 @@
       aria-hidden="true"
     ></div>
 
-    <script th:src="@{/webjars/bootstrap/5.3.8/dist/js/bootstrap.bundle.min.js}"></script>
-    <script th:src="@{/webjars/htmx.org/4.0.0/dist/htmx.min.js}"></script>
+    <script th:src="${staticResourceUrls.bootstrapScript}"></script>
+    <script th:src="${staticResourceUrls.htmxScript}"></script>
     <script type="module" th:src="${staticResourceUrls.baseScript}"></script>
     <th:block th:replace="${pageScripts}"></th:block>
   </body>

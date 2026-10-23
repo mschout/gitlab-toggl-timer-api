@@ -56,6 +56,7 @@ webjars-air-datepicker = { module = "org.webjars.npm:air-datepicker", version.re
 webjars-bootstrap = { module = "org.webjars.npm:bootstrap", version.ref = "bootstrap" }
 webjars-bootstrap-icons = { module = "org.webjars.npm:bootstrap-icons", version.ref = "bootstrapIcons" }
 webjars-htmx = { module = "org.webjars.npm:htmx.org", version.ref = "htmx" }
+webjars-locator-lite = { module = "org.webjars:webjars-locator-lite" }
 
 [plugins]
 node = { id = "com.github.node-gradle.node", version.ref = "nodePlugin" }
@@ -93,4 +94,5 @@ webjars = [
     "webjars-bootstrap",
     "webjars-bootstrap-icons",
     "webjars-htmx",
+    "webjars-locator-lite",
 ]
