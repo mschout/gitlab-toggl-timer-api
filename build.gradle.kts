@@ -109,6 +109,8 @@ sourceSets.main { output.dir(mapOf("builtBy" to compileTypeScript), typeScriptRe
 tasks.check { dependsOn(compileTypeScript) }
 
 tasks.named<BootBuildImage>("bootBuildImage") {
+  // The latest tag currently resolves to an ARM64-only image, breaking AMD64 builds.
+  builder = "paketobuildpacks/builder-noble-java-tiny:0.0.200"
   imageName = providers.environmentVariable("IMAGE_NAME").orElse("mschout/gitlab-toggl-timer").get()
   environment.put(
       "TRAINING_RUN_JAVA_TOOL_OPTIONS",
