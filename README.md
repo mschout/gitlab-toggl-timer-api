@@ -63,6 +63,17 @@ To update npm dependencies, update `package.json` and its lockfile together. Kee
 versions aligned with `gradle/libs.versions.toml` and the WebJar URLs in templates. Gradle uses `npm ci`, including the
 compiler's platform-specific optional dependency. Node and npm packages are not packaged in the application image.
 
+## Dependency updates
+
+Renovate automatically merges dependency PRs after CI passes and removes their branches after merging. This includes
+major updates, except PostgreSQL major upgrades, which require Dependency Dashboard approval and a manual merge
+because they may need a data migration.
+
+`renovate.json` uses `platformAutomerge: false` so Renovate checks CI results before merging. GitHub's native
+automerge requires required status checks on `main` to provide the same guarantee; this repository currently has
+none configured. Merging and stale-branch cleanup happen during Renovate runs, so they may not occur immediately
+after CI finishes. Cleanup applies to Renovate branches.
+
 # How to run it
 
 1. Clone the repo.
